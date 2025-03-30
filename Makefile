@@ -30,3 +30,13 @@ backend-fish:
 
 backend-exec:
 	docker compose exec backend fish
+
+pgsql-up:
+	docker compose up pgsql
+
+pgsql-fish:
+	docker compose run --rm -it --service-ports pgsql fish
+
+pgsql-exec:
+	docker compose exec pgsql fish
+

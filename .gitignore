@@ -1,4 +1,6 @@
 # Logs
-.idea
-.DS_Store
+.idea/
 tmp/
+
+.DS_Store
+.env

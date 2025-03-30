@@ -20,6 +20,8 @@ services:
       dockerfile: Dockerfile
       target: backend
     command: bash -c 'cargo watch -x run'
+    env_file:
+      - .env
     ports:
       - 127.0.0.1:3000:3000
     volumes:

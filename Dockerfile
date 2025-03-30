@@ -22,8 +22,9 @@ WORKDIR $WORKDIR
 
 COPY backend/Cargo.toml backend/Cargo.lock $WORKDIR/
 RUN <<EOF
-    apt-get update -y && apt-get install -y fish vim
+    apt-get update -y && apt-get install -y fish vim postgresql postgresql-contrib
     cargo install cargo-watch
+    cargo install sqlx-cli --no-default-features --features postgres
 EOF
 
 #----------------------------------------------------------------------

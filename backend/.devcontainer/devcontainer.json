@@ -1,0 +1,13 @@
+{
+  "name": "My Dev Container",
+  "dockerComposeFile": "docker-compose.yaml",
+  "service": "backend-dev",
+  "workspaceFolder": "/workspace",
+  "settings": {
+    "terminal.integrated.shell.linux": "/usr/bin/fish"
+  },
+  "extensions": [
+    "ms-python.python",
+    "rust-lang.rust-analyzer"
+  ]
+}

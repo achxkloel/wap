@@ -73,52 +73,52 @@ pub async fn register(
 
 
 
-// LOGIN handler
-#[utoipa::path(
-    method(post),
-    path = "/auth/lgin",
-    request_body(content = SignupRequest, content_type = "application/json"),
-    responses(
-        (status = OK, description = "Success", body = str, content_type = "text/plain")
-    )
-)]
-pub async fn login(
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<LoginUser>,
-) -> impl IntoResponse {
-    let user = sqlx::query!(
-        "SELECT * FROM users WHERE email = $1",
-        payload.email
-    )
-        .fetch_optional(&state.db)
-        .await
-        .unwrap();
-
-    if let Some(user) = user {
-        let valid = verify(payload.password, &user.password).unwrap();
-        if valid {
-            let expiration = Utc::now()
-                .checked_add_signed(Duration::days(7))
-                .expect("valid timestamp")
-                .timestamp() as usize;
-
-            let claims = Claims {
-                sub: user.email,
-                exp: expiration,
-            };
-
-            let token = encode(
-                &Header::default(),
-                &claims,
-                &EncodingKey::from_secret(state.jwt_secret.as_bytes()),
-            )
-                .unwrap();
-
-            return (StatusCode::OK, Json(serde_json::json!({ "token": token })));
-        }
-    }
-    (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "Invalid username or password"})))
-}
+// // LOGIN handler
+// #[utoipa::path(
+//     method(post),
+//     path = "/auth/login",
+//     request_body(content = SignupRequest, content_type = "application/json"),
+//     responses(
+//         (status = OK, description = "Success", body = str, content_type = "text/plain")
+//     )
+// )]
+// pub async fn login(
+//     State(state): State<Arc<AppState>>,
+//     Json(payload): Json<LoginUser>,
+// ) -> impl IntoResponse {
+//     let user = sqlx::query!(
+//         "SELECT * FROM users WHERE email = $1",
+//         payload.email
+//     )
+//         .fetch_optional(&state.db)
+//         .await
+//         .unwrap();
+// 
+//     if let Some(user) = user {
+//         let valid = verify(payload.password, &user.password).unwrap();
+//         if valid {
+//             let expiration = Utc::now()
+//                 .checked_add_signed(Duration::days(7))
+//                 .expect("valid timestamp")
+//                 .timestamp() as usize;
+// 
+//             let claims = Claims {
+//                 sub: user.email,
+//                 exp: expiration,
+//             };
+// 
+//             let token = encode(
+//                 &Header::default(),
+//                 &claims,
+//                 &EncodingKey::from_secret(state.env.jwt_secret.as_bytes()),
+//             )
+//                 .unwrap();
+// 
+//             return (StatusCode::OK, Json(serde_json::json!({ "token": token })));
+//         }
+//     }
+//     (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "Invalid username or password"})))
+// }
 
 // LOGOUT handler (client-side typically handles token discard, this is a placeholder)
 // pub async fn logout(

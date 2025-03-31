@@ -21,11 +21,11 @@ use std::sync::Arc;
 use utoipa_axum::{router::OpenApiRouter, routes, PathItemExt};
 
 use axum::routing::get;
+use backend::config::Config;
 use utoipa::openapi::security::SecurityScheme::ApiKey;
 use utoipa::openapi::OpenApiBuilder;
 use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
-
 // use crate::structs::AppState;
 // use routes::auth::{signup};
 
@@ -52,10 +52,13 @@ async fn main() {
     // Initialize database
     let db = init_db().await;
 
+    // Load env variables
+    let config = Config::init();
+
     // Create shared application state
     let state = Arc::new(backend::structs::AppState {
-        db,
-        jwt_secret: "my_secret_key".to_string(),
+        db: db.clone(),
+        env: config.clone(),
     });
 
     async fn show_scalar() -> Html<String> {

@@ -1,6 +1,7 @@
 use jsonwebtoken::{encode, Header};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use crate::config::{Config};
 
 
 // -------------------------------------------------------------------------------------------------
@@ -11,7 +12,7 @@ use sqlx::PgPool;
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
-    pub jwt_secret: String,
+    pub env: Config,
 }
 
 // User signup request
@@ -34,5 +35,3 @@ pub struct Claims {
     pub sub: String,
     pub exp: usize,
 }
-
-

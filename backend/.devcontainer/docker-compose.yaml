@@ -1,0 +1,35 @@
+services:
+  backend-dev:
+    image: wap/backend-dev:v0.0
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      target: backend
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@pgsql:5432/wap_db
+    command: sleep infinity
+#    ports:
+#      - 127.0.0.1:3000:3000
+    volumes:
+      - .:/workspace:cached
+    depends_on:
+      - pgsql
+
+  pgsql:
+    image: wap/postgres:17
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      target: db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: wap_db
+#    ports:
+#      - 127.0.0.1:5432:5432
+    volumes:
+      - ./tmp/db/postgresql/pgsql:/var/lib/postgresql/data:Z
+
+
+
+

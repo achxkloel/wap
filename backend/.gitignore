@@ -1,6 +1,6 @@
 # Logs
 .idea/
 tmp/
+target/
 
 .DS_Store
-.env

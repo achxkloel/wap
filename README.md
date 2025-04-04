@@ -1,54 +1,84 @@
-# React + TypeScript + Vite
+# Run
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+For details see [Makefile](./Makefile)
 
-Currently, two official plugins are available:
+## Whole project
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Create docker images
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```
+make build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### UP all
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
 ```
+make up
+```
+
+### Down all
+
+```
+make down
+```
+
+## Frontend
+
+### UP frontend
+
+```
+make frontend-up
+```
+
+### Run and go into frontend docker container shell
+
+```
+make frontend-fish
+```
+
+### Exec into running frontend container
+
+```
+make frontend-exec
+```
+
+## Backend
+
+### UP backend
+
+```
+make backend-up
+```
+
+### Run and go into backend docker container shell
+
+```
+make backend-fish
+```
+
+### Exec into running backend container
+
+```
+make backend-exec
+```
+
+## PostgreSQL
+
+### UP pgsql
+
+```
+make pgsql-up
+```
+
+### Run and go into pgsql docker container shell
+
+```
+make pgsql-fish
+```
+
+### Exec into running pgsql container
+
+```
+make pgsql-exec
+```
+

@@ -1,0 +1,48 @@
+services:
+  frontend:
+    image: wap/frontend:v0.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend
+    command: bash -c 'npm install && npx vite --host 0.0.0.0'
+    ports:
+      - 127.0.0.1:5173:5173
+    volumes:
+      - ./frontend:/opt/frontend
+      - ./tmp/fish_frontend/:/root/.local/share/fish/
+    tty: true
+
+  backend:
+    image: wap/backend:v0.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
+    command: bash -c 'cargo watch -x run'
+    env_file:
+      - .env
+    ports:
+      - 127.0.0.1:3000:3000
+    volumes:
+      - ./backend:/opt/backend:Z
+      - ./tmp/fish_backend/:/root/.local/share/fish/
+    depends_on:
+      - pgsql
+
+  pgsql:
+    image: wap/postgres:17
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: wap_db
+    ports:
+      - 127.0.0.1:5432:5432
+    volumes:
+      - ./tmp/db/postgresql/pgsql:/var/lib/postgresql/data:Z
+
+

@@ -11,9 +11,7 @@ function Settings() {
             <div>
                 <Button
                     onClick={toggleTheme}
-                    style={{
-                        textTransform: 'capitalize',
-                    }}
+                    className="capitalize"
                     variant={theme}
                 >
                     {theme}

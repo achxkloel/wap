@@ -1,54 +1,63 @@
-# React + TypeScript + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## File structure
 
-Currently, two official plugins are available:
+**TODO** - finish file structure
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- `.husky/` - pre-commit hook
+- `public/` - static files
+- `src/` - source code
+    - `assets/` - resources that are used in JavaScript and bundled with the final build
+    - `components/` - reusable components
+    - `features/` - components which are used only once (AppBar, Menu, etc.)
+    - `hooks/` - custom React hooks
+    - `lib/` - more complex library functions
+    - `pages/` - application pages
+    - `utils/` - small helper functions
+- `index.html` - entry point to application
 
-## Expanding the ESLint configuration
+## Pre-commit hook
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Pre-commit hook is always installed to `.husky/_` directory after dependencies installation.
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+However, you can install it directly using:
+
+```sh
+npm run prepare
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The hook runs these checks on staged files in the following order:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. **ESLint**. Linter for JavaScript. Show problems in code.
+1. **Prettier**. Format Javascript / Typescript code based on rules in `.prettierrc`.
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+To skip hook run Git command with `-n/--no-verify` option:
+
+```sh
+git commit -m "..." -n
 ```
+
+## Prettier (Visual Studio Code setup)
+
+1. Install [Prettier - Code formatter](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) extension.
+1. Add next lines to Workspace or User settings JSON.
+    
+    `CTRL + SHIFT + P` -> `Preferences: Open User Settings (JSON)`
+
+    ```json
+    {
+        // Prettier
+        "prettier.requireConfig": true,
+
+        // JavaScript / TypeScript
+        "[javascript][javascriptreact][typescript][typescriptreact]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode",
+            "editor.formatOnSave": true,
+            "editor.codeActionsOnSave": {
+                "source.organizeImports": "explicit"
+            }
+        }
+    }
+    ```
+
+Also, import sorting has been added here.

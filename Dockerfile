@@ -1,7 +1,7 @@
 #----------------------------------------------------------------------
 # Frontend
 #----------------------------------------------------------------------
-FROM node:18.10 as frontend
+FROM node:23.11 as frontend
 
 ENV WORKDIR /opt/frontend
 WORKDIR $WORKDIR

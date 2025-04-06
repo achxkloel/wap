@@ -1,0 +1,29 @@
+@mixin btn-common($bg-color, $text-color) {
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    background-color: $bg-color;
+    color: $text-color;
+  
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+  
+  .btn-default {
+    @include btn-common(#007bff, #fff);
+  }
+  
+  .btn-light {
+    @include btn-common(#f8f9fa, #212529);
+  }
+  
+  .btn-dark {
+    @include btn-common(#343a40, #fff);
+  }

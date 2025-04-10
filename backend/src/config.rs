@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[derive(Debug, Clone)]
 pub struct Config {
     pub database_url: String,
@@ -18,5 +20,20 @@ impl Config {
             jwt_expires_in,
             jwt_maxage: jwt_maxage.parse::<i32>().unwrap(),
         }
+    }
+}
+
+impl fmt::Display for Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // If you consider jwt_secret sensitive, you might want to avoid printing it, or mask it.
+        write!(
+            f,
+            "Configuration:
+  Database URL: {}
+  JWT Secret: {}
+  JWT Expires In: {}
+  JWT MaxAge: {}",
+            self.database_url, self.jwt_secret, self.jwt_expires_in, self.jwt_maxage
+        )
     }
 }

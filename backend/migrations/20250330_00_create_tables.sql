@@ -1,8 +1,8 @@
--- migrations/20240330010101_create_users_table.sql
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    email TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+create table users
+(
+    id         serial primary key,
+    email      varchar(255) not null unique,
+    password   varchar(255) not null,
+    created_at timestamp not null default now(),
+    updated_at timestamp not null default now()
 );

@@ -56,10 +56,12 @@ async fn main() {
     let config = Config::init();
 
     // Create shared application state
-    let state = Arc::new(backend::structs::AppState {
+    let state = Arc::new(backend::model::AppState {
         db: db.clone(),
         env: config.clone(),
     });
+
+    println!("{}", state.env);
 
     async fn show_scalar() -> Html<String> {
         // Generate HTML from your OpenAPI doc using Scalar
@@ -69,7 +71,8 @@ async fn main() {
 
     let (router, api_docs) = OpenApiRouter::new()
         // .nest("/api", api_router)
-        .routes(routes!(backend::authjwt::handlers_auth::register))
+        .routes(routes!(backend::routes::auth::handlers::register))
+        .routes(routes!(backend::routes::auth::handlers::login))
         // .routes(routes!(health))
         .with_state(state)
         .split_for_parts();
@@ -81,6 +84,7 @@ async fn main() {
         .merge(Scalar::with_url("/scalar", api_docs));
 
     // run our app with hyper, listening globally on port 3000
+    println!("Listening on http://localhost:3000 - for all endpoint go to: http://localhost:3000/scalar");
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, router).await.unwrap();
     // axum::serve(listener, app.into_router()).await.unwrap();

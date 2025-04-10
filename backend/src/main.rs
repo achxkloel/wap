@@ -73,6 +73,9 @@ async fn main() {
         // .nest("/api", api_router)
         .routes(routes!(backend::routes::auth::handlers::register))
         .routes(routes!(backend::routes::auth::handlers::login))
+        .routes(routes!(backend::routes::auth::handlers::logout))
+        .routes(routes!(backend::routes::settings::handlers::put_settings))
+        .routes(routes!(backend::routes::settings::handlers::get_settings))
         // .routes(routes!(health))
         .with_state(state)
         .split_for_parts();

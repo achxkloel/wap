@@ -1,3 +1,4 @@
+use std::collections::hash_set::Union;
 use jsonwebtoken::{encode, Header};
 use crate::config::{Config};
 use serde::{Deserialize, Serialize};
@@ -34,30 +35,34 @@ pub struct RegisterUserRequestSchema {
     pub password: String,
 }
 
-// Application state holding the DB pool and JWT secret
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
     pub env: Config,
 }
 
-// User signup request
 #[derive(Debug, Deserialize)]
 pub struct CreateUser {
     pub email: String,
     pub password: String,
 }
 
-// User login request
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct LoginUser {
     pub email: String,
     pub password: String,
 }
 
-// JWT Claims structure
-// #[derive(Debug, Serialize, Deserialize)]
-// pub struct Claims {
-//     pub sub: String,
-//     pub exp: usize,
-// }
+#[derive(Debug, Deserialize, Serialize, ToSchema, sqlx::Type)]
+#[sqlx(type_name = "theme", rename_all = "lowercase")]
+pub enum Theme {
+    Dark,
+    Light,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema, sqlx::FromRow)]
+pub struct Settings {
+    pub theme: Theme,
+    pub notifications_enabled: bool,
+    pub radius: i32,
+}

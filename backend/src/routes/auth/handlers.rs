@@ -21,9 +21,8 @@ use std::env;
 use std::sync::Arc;
 use utoipa_axum::{router::OpenApiRouter, routes, PathItemExt};
 
-use crate::model::RegisterUserRequestSchema;
-use crate::model::{AppState, CreateUser, LoginUser, LoginUserSchema, TokenClaims, User, };
-use crate::response::{UserRegisterResponse, RegisterResponse, LoginResponse};
+use crate::model::{Theme, RegisterUserRequestSchema, AppState, CreateUser, LoginUser, LoginUserSchema, TokenClaims, User};
+use crate::response::{LoginResponse, RegisterResponse, UserRegisterResponse};
 
 // -------------------------------------------------------------------------------------------------
 // Routes
@@ -83,6 +82,21 @@ pub async fn register(
         "user": filter_user_record(&user)
     })});
 
+    // Insert new settings
+    sqlx::query!(
+        "INSERT INTO settings (user_id) VALUES ($1)",
+        user.id,
+    )
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        let error_response = serde_json::json!({
+            "status": "fail",
+            "message": format!("Error inserting settings: {}", e),
+        });
+        (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
+    })?;
+
     Ok(Json(user_response))
 }
 
@@ -94,7 +108,6 @@ fn filter_user_record(user: &User) -> UserRegisterResponse {
         updated_at: user.updated_at,
     }
 }
-
 
 #[utoipa::path(
     method(post),
@@ -111,28 +124,24 @@ pub async fn login(
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let email = body.email.to_ascii_lowercase();
     println!("email: {}", email);
-    let user = sqlx::query_as!(
-        User,
-        "SELECT * FROM users WHERE email = $1",
-        email
-    )
-    .fetch_optional(&data.db)
-    .await
-    .map_err(|e| {
-        let error_response = serde_json::json!({
-            "status": "error",
-            "message": format!("Database error: {}", e),
-        });
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-    })?
-    .ok_or_else(|| {
-        let error_response = serde_json::json!({
-            "status": "fail",
-            "message": "Invalid email or password",
-        });
-        println!("Something goes wrong");
-        (StatusCode::BAD_REQUEST, Json(error_response))
-    })?;
+    let user = sqlx::query_as!(User, "SELECT * FROM users WHERE email = $1", email)
+        .fetch_optional(&data.db)
+        .await
+        .map_err(|e| {
+            let error_response = serde_json::json!({
+                "status": "error",
+                "message": format!("Database error: {}", e),
+            });
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
+        })?
+        .ok_or_else(|| {
+            let error_response = serde_json::json!({
+                "status": "fail",
+                "message": "Invalid email or password",
+            });
+            println!("Something goes wrong");
+            (StatusCode::BAD_REQUEST, Json(error_response))
+        })?;
 
     let is_valid = match PasswordHash::new(&user.password) {
         Ok(parsed_hash) => Argon2::default()
@@ -180,7 +189,15 @@ pub async fn login(
     Ok(response)
 }
 
-pub async fn logout_handler() -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+#[utoipa::path(
+    method(post),
+    path = "/auth/logout",
+    responses(
+        (status = axum::http::StatusCode::OK, description = "Success", content_type = "text/plain"),
+        (status = axum::http::StatusCode::BAD_REQUEST, description = "Error", content_type = "text/plain")
+    )
+)]
+pub async fn logout() -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let cookie = Cookie::build("token")
         .path("/")
         .max_age(time::Duration::hours(-1))
@@ -194,11 +211,3 @@ pub async fn logout_handler() -> Result<impl IntoResponse, (StatusCode, Json<ser
         .insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
     Ok(response)
 }
-
-// LOGOUT handler (client-side typically handles token discard, this is a placeholder)
-// pub async fn logout(
-//     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
-// ) -> impl IntoResponse {
-//     println!("Token invalidated on client side: {}", auth.token());
-//     (StatusCode::OK, "Logged out successfully")
-// }

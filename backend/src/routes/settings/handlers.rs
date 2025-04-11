@@ -1,9 +1,9 @@
-use crate::model::{AppState, Settings};
+use crate::model::{AppState, Settings, User};
 use axum::{
     extract::{Json, State},
     http::StatusCode,
     response::IntoResponse,
-    Json as AxumJson,
+    Extension, Json as AxumJson,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
@@ -13,7 +13,7 @@ use utoipa::ToSchema;
 
 #[utoipa::path(
     method(put),
-    path = "/settings",
+    path = "/user/settings",
     request_body = Settings,
     responses(
         (status = 200, description = "Settings updated"),
@@ -22,10 +22,13 @@ use utoipa::ToSchema;
 )]
 pub async fn put_settings(
     State(state): State<Arc<AppState>>,
+    Extension(user): Extension<User>,
     Json(payload): Json<Settings>,
 ) -> Result<impl IntoResponse, (StatusCode, AxumJson<serde_json::Value>)> {
     // Simulated user ID – in real apps this should come from auth middleware
-    let user_id = 1;
+    println!("{:?}", payload);
+    let user_id = user.id;
+    println!("{:#?} | user: {:#?}", payload, user);
 
     // Update settings
     sqlx::query!(
@@ -47,7 +50,7 @@ pub async fn put_settings(
 
 #[utoipa::path(
     get,
-    path = "/settings",
+    path = "/user/settings",
     responses(
         (status = 200, description = "User settings returned", body = Settings),
         (status = 404, description = "No settings found for user"),
@@ -55,17 +58,18 @@ pub async fn put_settings(
     )
 )]
 pub async fn get_settings(
+    Extension(user): Extension<User>, // ✅ Get user injected by middleware
     State(state): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    // Simulated user ID (e.g., from auth layer)
-    let user_id = 1;
+    let user_id = user.id;
+    println!("user: {:#?}", user);
 
     let settings = sqlx::query_as::<_, Settings>(
         r#"
-    SELECT theme, notifications_enabled, radius
-    FROM settings
-    WHERE user_id = $1
-    "#,
+        SELECT theme, notifications_enabled, radius
+        FROM settings
+        WHERE user_id = $1
+        "#,
     )
     .bind(user_id)
     .fetch_optional(&state.db)

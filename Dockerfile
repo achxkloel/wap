@@ -8,7 +8,7 @@ WORKDIR $WORKDIR
 
 COPY frontend/package.json frontend/package-lock.json $WORKDIR/
 RUN <<EOF
-    apt-get update -y && apt-get install -y fish vim
+    apt-get update -y && apt-get install -y fish vim tree
     npm install
 EOF
 

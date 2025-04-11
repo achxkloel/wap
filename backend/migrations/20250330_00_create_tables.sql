@@ -1,21 +1,34 @@
-CREATE TABLE users
+create table users
 (
-    id         SERIAL PRIMARY KEY,
-    email      VARCHAR(255) NOT NULL UNIQUE,
-    password   VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    id         serial primary key,
+    email      varchar(255) not null unique,
+    password   varchar(255) not null,
+    created_at timestamptz  not null default now(),
+    updated_at timestamptz  not null default now()
 );
 
-CREATE TYPE theme AS ENUM ('dark', 'light');
+create type theme as enum ('dark', 'light');
 
-CREATE TABLE settings
+create table settings
 (
-    id                    SERIAL PRIMARY KEY,
-    user_id               INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    theme                 theme   NOT NULL DEFAULT 'light',
-    notifications_enabled BOOLEAN NOT NULL DEFAULT true,
-    radius                INTEGER NOT NULL DEFAULT 50,
-    created_at            TIMESTAMPTZ      DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ      DEFAULT NOW()
+    id                    serial primary key,
+    user_id               integer     not null references users (id) on delete cascade,
+    theme                 theme       not null default 'light',
+    notifications_enabled boolean     not null default true,
+    radius                integer     not null default 50,
+    created_at            timestamptz not null default now(),
+    updated_at            timestamptz not null default now()
+);
+
+
+create table locations
+(
+    id          serial primary key,
+    user_id     integer          not null references users (id) on delete cascade,
+    name        varchar(100)     not null,
+    latitude    double precision not null,
+    longitude   double precision not null,
+    description text,
+    created_at  timestamptz      not null default now(),
+    updated_at  timestamptz      not null default now()
 );

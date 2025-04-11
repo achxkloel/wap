@@ -21,8 +21,7 @@ use std::env;
 use std::sync::Arc;
 use utoipa_axum::{router::OpenApiRouter, routes, PathItemExt};
 
-use crate::model::{Theme, RegisterUserRequestSchema, AppState, CreateUser, LoginUser, LoginUserSchema, TokenClaims, User};
-use crate::response::{LoginResponse, RegisterResponse, UserRegisterResponse};
+use crate::model::{Theme, RegisterUserRequestSchema, AppState, CreateUser, LoginUser, LoginUserSchema, TokenClaims, User, LoginResponse, RegisterResponse, UserRegisterResponse};
 
 // -------------------------------------------------------------------------------------------------
 // Routes
@@ -175,7 +174,7 @@ pub async fn login(
     )
     .unwrap();
 
-    let cookie = Cookie::build(token.to_owned())
+    let cookie = Cookie::build(("token", token.to_owned()))
         .path("/")
         .max_age(time::Duration::hours(1))
         .same_site(SameSite::Lax)
@@ -186,6 +185,7 @@ pub async fn login(
     response
         .headers_mut()
         .insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
+    println!("response: {:?}", &response);
     Ok(response)
 }
 

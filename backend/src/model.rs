@@ -1,10 +1,5 @@
-use std::collections::hash_set::Union;
-use jsonwebtoken::{encode, Header};
 use crate::config::{Config};
 use serde::{Deserialize, Serialize};
-use serde::de::Unexpected::Option;
-use sqlx::PgPool;
-use sqlx::types::time::OffsetDateTime;
 use utoipa::ToSchema;
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone)]
@@ -37,7 +32,7 @@ pub struct RegisterUserRequestSchema {
 
 #[derive(Clone)]
 pub struct AppState {
-    pub db: PgPool,
+    pub db: sqlx::PgPool,
     pub env: Config,
 }
 
@@ -65,4 +60,45 @@ pub struct Settings {
     pub theme: Theme,
     pub notifications_enabled: bool,
     pub radius: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema, Clone)]
+pub struct Location {
+    pub id: i32,
+    pub user_id: i32,
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub description: std::option::Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateLocationRequest {
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub description: std::option::Option<String>,
+}
+
+
+#[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone, ToSchema)]
+pub struct UserRegisterResponse {
+    pub id: i32,
+    pub email: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
+pub struct RegisterResponse {
+    pub data: UserRegisterResponse,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone, ToSchema)]
+pub struct LoginResponse {
+    pub status: String,
+    pub token: String,
 }

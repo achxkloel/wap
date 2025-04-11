@@ -22,5 +22,6 @@ axum = { version = "0.8", features = ["tokio", "json"] }
 utoipa-scalar = { version = "0.3", features = ["axum"] }
 utoipa-axum = "0.2.0"
 utoipa = { version = "5", features = ["chrono"] }
+tower-http = { version = "0.6.2", features = ["cors"] }
 uuid = { version = "1.16.0", features = ["v4"] }
 

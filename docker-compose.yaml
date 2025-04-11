@@ -6,8 +6,6 @@ services:
       dockerfile: Dockerfile
       target: frontend
     command: bash -c 'npm install && npx vite --host 0.0.0.0'
-    ports:
-      - 127.0.0.1:5173:5173
     volumes:
       - ./frontend:/opt/frontend
       - ./tmp/fish_frontend/:/root/.local/share/fish/

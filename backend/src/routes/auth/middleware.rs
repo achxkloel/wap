@@ -2,20 +2,17 @@ use std::sync::Arc;
 
 use axum::{
     extract::State,
-    http::{header, Request, StatusCode},
+    http::{header, StatusCode, Request},
     middleware::Next,
     response::IntoResponse,
     Json,
+    body::Body,
 };
-
 use axum_extra::extract::cookie::CookieJar;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::Serialize;
 
-use crate::{
-    model::{TokenClaims, User},
-    AppState,
-};
+use crate::model::{AppState, TokenClaims, User};
 
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {
@@ -23,12 +20,13 @@ pub struct ErrorResponse {
     pub message: String,
 }
 
-pub async fn auth<B>(
+pub async fn auth(
     cookie_jar: CookieJar,
     State(data): State<Arc<AppState>>,
-    mut req: Request<B>,
-    next: Next<B>,
+    mut req: Request<Body>,
+    next: Next,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+    println!("Auth middleware");
     let token = cookie_jar
         .get("token")
         .map(|cookie| cookie.value().to_string())
@@ -45,14 +43,18 @@ pub async fn auth<B>(
                 })
         });
 
+    println!("token: {:?}", token);
+
     let token = token.ok_or_else(|| {
         let json_error = ErrorResponse {
             status: "fail",
             message: "You are not logged in, please provide token".to_string(),
         };
+        println!("{}", json_error.message);
         (StatusCode::UNAUTHORIZED, Json(json_error))
     })?;
 
+    println!("token ok: {:?}", token);
     let claims = decode::<TokenClaims>(
         &token,
         &DecodingKey::from_secret(data.env.jwt_secret.as_ref()),
@@ -67,15 +69,20 @@ pub async fn auth<B>(
         })?
         .claims;
 
-    let user_id = uuid::Uuid::parse_str(&claims.sub).map_err(|_| {
+    // Assuming `users.id` is i32:
+    let user_id: i32 = claims.sub.parse().map_err(|_| {
         let json_error = ErrorResponse {
             status: "fail",
-            message: "Invalid token".to_string(),
+            message: "Invalid token subject format".to_string(),
         };
         (StatusCode::UNAUTHORIZED, Json(json_error))
     })?;
 
-    let user = sqlx::query_as!(User, "SELECT * FROM users WHERE id = $1", user_id)
+    let user = sqlx::query_as!(
+        User,
+        "SELECT * FROM users WHERE id = $1",
+        user_id
+    )
         .fetch_optional(&data.db)
         .await
         .map_err(|e| {
@@ -95,5 +102,6 @@ pub async fn auth<B>(
     })?;
 
     req.extensions_mut().insert(user);
+
     Ok(next.run(req).await)
 }

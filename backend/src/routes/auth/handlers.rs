@@ -113,7 +113,7 @@ fn filter_user_record(user: &User) -> UserRegisterResponse {
     path = "/auth/login",
     request_body(content = LoginUser, content_type = "application/json"),
     responses(
-        (status = axum::http::StatusCode::OK, description = "Success", body = LoginResponse, content_type = "text/plain"),
+        (status = axum::http::StatusCode::OK, description = "Success", content_type = "text/plain"),
         (status = axum::http::StatusCode::BAD_REQUEST, description = "Error", content_type = "text/plain")
     )
 )]
@@ -200,7 +200,7 @@ pub async fn login(
 pub async fn logout() -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let cookie = Cookie::build("token")
         .path("/")
-        .max_age(time::Duration::hours(-1))
+        .max_age(time::Duration::weeks(-1))
         .same_site(SameSite::Lax)
         .http_only(true)
         .finish();

@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use axum::{
+    body::Body,
     extract::State,
-    http::{header, StatusCode, Request},
+    http::{header, Request, StatusCode},
     middleware::Next,
     response::IntoResponse,
     Json,
-    body::Body,
 };
 use axum_extra::extract::cookie::CookieJar;
 use jsonwebtoken::{decode, DecodingKey, Validation};
@@ -29,8 +29,12 @@ pub async fn auth(
     println!("Auth middleware");
     let token = cookie_jar
         .get("token")
-        .map(|cookie| cookie.value().to_string())
+        .map(|cookie| {
+            println!("token cookie");
+            cookie.value().to_string()
+        })
         .or_else(|| {
+            println!("token header");
             req.headers()
                 .get(header::AUTHORIZATION)
                 .and_then(|auth_header| auth_header.to_str().ok())
@@ -60,14 +64,14 @@ pub async fn auth(
         &DecodingKey::from_secret(data.env.jwt_secret.as_ref()),
         &Validation::default(),
     )
-        .map_err(|_| {
-            let json_error = ErrorResponse {
-                status: "fail",
-                message: "Invalid token".to_string(),
-            };
-            (StatusCode::UNAUTHORIZED, Json(json_error))
-        })?
-        .claims;
+    .map_err(|_| {
+        let json_error = ErrorResponse {
+            status: "fail",
+            message: "Invalid token".to_string(),
+        };
+        (StatusCode::UNAUTHORIZED, Json(json_error))
+    })?
+    .claims;
 
     // Assuming `users.id` is i32:
     let user_id: i32 = claims.sub.parse().map_err(|_| {
@@ -78,11 +82,7 @@ pub async fn auth(
         (StatusCode::UNAUTHORIZED, Json(json_error))
     })?;
 
-    let user = sqlx::query_as!(
-        User,
-        "SELECT * FROM users WHERE id = $1",
-        user_id
-    )
+    let user = sqlx::query_as!(User, "SELECT * FROM users WHERE id = $1", user_id)
         .fetch_optional(&data.db)
         .await
         .map_err(|e| {

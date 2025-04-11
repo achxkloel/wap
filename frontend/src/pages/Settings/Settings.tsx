@@ -1,19 +1,37 @@
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent,
+    CardFooter
+} from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import Button from "@/components/Button"
 import { environment } from "@/environment/environment"
 import { logger } from "@/util/utils"
 
 function Settings() {
     const navigate = useNavigate()
+    const token = localStorage.getItem("auth_token")
 
     const [theme, setTheme] = useState<"Light" | "Dark">("Light")
     const [notificationsEnabled, setNotificationsEnabled] = useState(true)
     const [radius, setRadius] = useState(50)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
-
-    const token = localStorage.getItem("auth_token")
 
     useEffect(() => {
         if (!token) {
@@ -52,20 +70,20 @@ function Settings() {
                 theme,
                 notifications_enabled: notificationsEnabled,
                 radius
-            });
+            })
+
             logger.debug("Settings body", body)
+
             const res = await fetch(`${environment.baseUrl}/user/settings`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: body
+                body
             })
 
-            if (!res.ok) {
-                throw new Error("Failed to save settings")
-            }
+            if (!res.ok) throw new Error("Failed to save settings")
 
             logger.debug("Settings saved")
         } catch (err) {
@@ -75,63 +93,58 @@ function Settings() {
     }
 
     if (!token) return null
-    if (loading) return <div>Loading settings...</div>
+    if (loading) return <div className="p-6 text-center">Loading settings...</div>
 
     return (
-        <div className="p-6 max-w-xl mx-auto space-y-6">
-            <h1 className="text-2xl font-bold">Settings</h1>
+        <div className="max-w-xl mx-auto p-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Settings</CardTitle>
+                    <CardDescription>Manage your account preferences</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {error && <p className="text-sm text-red-500">{error}</p>}
 
-            {error && <p className="text-red-500">{error}</p>}
+                    <div className="space-y-2">
+                        <Label>Theme</Label>
+                        <Select
+                            value={theme}
+                            onValueChange={(value: "Light" | "Dark") => setTheme(value)}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select theme" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Light">Light</SelectItem>
+                                <SelectItem value="Dark">Dark</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
 
-            <div className="space-y-4">
-                <div>
-                    <label className="block font-medium mb-1">Theme</label>
-                    <select
-                        value={theme}
-                        onChange={(e) => setTheme(e.target.value as "light" | "dark")}
-                        className="border rounded p-2 w-full"
-                    >
-                        <option value="Light">Light</option>
-                        <option value="Dark">Dark</option>
-                    </select>
-                </div>
+                    <div className="flex items-center justify-between">
+                        <Label>Notifications</Label>
+                        <Switch
+                            checked={notificationsEnabled}
+                            onCheckedChange={setNotificationsEnabled}
+                        />
+                    </div>
 
-                <div>
-                    <label className="block font-medium mb-1">
-                        Notifications Enabled
-                    </label>
-                    <input
-                        type="checkbox"
-                        checked={notificationsEnabled}
-                        onChange={(e) => setNotificationsEnabled(e.target.checked)}
-                    />
-                </div>
-
-                <div>
-                    <label className="block font-medium mb-1">Radius</label>
-                    <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={radius}
-                        onChange={(e) => setRadius(parseInt(e.target.value))}
-                        className="w-full"
-                    />
-                    <div className="text-sm text-gray-600 mt-1">Value: {radius}</div>
-                </div>
-
-                <div className="flex justify-between pt-4">
+                    <div>
+                        <Label className="mb-1 block">Radius (km)</Label>
+                        <Slider
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={[radius]}
+                            onValueChange={([val]) => setRadius(val)}
+                        />
+                        <div className="text-sm text-gray-500 mt-1">Current: {radius} km</div>
+                    </div>
+                </CardContent>
+                <CardFooter className="flex justify-end">
                     <Button onClick={handleSave}>Save Settings</Button>
-                    <Button
-                        variant={theme}
-                        onClick={() =>
-                            setTheme((t) => (t === "light" ? "dark" : "light"))
-                        }
-                    >
-                        Toggle Theme
-                    </Button>
-                </div>
-            </div>
+                </CardFooter>
+            </Card>
         </div>
     )
 }

@@ -5,7 +5,7 @@ build:
 	docker compose build
 
 up:
-	docker compose up
+	docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up
 
 up-detach:
 	docker compose up --detach
@@ -17,10 +17,10 @@ down:
 	docker compose down
 
 frontend-up:
-	docker compose up frontend
+	docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up frontend
 
 frontend-fish:
-	docker compose run --rm -it --service-ports frontend fish
+	docker compose -f docker-compose.yaml -f docker-compose.dev.yaml run --rm -it --service-ports frontend fish
 
 backend-up:
 	docker compose up backend

@@ -2,5 +2,6 @@
 .idea/
 tmp/
 target/
+.sqlx/
 
 .DS_Store

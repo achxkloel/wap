@@ -1,4 +1,3 @@
-// mod routes;
-pub mod authjwt;
-pub mod structs;
 pub mod config;
+pub mod model;
+pub mod routes;

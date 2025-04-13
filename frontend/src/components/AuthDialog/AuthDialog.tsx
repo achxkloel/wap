@@ -1,23 +1,20 @@
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { environment } from '@/environment/environment';
+import api from '@/lib/api';
+import useAuthStore from '@/lib/store/auth';
 import { logger } from '@/util/utils';
 import Cookies from 'js-cookie';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
 
 export function AuthDialog() {
+    const setToken = useAuthStore((state) => state.setToken);
+    const removeToken = useAuthStore((state) => state.removeToken);
+    const token = useAuthStore((state) => state.token);
+
     const [mode, setMode] = useState<'login' | 'register'>('login');
     const [isOpen, setIsOpen] = useState(false);
     const [email, setEmail] = useState('');
@@ -25,13 +22,7 @@ export function AuthDialog() {
     const [confirm, setConfirm] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
     const navigate = useNavigate();
-
-    useEffect(() => {
-        const token = localStorage.getItem('auth_token');
-        setIsLoggedIn(!!token);
-    }, []);
 
     const handleOpenChange = (open: boolean) => {
         setIsOpen(open);
@@ -58,23 +49,12 @@ export function AuthDialog() {
 
         try {
             setLoading(true);
-            const res = await fetch(environment.baseUrl + endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                setError(data?.message || 'Something went wrong');
-                return;
-            }
-
+            const res = await api.post(endpoint, payload);
+            const data = res.data;
             const token = data.token;
+
             if (token) {
-                localStorage.setItem('auth_token', token);
-                setIsLoggedIn(true);
+                setToken(token);
                 logger.debug('Token stored:', token);
             }
 
@@ -92,14 +72,8 @@ export function AuthDialog() {
 
     const handleLogout = async () => {
         try {
-            const res = await fetch(`${environment.baseUrl}/auth/logout`, {
-                method: 'POST',
-            });
-
-            if (!res.ok) throw new Error('Logout failed');
-
-            localStorage.removeItem('auth_token');
-            setIsLoggedIn(false);
+            await api.post('/auth/logout');
+            removeToken();
             logger.debug('User logged out');
             navigate('/');
         } catch (err) {
@@ -108,7 +82,7 @@ export function AuthDialog() {
     };
 
     // ✅ If user is logged in, show logout button
-    if (isLoggedIn) {
+    if (token !== null) {
         return (
             <Button
                 variant="outline"

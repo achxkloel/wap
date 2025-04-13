@@ -1,13 +1,12 @@
+import { AuthDialog } from '@/components/AuthDialog';
 import {
     NavigationMenu,
     NavigationMenuItem,
-    NavigationMenuList,
     NavigationMenuLink,
+    NavigationMenuList,
 } from '@/components/ui/navigation-menu';
-import { Button } from '@/components/ui/button';
 import useStore from '@/lib/store';
-import { Link } from 'react-router-dom';
-import { AuthDialog } from '@/components/AuthDialog';
+import { Link } from 'react-router';
 
 function Header() {
     const counter = useStore((state) => state.counter);

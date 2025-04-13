@@ -1,3 +1,5 @@
+import { AuthDialog } from '@/components/AuthDialog';
+import useAuthStore from '@/lib/store/auth';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { faCloud } from '@fortawesome/free-solid-svg-icons/faCloud';
 import { faGear } from '@fortawesome/free-solid-svg-icons/faGear';
@@ -11,16 +13,18 @@ interface NavItem {
     label: string;
     to: string;
     icon: IconDefinition;
+    protected?: boolean;
 }
 
 const navItems: NavItem[] = [
     { label: 'Weather', to: '/', icon: faHouse },
     { label: 'Locations', to: '/locations', icon: faCloud },
     { label: 'Map', to: '/map', icon: faMap },
-    { label: 'Settings', to: '/settings', icon: faGear },
+    { label: 'Settings', to: '/settings', icon: faGear, protected: true },
 ];
 
 function Sidebar() {
+    const token = useAuthStore((state) => state.token);
     const location = useLocation();
 
     const isSelected = (path: string) => {
@@ -33,25 +37,32 @@ function Sidebar() {
 
     return (
         <div className="w-64 shadow-md p-4 flex flex-col space-y-4">
-            <nav className="flex flex-col space-y-2">
-                {navItems.map((item, index) => (
-                    <div
-                        key={index}
-                        className={clsx(
-                            'px-3 py-2 rounded transition flex items-center space-x-4 cursor-pointer',
-                            isSelected(item.to) ? 'bg-gray-200' : 'text-gray-700 hover:bg-gray-200',
-                        )}
-                    >
-                        <FontAwesomeIcon icon={item.icon}></FontAwesomeIcon>
-                        <Link
-                            to={item.to}
-                            className="flex-1"
+            <nav className="flex-1 flex flex-col space-y-2">
+                {navItems.map((item, index) => {
+                    if (item.protected && token === null) {
+                        return null;
+                    }
+
+                    return (
+                        <div
+                            key={index}
+                            className={clsx(
+                                'px-3 py-2 rounded transition flex items-center space-x-4 cursor-pointer',
+                                isSelected(item.to) ? 'bg-gray-200' : 'text-gray-700 hover:bg-gray-200',
+                            )}
                         >
-                            {item.label}
-                        </Link>
-                    </div>
-                ))}
+                            <FontAwesomeIcon icon={item.icon}></FontAwesomeIcon>
+                            <Link
+                                to={item.to}
+                                className="flex-1"
+                            >
+                                {item.label}
+                            </Link>
+                        </div>
+                    );
+                })}
             </nav>
+            <AuthDialog />
         </div>
     );
 }

@@ -1,5 +1,6 @@
 import Layout from '@/features/Layout';
 import { checkToken } from '@/lib/api';
+import FavoritesPage from '@/pages/favorites';
 import Map from '@/pages/Map';
 import Settings from '@/pages/Settings';
 import React, { useEffect } from 'react';
@@ -22,7 +23,7 @@ function Router() {
                 />
                 <Route
                     path="/locations"
-                    element={<React.Fragment />}
+                    element={<FavoritesPage />}
                 />
                 <Route
                     path="/map"

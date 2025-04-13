@@ -1,99 +1,86 @@
-import {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardDescription,
-    CardContent,
-    CardFooter
-} from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue
-} from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
-import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { environment } from "@/environment/environment"
-import { logger } from "@/util/utils"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { environment } from '@/environment/environment';
+import { logger } from '@/util/utils';
 
 function Settings() {
-    const navigate = useNavigate()
-    const token = localStorage.getItem("auth_token")
+    const navigate = useNavigate();
+    const token = localStorage.getItem('auth_token');
 
-    const [theme, setTheme] = useState<"Light" | "Dark">("Light")
-    const [notificationsEnabled, setNotificationsEnabled] = useState(true)
-    const [radius, setRadius] = useState(50)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState("")
+    const [theme, setTheme] = useState<'Light' | 'Dark'>('Light');
+    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+    const [radius, setRadius] = useState(50);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         if (!token) {
-            navigate("/login")
-            return
+            navigate('/login');
+            return;
         }
 
         const loadSettings = async () => {
             try {
                 const res = await fetch(`${environment.baseUrl}/user/settings`, {
                     headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                })
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
 
-                if (!res.ok) throw new Error("Failed to load settings, please login")
+                if (!res.ok) throw new Error('Failed to load settings, please login');
 
-                const data = await res.json()
-                setTheme(data.theme)
-                setNotificationsEnabled(data.notifications_enabled)
-                setRadius(data.radius)
+                const data = await res.json();
+                setTheme(data.theme);
+                setNotificationsEnabled(data.notifications_enabled);
+                setRadius(data.radius);
             } catch (err) {
-                logger.error("Settings load error", err)
-                setError("Failed to load settings")
+                logger.error('Settings load error', err);
+                setError('Failed to load settings');
             } finally {
-                setLoading(false)
+                setLoading(false);
             }
-        }
+        };
 
-        loadSettings()
-    }, [token, navigate])
+        loadSettings();
+    }, [token, navigate]);
 
     const handleSave = async () => {
         try {
             const body = JSON.stringify({
                 theme,
                 notifications_enabled: notificationsEnabled,
-                radius
-            })
+                radius,
+            });
 
-            logger.debug("Settings body", body)
+            logger.debug('Settings body', body);
 
             const res = await fetch(`${environment.baseUrl}/user/settings`, {
-                method: "PUT",
+                method: 'PUT',
                 headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
                 },
-                body
-            })
+                body,
+            });
 
-            if (!res.ok) throw new Error("Failed to save settings")
+            if (!res.ok) throw new Error('Failed to save settings');
 
-            logger.debug("Settings saved")
+            logger.debug('Settings saved');
         } catch (err) {
-            logger.error("Save failed", err)
-            setError("Failed to save")
+            logger.error('Save failed', err);
+            setError('Failed to save');
         }
-    }
+    };
 
-    if (!token) return null
-    if (loading) return <div className="p-6 text-center">Loading settings...</div>
+    if (!token) return null;
+    if (loading) return <div className="p-6 text-center">Loading settings...</div>;
 
     return (
         <div className="max-w-xl mx-auto p-6">
@@ -109,7 +96,7 @@ function Settings() {
                         <Label>Theme</Label>
                         <Select
                             value={theme}
-                            onValueChange={(value: "Light" | "Dark") => setTheme(value)}
+                            onValueChange={(value: 'Light' | 'Dark') => setTheme(value)}
                         >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select theme" />
@@ -146,7 +133,7 @@ function Settings() {
                 </CardFooter>
             </Card>
         </div>
-    )
+    );
 }
 
-export default Settings
+export default Settings;

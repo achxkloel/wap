@@ -5,127 +5,126 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger
-} from "@/components/ui/dialog"
-import {
-    Card,
-    CardContent,
-    CardFooter,
-    CardHeader,
-    CardTitle
-} from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { environment } from "@/environment/environment"
-import { logger } from "@/util/utils"
-import Cookies from "js-cookie"
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { environment } from '@/environment/environment';
+import { logger } from '@/util/utils';
+import Cookies from 'js-cookie';
 
 export function AuthDialog() {
-    const [mode, setMode] = useState<"login" | "register">("login")
-    const [isOpen, setIsOpen] = useState(false)
-    const [email, setEmail] = useState("")
-    const [password, setPassword] = useState("")
-    const [confirm, setConfirm] = useState("")
-    const [error, setError] = useState("")
-    const [loading, setLoading] = useState(false)
-    const [isLoggedIn, setIsLoggedIn] = useState(false)
-    const navigate = useNavigate()
+    const [mode, setMode] = useState<'login' | 'register'>('login');
+    const [isOpen, setIsOpen] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirm, setConfirm] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
-        const token = localStorage.getItem("auth_token")
-        setIsLoggedIn(!!token)
-    }, [])
+        const token = localStorage.getItem('auth_token');
+        setIsLoggedIn(!!token);
+    }, []);
 
     const handleOpenChange = (open: boolean) => {
-        setIsOpen(open)
+        setIsOpen(open);
         if (open) {
-            setMode("login")
-            setEmail("")
-            setPassword("")
-            setConfirm("")
-            setError("")
+            setMode('login');
+            setEmail('');
+            setPassword('');
+            setConfirm('');
+            setError('');
         }
-    }
+    };
 
     const handleSubmit = async () => {
-        setError("")
+        setError('');
 
-        if (mode === "register" && password !== confirm) {
-            setError("Passwords do not match")
-            return
+        if (mode === 'register' && password !== confirm) {
+            setError('Passwords do not match');
+            return;
         }
 
-        const endpoint =
-            mode === "login" ? "/auth/login" : "/auth/register"
+        const endpoint = mode === 'login' ? '/auth/login' : '/auth/register';
 
-        const payload = { email, password }
+        const payload = { email, password };
 
         try {
-            setLoading(true)
+            setLoading(true);
             const res = await fetch(environment.baseUrl + endpoint, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            })
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
 
-            const data = await res.json()
+            const data = await res.json();
 
             if (!res.ok) {
-                setError(data?.message || "Something went wrong")
-                return
+                setError(data?.message || 'Something went wrong');
+                return;
             }
 
-            const token = data.token
+            const token = data.token;
             if (token) {
-                localStorage.setItem("auth_token", token)
-                setIsLoggedIn(true)
-                logger.debug("Token stored:", token)
+                localStorage.setItem('auth_token', token);
+                setIsLoggedIn(true);
+                logger.debug('Token stored:', token);
             }
 
-            setIsOpen(false)
+            setIsOpen(false);
         } catch (err) {
-            console.error(err)
-            setError("Something went wrong")
+            console.error(err);
+            setError('Something went wrong');
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
 
-        const token = Cookies.get("token")
-        logger.debug("Token from cookie:", token)
-    }
+        const token = Cookies.get('token');
+        logger.debug('Token from cookie:', token);
+    };
 
     const handleLogout = async () => {
         try {
             const res = await fetch(`${environment.baseUrl}/auth/logout`, {
-                method: "POST"
-            })
+                method: 'POST',
+            });
 
-            if (!res.ok) throw new Error("Logout failed")
+            if (!res.ok) throw new Error('Logout failed');
 
-            localStorage.removeItem("auth_token")
-            setIsLoggedIn(false)
-            logger.debug("User logged out")
-            navigate("/")
+            localStorage.removeItem('auth_token');
+            setIsLoggedIn(false);
+            logger.debug('User logged out');
+            navigate('/');
         } catch (err) {
-            logger.error("Logout error", err)
+            logger.error('Logout error', err);
         }
-    }
+    };
 
     // ✅ If user is logged in, show logout button
     if (isLoggedIn) {
         return (
-            <Button variant="outline" onClick={handleLogout}>
+            <Button
+                variant="outline"
+                onClick={handleLogout}
+            >
                 Logout
             </Button>
-        )
+        );
     }
 
     // ✅ Otherwise show auth dialog
     return (
-        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+        <Dialog
+            open={isOpen}
+            onOpenChange={handleOpenChange}
+        >
             <DialogTrigger asChild>
                 <Button variant="outline">Login</Button>
             </DialogTrigger>
@@ -133,24 +132,24 @@ export function AuthDialog() {
                 <Card className="w-full shadow-none border-0">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-2xl font-semibold">
-                            {mode === "login" ? "Login" : "Register"}
+                            {mode === 'login' ? 'Login' : 'Register'}
                         </CardTitle>
                         <DialogDescription>
-                            {mode === "login"
-                                ? "Login to access your account."
-                                : "Create a new account to get started."}
+                            {mode === 'login'
+                                ? 'Login to access your account.'
+                                : 'Create a new account to get started.'}
                         </DialogDescription>
                     </CardHeader>
 
                     <form
                         onSubmit={(e) => {
-                            e.preventDefault()
-                            handleSubmit()
+                            e.preventDefault();
+                            handleSubmit();
                         }}
                         onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                                e.preventDefault()
-                                handleSubmit()
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSubmit();
                             }
                         }}
                     >
@@ -175,7 +174,7 @@ export function AuthDialog() {
                                     required
                                 />
                             </div>
-                            {mode === "register" && (
+                            {mode === 'register' && (
                                 <div className="grid gap-2">
                                     <Label htmlFor="confirm">Confirm Password</Label>
                                     <Input
@@ -187,32 +186,27 @@ export function AuthDialog() {
                                     />
                                 </div>
                             )}
-                            {error && (
-                                <p className="text-sm text-red-500">{error}</p>
-                            )}
+                            {error && <p className="text-sm text-red-500">{error}</p>}
                         </CardContent>
 
                         <CardFooter className="flex justify-between pt-4">
                             <Button
                                 variant="ghost"
                                 type="button"
-                                onClick={() =>
-                                    setMode(mode === "login" ? "register" : "login")
-                                }
+                                onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
                             >
-                                {mode === "login" ? "Switch to Register" : "Switch to Login"}
+                                {mode === 'login' ? 'Switch to Register' : 'Switch to Login'}
                             </Button>
-                            <Button type="submit" disabled={loading}>
-                                {loading
-                                    ? "Loading..."
-                                    : mode === "login"
-                                        ? "Login"
-                                        : "Register"}
+                            <Button
+                                type="submit"
+                                disabled={loading}
+                            >
+                                {loading ? 'Loading...' : mode === 'login' ? 'Login' : 'Register'}
                             </Button>
                         </CardFooter>
                     </form>
                 </Card>
             </DialogContent>
         </Dialog>
-    )
+    );
 }

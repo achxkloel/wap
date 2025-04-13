@@ -1,4 +1,4 @@
-import {environment, PRINT} from "@/environment/environment.ts";
+import { environment, PRINT } from '@/environment/environment.ts';
 
 /**
  * Singleton class for logging
@@ -57,4 +57,3 @@ class Logger {
 }
 
 export const logger = Logger.getInstance();
-

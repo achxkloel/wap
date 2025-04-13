@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import api from '@/lib/api';
-import { logger } from '@/util/utils';
+import { logger } from '@/lib/logger';
 import { useEffect, useState } from 'react';
 
 function Settings() {

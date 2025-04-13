@@ -4,8 +4,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTrigger } from '@/compo
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import api from '@/lib/api';
+import { logger } from '@/lib/logger';
 import useAuthStore from '@/lib/store/auth';
-import { logger } from '@/util/utils';
 import Cookies from 'js-cookie';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';

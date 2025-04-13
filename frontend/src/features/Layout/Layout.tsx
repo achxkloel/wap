@@ -1,12 +1,11 @@
-import Header from '@/features/Header';
+import Sidebar from '@/features/Sidebar';
 import { Outlet } from 'react-router';
-import styles from './Layout.module.css';
 
 function Layout() {
     return (
-        <div className={styles.container}>
-            <Header />
-            <div className={styles.content}>
+        <div className="flex h-screen">
+            <Sidebar />
+            <div className="flex-1 flex flex-col">
                 <Outlet />
             </div>
         </div>

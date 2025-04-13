@@ -1,5 +1,6 @@
 import Layout from '@/features/Layout';
 import Main from '@/pages/Main';
+import Map from '@/pages/Map';
 import Settings from '@/pages/Settings';
 import { Route, Routes } from 'react-router';
 
@@ -18,6 +19,10 @@ function Router() {
                 <Route
                     path="/settings"
                     element={<Settings />}
+                />
+                <Route
+                    path="/map"
+                    element={<Map />}
                 />
             </Route>
         </Routes>

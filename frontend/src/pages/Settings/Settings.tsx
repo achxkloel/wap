@@ -1,19 +1,14 @@
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import api from '@/lib/api';
+import { logger } from '@/lib/logger';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { environment } from '@/environment/environment';
-import { logger } from '@/util/utils';
 
 function Settings() {
-    const navigate = useNavigate();
-    const token = localStorage.getItem('auth_token');
-
     const [theme, setTheme] = useState<'Light' | 'Dark'>('Light');
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [radius, setRadius] = useState(50);
@@ -21,22 +16,10 @@ function Settings() {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        if (!token) {
-            navigate('/login');
-            return;
-        }
-
         const loadSettings = async () => {
             try {
-                const res = await fetch(`${environment.baseUrl}/user/settings`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-
-                if (!res.ok) throw new Error('Failed to load settings, please login');
-
-                const data = await res.json();
+                const res = await api.get('/user/settings');
+                const data = res.data;
                 setTheme(data.theme);
                 setNotificationsEnabled(data.notifications_enabled);
                 setRadius(data.radius);
@@ -49,7 +32,7 @@ function Settings() {
         };
 
         loadSettings();
-    }, [token, navigate]);
+    }, []);
 
     const handleSave = async () => {
         try {
@@ -60,18 +43,7 @@ function Settings() {
             });
 
             logger.debug('Settings body', body);
-
-            const res = await fetch(`${environment.baseUrl}/user/settings`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body,
-            });
-
-            if (!res.ok) throw new Error('Failed to save settings');
-
+            await api.put('/user/settings', body);
             logger.debug('Settings saved');
         } catch (err) {
             logger.error('Save failed', err);
@@ -79,7 +51,6 @@ function Settings() {
         }
     };
 
-    if (!token) return null;
     if (loading) return <div className="p-6 text-center">Loading settings...</div>;
 
     return (

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { environment, PRINT } from '@/environment/environment.ts';
 
 /**

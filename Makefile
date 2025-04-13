@@ -8,7 +8,7 @@ up:
 	docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up
 
 up-detach:
-	docker compose up --detach
+	docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up --detach
 
 logs:
 	docker compose logs --follow

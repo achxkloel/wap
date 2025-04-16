@@ -36,11 +36,11 @@ function Settings() {
 
     const handleSave = async () => {
         try {
-            const body = JSON.stringify({
+            const body = {
                 theme,
                 notifications_enabled: notificationsEnabled,
                 radius,
-            });
+            };
 
             logger.debug('Settings body', body);
             await api.put('/user/settings', body);

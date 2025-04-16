@@ -1,11 +1,18 @@
 import Layout from '@/features/Layout';
+import { checkToken } from '@/lib/api';
 import Map from '@/pages/Map';
 import Settings from '@/pages/Settings';
-import React from 'react';
-import { Route, Routes } from 'react-router';
+import React, { useEffect } from 'react';
+import { Route, Routes, useLocation } from 'react-router';
 import ProtectedRoute from './ProtectedRoute';
 
 function Router() {
+    const location = useLocation();
+
+    useEffect(() => {
+        checkToken();
+    }, [location]);
+
     return (
         <Routes>
             <Route element={<Layout />}>

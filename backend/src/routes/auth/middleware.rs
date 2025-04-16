@@ -28,7 +28,7 @@ pub async fn auth(
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     println!("Auth middleware");
     let token = cookie_jar
-        .get("token")
+        .get("access_token")
         .map(|cookie| {
             println!("token cookie");
             cookie.value().to_string()

@@ -5,15 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import api from '@/lib/api';
 import { logger } from '@/lib/logger';
-import useAuthStore from '@/lib/store/auth';
+import useAuthStore, { useIsAuthorized } from '@/lib/store/auth';
 import Cookies from 'js-cookie';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 export function AuthDialog() {
-    const setToken = useAuthStore((state) => state.setToken);
-    const removeToken = useAuthStore((state) => state.removeToken);
-    const token = useAuthStore((state) => state.token);
+    const setAccessToken = useAuthStore((state) => state.setAccessToken);
+    const setRefreshToken = useAuthStore((state) => state.setRefreshToken);
+    const removeAccessToken = useAuthStore((state) => state.removeAccessToken);
+    const removeRefreshToken = useAuthStore((state) => state.removeRefreshToken);
+    const isAuthorized = useIsAuthorized();
 
     const [mode, setMode] = useState<'login' | 'register'>('login');
     const [isOpen, setIsOpen] = useState(false);
@@ -51,12 +53,14 @@ export function AuthDialog() {
             setLoading(true);
             const res = await api.post(endpoint, payload);
             const data = res.data;
-            const token = data.token;
+            const accessToken = data.access_token;
+            const refreshToken = data.refresh_token;
 
-            if (token) {
-                setToken(token);
-                logger.debug('Token stored:', token);
-            }
+            setAccessToken(accessToken);
+            setRefreshToken(refreshToken);
+
+            logger.debug('Stored access token:', accessToken);
+            logger.debug('Stored refresh token:', refreshToken);
 
             setIsOpen(false);
         } catch (err) {
@@ -73,7 +77,8 @@ export function AuthDialog() {
     const handleLogout = async () => {
         try {
             await api.post('/auth/logout');
-            removeToken();
+            removeAccessToken();
+            removeRefreshToken();
             logger.debug('User logged out');
             navigate('/');
         } catch (err) {
@@ -81,8 +86,8 @@ export function AuthDialog() {
         }
     };
 
-    // ✅ If user is logged in, show logout button
-    if (token !== null) {
+    // If user is logged in, show logout button
+    if (isAuthorized) {
         return (
             <Button
                 variant="outline"
@@ -93,7 +98,7 @@ export function AuthDialog() {
         );
     }
 
-    // ✅ Otherwise show auth dialog
+    // Otherwise show auth dialog
     return (
         <Dialog
             open={isOpen}

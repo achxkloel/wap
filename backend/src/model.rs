@@ -100,5 +100,6 @@ pub struct RegisterResponse {
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone, ToSchema)]
 pub struct LoginResponse {
     pub status: String,
-    pub token: String,
+    pub access_token: String,
+    pub refresh_token: String,
 }

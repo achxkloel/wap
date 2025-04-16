@@ -2,20 +2,20 @@
 use argon2::{password_hash::SaltString, Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use axum::{
     extract::{Json, State},
-    http::{header, Response, StatusCode},
+    http::{header, Response, StatusCode, HeaderMap},
     response::IntoResponse,
     routing::post,
 };
 use serde_json::json;
 
-use axum_extra::extract::cookie::{Cookie, SameSite};
+use axum_extra::extract::cookie::{Cookie, SameSite, CookieJar};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{encode, decode, EncodingKey, Header, Validation, DecodingKey};
 use sqlx::postgres::PgPoolOptions;
 use std::env;
 use std::sync::Arc;
@@ -34,6 +34,23 @@ use utoipa::ToSchema;
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SignupResponse {
     pub message: String,
+}
+
+fn create_token(user_id: &str, exp: usize, secret: &str) -> String {
+    let now = chrono::Utc::now();
+    let iat = now.timestamp() as usize;
+    let claims: TokenClaims = TokenClaims {
+        sub: user_id.to_string(),
+        exp,
+        iat,
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_ref()),
+    )
+    .unwrap()
 }
 
 #[utoipa::path(
@@ -159,32 +176,147 @@ pub async fn login(
     }
 
     let now = chrono::Utc::now();
-    let iat = now.timestamp() as usize;
-    let exp = (now + chrono::Duration::minutes(60)).timestamp() as usize;
-    let claims: TokenClaims = TokenClaims {
-        sub: user.id.to_string(),
-        exp,
-        iat,
-    };
 
-    let token = encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(data.env.jwt_secret.as_ref()),
-    )
-    .unwrap();
+    let access_token = create_token(
+        &user.id.to_string(),
+        (now + chrono::Duration::minutes(60)).timestamp() as usize,
+        data.env.jwt_secret.as_ref(),
+    );
 
-    let cookie = Cookie::build(("token", token.to_owned()))
+    let refresh_token = create_token(
+        &user.id.to_string(),
+        (now + chrono::Duration::days(30)).timestamp() as usize,
+        data.env.jwt_secret.as_ref(),
+    );
+
+    let access_cookie = Cookie::build(("access_token", access_token.to_owned()))
         .path("/")
-        .max_age(time::Duration::hours(1))
+        .max_age(time::Duration::minutes(60))
         .same_site(SameSite::Lax)
         .http_only(true)
         .finish();
 
-    let mut response = Response::new(json!({"status": "success", "token": token}).to_string());
+    let refresh_cookie = Cookie::build(("refresh_token", refresh_token.to_owned()))
+        .path("/")
+        .max_age(time::Duration::days(30))
+        .same_site(SameSite::Lax)
+        .http_only(true)
+        .finish();
+
+    let mut response = Response::new(json!({"status": "success", "access_token": access_token, "refresh_token": refresh_token}).to_string());
     response
         .headers_mut()
-        .insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
+        .append(header::SET_COOKIE, access_cookie.to_string().parse().unwrap());
+    response
+        .headers_mut()
+        .append(header::SET_COOKIE, refresh_cookie.to_string().parse().unwrap());
+    println!("response: {:?}", &response);
+    Ok(response)
+}
+
+#[utoipa::path(
+    method(post),
+    path = "/auth/refresh",
+    responses(
+        (status = axum::http::StatusCode::OK, description = "Success", content_type = "text/plain"),
+        (status = axum::http::StatusCode::BAD_REQUEST, description = "Error", content_type = "text/plain")
+    )
+)]
+pub async fn refresh(
+    State(data): State<Arc<AppState>>,
+    cookie_jar: CookieJar,
+    header: HeaderMap,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    let token = cookie_jar
+        .get("refresh_token")
+        .map(|cookie| {
+            println!("token cookie");
+            cookie.value().to_string()
+        })
+        .or_else(|| {
+            println!("token header");
+            header
+                .get("Authorization")
+                .and_then(|auth_header| auth_header.to_str().ok())
+                .and_then(|auth_value| {
+                    if auth_value.starts_with("Bearer ") {
+                        Some(auth_value[7..].to_owned())
+                    } else {
+                        None
+                    }
+                })
+        });
+
+    println!("token: {:?}", token);
+    let token = token.ok_or_else(|| {
+        let error_response = serde_json::json!({
+            "status": "fail",
+            "message": "You are not logged in, please provide token",
+        });
+        (StatusCode::UNAUTHORIZED, Json(error_response))
+    })?;
+
+    println!("token ok: {:?}", token);
+    let claims = decode::<TokenClaims>(
+        &token,
+        &DecodingKey::from_secret(data.env.jwt_secret.as_ref()),
+        &Validation::default(),
+    )
+    .map_err(|_| {
+        let error_response = serde_json::json!({
+            "status": "fail",
+            "message": "Invalid token",
+        });
+        (StatusCode::UNAUTHORIZED, Json(error_response))
+    })?
+    .claims;
+
+    // Assuming `users.id` is i32:
+    let user_id: i32 = claims.sub.parse().map_err(|_| {
+        let error_response = serde_json::json!({
+            "status": "fail",
+            "message": "Invalid token subject format",
+        });
+        (StatusCode::UNAUTHORIZED, Json(error_response))
+    })?;
+
+    let user = sqlx::query_as!(User, "SELECT * FROM users WHERE id = $1", user_id)
+        .fetch_optional(&data.db)
+        .await
+        .map_err(|e| {
+            let error_response = serde_json::json!({
+                "status": "fail",
+                "message": format!("Error fetching user from database: {}", e),
+            });
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
+        })?;
+
+    let user = user.ok_or_else(|| {
+        let error_response = serde_json::json!({
+            "status": "fail",
+            "message": "The user belonging to this token no longer exists",
+        });
+        (StatusCode::UNAUTHORIZED, Json(error_response))
+    })?;
+
+    let now = chrono::Utc::now();
+    let new_access_token = create_token(
+        &user.id.to_string(),
+        (now + chrono::Duration::minutes(60)).timestamp() as usize,
+        data.env.jwt_secret.as_ref(),
+    );
+
+    let new_access_cookie = Cookie::build(("access_token", new_access_token.to_owned()))
+        .path("/")
+        .max_age(time::Duration::minutes(60))
+        .same_site(SameSite::Lax)
+        .http_only(true)
+        .finish();
+
+    let mut response = Response::new(json!({"status": "success", "access_token": new_access_token}).to_string());
+    response
+        .headers_mut()
+        .insert(header::SET_COOKIE, new_access_cookie.to_string().parse().unwrap());
     println!("response: {:?}", &response);
     Ok(response)
 }
@@ -198,14 +330,24 @@ pub async fn login(
     )
 )]
 pub async fn logout() -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let cookie = Cookie::build("token")
+    let cookie = Cookie::build("access_token")
         .path("/")
-        .max_age(time::Duration::weeks(-1))
+        .max_age(time::Duration::days(-360))
+        .same_site(SameSite::Lax)
+        .http_only(true)
+        .finish();
+
+    let cookie = Cookie::build("refresh_token")
+        .path("/")
+        .max_age(time::Duration::days(-360))
         .same_site(SameSite::Lax)
         .http_only(true)
         .finish();
 
     let mut response = Response::new(json!({"status": "success"}).to_string());
+    response
+        .headers_mut()
+        .insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
     response
         .headers_mut()
         .insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());

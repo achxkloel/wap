@@ -109,6 +109,7 @@ async fn main() {
         .routes(routes!(backend::routes::auth::handlers::register))
         .routes(routes!(backend::routes::auth::handlers::login))
         .routes(routes!(backend::routes::auth::handlers::logout))
+        .routes(routes!(backend::routes::auth::handlers::refresh))
         // Settings
         .routes(
             routes!(backend::routes::settings::handlers::put_settings)

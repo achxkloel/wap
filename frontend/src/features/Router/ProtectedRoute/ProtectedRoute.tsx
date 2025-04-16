@@ -1,9 +1,9 @@
-import useAuthStore from '@/lib/store/auth';
+import { useIsAuthorized } from '@/lib/store/auth';
 import { Navigate, Outlet } from 'react-router';
 
 function ProtectedRoute() {
-    const token = useAuthStore((state) => state.token);
-    return token !== null ? <Outlet /> : <Navigate to="/" />;
+    const isAuthorized = useIsAuthorized();
+    return isAuthorized ? <Outlet /> : <Navigate to="/" />;
 }
 
 export default ProtectedRoute;

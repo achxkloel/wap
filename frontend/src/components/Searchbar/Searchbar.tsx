@@ -27,7 +27,7 @@ function Searchbar({ onChange, onSubmit }: SearchbarProps) {
     };
 
     return (
-        <div className="relative">
+        <div className="relative h-fit">
             <Input
                 type="text"
                 placeholder="Search"

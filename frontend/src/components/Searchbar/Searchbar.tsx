@@ -1,14 +1,16 @@
 import { Input } from '@/components/ui/input';
 import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons/faMagnifyingGlass';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import clsx from 'clsx';
 import { useState } from 'react';
 
 interface SearchbarProps {
     onChange?: (value: string) => void;
     onSubmit?: (value: string) => void;
+    iconPosition?: 'left' | 'right';
 }
 
-function Searchbar({ onChange, onSubmit }: SearchbarProps) {
+function Searchbar({ onChange, onSubmit, iconPosition = 'right' }: SearchbarProps) {
     const [value, setValue] = useState('');
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,17 +29,20 @@ function Searchbar({ onChange, onSubmit }: SearchbarProps) {
     };
 
     return (
-        <div className="relative h-fit">
+        <div className="relative h-fit w-full">
             <Input
                 type="text"
                 placeholder="Search"
-                className="w-full pr-10"
+                className={clsx(iconPosition === 'right' ? 'pr-10' : 'pl-10')}
                 onKeyDown={handleKeyDown}
                 onChange={handleChange}
             />
             <FontAwesomeIcon
                 icon={faMagnifyingGlass}
-                className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500"
+                className={clsx(
+                    'absolute top-1/2 -translate-y-1/2 text-gray-500',
+                    iconPosition === 'left' ? 'left-3' : 'right-3',
+                )}
             />
         </div>
     );

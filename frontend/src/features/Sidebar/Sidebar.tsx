@@ -51,7 +51,10 @@ function Sidebar() {
                                 isSelected(item.to) ? 'bg-gray-200' : 'text-gray-700 hover:bg-gray-200',
                             )}
                         >
-                            <FontAwesomeIcon icon={item.icon}></FontAwesomeIcon>
+                            <FontAwesomeIcon
+                                icon={item.icon}
+                                fixedWidth
+                            ></FontAwesomeIcon>
                             <Link
                                 to={item.to}
                                 className="flex-1"

@@ -2,26 +2,22 @@
 use argon2::{password_hash::SaltString, Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use axum::{
     extract::{Json, State},
-    http::{header, Response, StatusCode, HeaderMap},
+    http::{header, HeaderMap, Response, StatusCode},
     response::IntoResponse,
-    routing::post,
 };
 use serde_json::json;
 
-use axum_extra::extract::cookie::{Cookie, SameSite, CookieJar};
-use bcrypt::{hash, verify, DEFAULT_COST};
+use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use rand_core::OsRng;
-use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use serde::Serialize;
 
-use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, decode, EncodingKey, Header, Validation, DecodingKey};
-use sqlx::postgres::PgPoolOptions;
-use std::env;
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use std::sync::Arc;
-use utoipa_axum::{router::OpenApiRouter, routes, PathItemExt};
 
-use crate::model::{Theme, RegisterUserRequestSchema, AppState, CreateUser, LoginUser, LoginUserSchema, TokenClaims, User, LoginResponse, RegisterResponse, UserRegisterResponse};
+use crate::shared::models::{
+    AppState, LoginUser, LoginUserSchema, RegisterResponse, RegisterUserRequestSchema, TokenClaims,
+    User, UserRegisterResponse,
+};
 
 // -------------------------------------------------------------------------------------------------
 // Routes
@@ -99,19 +95,16 @@ pub async fn register(
     })});
 
     // Insert new settings
-    sqlx::query!(
-        "INSERT INTO settings (user_id) VALUES ($1)",
-        user.id,
-    )
-    .execute(&state.db)
-    .await
-    .map_err(|e| {
-        let error_response = serde_json::json!({
-            "status": "fail",
-            "message": format!("Error inserting settings: {}", e),
-        });
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-    })?;
+    sqlx::query!("INSERT INTO settings (user_id) VALUES ($1)", user.id,)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            let error_response = serde_json::json!({
+                "status": "fail",
+                "message": format!("Error inserting settings: {}", e),
+            });
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
+        })?;
 
     Ok(Json(user_response))
 }
@@ -194,22 +187,27 @@ pub async fn login(
         .max_age(time::Duration::minutes(60))
         .same_site(SameSite::Lax)
         .http_only(true)
-        .finish();
+        .build();
 
     let refresh_cookie = Cookie::build(("refresh_token", refresh_token.to_owned()))
         .path("/")
         .max_age(time::Duration::days(30))
         .same_site(SameSite::Lax)
         .http_only(true)
-        .finish();
+        .build();
 
-    let mut response = Response::new(json!({"status": "success", "access_token": access_token, "refresh_token": refresh_token}).to_string());
-    response
-        .headers_mut()
-        .append(header::SET_COOKIE, access_cookie.to_string().parse().unwrap());
-    response
-        .headers_mut()
-        .append(header::SET_COOKIE, refresh_cookie.to_string().parse().unwrap());
+    let mut response = Response::new(
+        json!({"status": "success", "access_token": access_token, "refresh_token": refresh_token})
+            .to_string(),
+    );
+    response.headers_mut().append(
+        header::SET_COOKIE,
+        access_cookie.to_string().parse().unwrap(),
+    );
+    response.headers_mut().append(
+        header::SET_COOKIE,
+        refresh_cookie.to_string().parse().unwrap(),
+    );
     println!("response: {:?}", &response);
     Ok(response)
 }
@@ -311,12 +309,14 @@ pub async fn refresh(
         .max_age(time::Duration::minutes(60))
         .same_site(SameSite::Lax)
         .http_only(true)
-        .finish();
+        .build();
 
-    let mut response = Response::new(json!({"status": "success", "access_token": new_access_token}).to_string());
-    response
-        .headers_mut()
-        .insert(header::SET_COOKIE, new_access_cookie.to_string().parse().unwrap());
+    let mut response =
+        Response::new(json!({"status": "success", "access_token": new_access_token}).to_string());
+    response.headers_mut().insert(
+        header::SET_COOKIE,
+        new_access_cookie.to_string().parse().unwrap(),
+    );
     println!("response: {:?}", &response);
     Ok(response)
 }
@@ -330,19 +330,12 @@ pub async fn refresh(
     )
 )]
 pub async fn logout() -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let cookie = Cookie::build("access_token")
-        .path("/")
-        .max_age(time::Duration::days(-360))
-        .same_site(SameSite::Lax)
-        .http_only(true)
-        .finish();
-
     let cookie = Cookie::build("refresh_token")
         .path("/")
         .max_age(time::Duration::days(-360))
         .same_site(SameSite::Lax)
         .http_only(true)
-        .finish();
+        .build();
 
     let mut response = Response::new(json!({"status": "success"}).to_string());
     response

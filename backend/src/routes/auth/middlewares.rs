@@ -12,7 +12,7 @@ use axum_extra::extract::cookie::CookieJar;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::Serialize;
 
-use crate::model::{AppState, TokenClaims, User};
+use crate::shared::models::{AppState, TokenClaims, User};
 
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {
@@ -24,7 +24,7 @@ pub async fn auth(
     cookie_jar: CookieJar,
     State(data): State<Arc<AppState>>,
     mut req: Request<Body>,
-    next: Next,
+    next: Next, // TODO: Should we store it in axum Extension or rather in the AppState?
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     println!("Auth middleware");
     let token = cookie_jar

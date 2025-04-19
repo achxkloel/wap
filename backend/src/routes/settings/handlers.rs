@@ -1,15 +1,11 @@
-use crate::model::{AppState, Settings, User};
+use crate::shared::models::{AppState, Settings, User};
 use axum::{
     extract::{Json, State},
     http::StatusCode,
     response::IntoResponse,
     Extension, Json as AxumJson,
 };
-use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
 use std::sync::Arc;
-use utoipa::ToSchema;
-// use crate::response::{}
 
 #[utoipa::path(
     method(put),
@@ -58,7 +54,7 @@ pub async fn put_settings(
     )
 )]
 pub async fn get_settings(
-    Extension(user): Extension<User>, // ✅ Get user injected by middleware
+    Extension(user): Extension<User>, // Get user injected by middleware
     State(state): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let user_id = user.id;

@@ -1,82 +1,85 @@
-# Run
+# For frontend go to [frontend](./frontend)
 
-For details see [Makefile](./Makefile)
+# For backend go to [backend](./backend)
 
-## Whole project
 
-### Create docker images
+## Commands overview:
+
+### Whole project
+
+#### Create docker images
 
 ```
 make build
 ```
 
-### UP all
+#### UP all
 
 ```
 make up
 ```
 
-### Down all
+#### Down all
 
 ```
 make down
 ```
 
-## Frontend
+### Frontend
 
-### UP frontend
+#### UP frontend
 
 ```
 make frontend-up
 ```
 
-### Run and go into frontend docker container shell
+#### Run and go into frontend docker container shell
 
 ```
 make frontend-fish
 ```
 
-### Exec into running frontend container
+#### Exec into running frontend container
 
 ```
 make frontend-exec
 ```
 
-## Backend
+### Backend
 
-### UP backend
+#### UP backend
 
 ```
 make backend-up
 ```
 
-### Run and go into backend docker container shell
+#### Run and go into backend docker container shell
 
 ```
 make backend-fish
 ```
 
-### Exec into running backend container
+#### Exec into running backend container
 
 ```
 make backend-exec
 ```
 
-## PostgreSQL
+### PostgreSQL
 
-### UP pgsql
+#### UP pgsql
 
 ```
 make pgsql-up
 ```
 
-### Run and go into pgsql docker container shell
+#### Run and go into pgsql docker container shell
 
 ```
 make pgsql-fish
 ```
 
-### Exec into running pgsql container
+#### Exec into running pgsql container
 
 ```
 make pgsql-exec

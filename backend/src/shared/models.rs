@@ -1,4 +1,4 @@
-use crate::config::{Config};
+use crate::config::Config;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -81,7 +81,6 @@ pub struct CreateLocationRequest {
     pub longitude: f64,
     pub description: std::option::Option<String>,
 }
-
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone, ToSchema)]
 pub struct UserRegisterResponse {

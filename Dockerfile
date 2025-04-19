@@ -20,11 +20,16 @@ FROM rust:1.85 AS backend
 ENV WORKDIR /opt/backend
 WORKDIR $WORKDIR
 
-COPY backend/Cargo.toml backend/Cargo.lock $WORKDIR/
+# Install development packages
 RUN <<EOF
-    apt-get update -y && apt-get install -y fish vim postgresql postgresql-contrib
-    cargo install cargo-watch
-    cargo install sqlx-cli --no-default-features --features postgres
+    apt-get update -y && apt-get install -y fish vim git;
+    cargo install cargo-watch;
+EOF
+
+# Install production packages
+RUN <<EOF
+    apt-get update -y && apt-get install -y postgresql postgresql-contrib;
+    cargo install sqlx-cli --no-default-features --features postgres;
 EOF
 
 #----------------------------------------------------------------------
@@ -36,6 +41,6 @@ ENV WORKDIR /opt/db
 WORKDIR $WORKDIR
 
 RUN <<EOF
-    apt-get update -y && apt-get install -y fish vim
+    apt-get update -y && apt-get install -y fish vim;
 EOF
 

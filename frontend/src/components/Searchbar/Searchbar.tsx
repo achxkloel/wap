@@ -1,7 +1,7 @@
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons/faMagnifyingGlass';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import clsx from 'clsx';
 import { useState } from 'react';
 
 interface SearchbarProps {
@@ -33,13 +33,13 @@ function Searchbar({ onChange, onSubmit, iconPosition = 'right' }: SearchbarProp
             <Input
                 type="text"
                 placeholder="Search"
-                className={clsx(iconPosition === 'right' ? 'pr-10' : 'pl-10')}
+                className={cn(iconPosition === 'right' ? 'pr-10' : 'pl-10')}
                 onKeyDown={handleKeyDown}
                 onChange={handleChange}
             />
             <FontAwesomeIcon
                 icon={faMagnifyingGlass}
-                className={clsx(
+                className={cn(
                     'absolute top-1/2 -translate-y-1/2 text-gray-500',
                     iconPosition === 'left' ? 'left-3' : 'right-3',
                 )}

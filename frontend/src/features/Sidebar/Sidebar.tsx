@@ -1,12 +1,12 @@
 import { AuthDialog } from '@/components/AuthDialog';
 import { useIsAuthorized } from '@/lib/store/auth';
+import { cn } from '@/lib/utils';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { faCloud } from '@fortawesome/free-solid-svg-icons/faCloud';
 import { faGear } from '@fortawesome/free-solid-svg-icons/faGear';
 import { faHouse } from '@fortawesome/free-solid-svg-icons/faHouse';
 import { faMap } from '@fortawesome/free-solid-svg-icons/faMap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import clsx from 'clsx';
 import { Link, useLocation } from 'react-router';
 
 interface NavItem {
@@ -36,7 +36,7 @@ function Sidebar() {
     };
 
     return (
-        <div className="w-64 shadow-md p-4 flex flex-col space-y-4">
+        <div className="w-64 shadow-lg z-10 p-4 flex flex-col space-y-4">
             <nav className="flex-1 flex flex-col space-y-2">
                 {navItems.map((item, index) => {
                     if (item.protected && !isAuthorized) {
@@ -46,7 +46,7 @@ function Sidebar() {
                     return (
                         <div
                             key={index}
-                            className={clsx(
+                            className={cn(
                                 'px-3 py-2 rounded transition flex items-center space-x-4 cursor-pointer',
                                 isSelected(item.to) ? 'bg-gray-200' : 'text-gray-700 hover:bg-gray-200',
                             )}

@@ -1,7 +1,4 @@
-import axios from 'axios';
 import { BBox, FeatureCollection, Point } from 'geojson';
-
-const URL = 'https://earthquake.usgs.gov/fdsnws/event/1';
 
 export interface EarthquakeProperties {
     mag: number;
@@ -30,6 +27,9 @@ export interface EarthquakeProperties {
     magType: string;
     type: string;
 }
+
+export type EarthquakeRealtimePeriod = 'hour' | 'day' | 'week' | 'month';
+export type EarthquakeRealtimeMagnitude = 'all' | '1.0' | '2.5' | '4.5' | 'significant';
 
 export interface EarthquakeRequestParams {
     // Time
@@ -98,15 +98,21 @@ export interface EarthquakeMetadata {
 
 export interface EarthquakeData extends FeatureCollection<Point, EarthquakeProperties> {
     metadata: EarthquakeMetadata;
-    bbox?: BBox;
+    bbox: BBox;
 }
 
-const getEarthquakes = async (params: EarthquakeRequestParams) => {
-    return axios
-        .get(`${URL}/query?format=geojson`, {
-            params,
-        })
-        .then((response) => response.data);
-};
+export enum EarthquakeEnum {
+    CATALOGS = 'catalogs',
+    CONTRIBUTORS = 'contributors',
+    PRODUCTTYPES = 'producttypes',
+    EVENTTYPES = 'eventtypes',
+    MAGNITUDETYPES = 'magnitudeTypes',
+}
 
-export default getEarthquakes;
+export interface EarthquakeEnumData {
+    [EarthquakeEnum.CATALOGS]: string[];
+    [EarthquakeEnum.CONTRIBUTORS]: string[];
+    [EarthquakeEnum.PRODUCTTYPES]: string[];
+    [EarthquakeEnum.EVENTTYPES]: string[];
+    [EarthquakeEnum.MAGNITUDETYPES]: string[];
+}

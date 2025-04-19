@@ -1,58 +1,111 @@
 import MapComponent from '@/components/Map';
-import getEarthquakes, { EarthquakeProperties } from '@/lib/data/getEarthquakes';
+import Page from '@/components/Page';
+import Searchbar from '@/components/Searchbar';
+import { Button } from '@/components/ui/button';
+import getFilteredEarthquakes from '@/lib/data/earthquakes/getFiltered';
 import useData from '@/lib/store/data';
-import { Feature, Point } from 'geojson';
-import { useCallback, useState } from 'react';
+import { faFilter } from '@fortawesome/free-solid-svg-icons/faFilter';
+import { faXmark } from '@fortawesome/free-solid-svg-icons/faXmark';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import React, { useEffect, useState } from 'react';
+import Filters from './Filters';
+import { FilterFormValues } from './Filters/Filters';
+
+const defaultFilters: FilterFormValues = {
+    mode: 'realtime',
+    realtimePeriod: 'week',
+    realtimeMagnitude: 'all',
+    startTime: undefined,
+    endTime: undefined,
+    catalog: undefined,
+    contributor: undefined,
+    productType: undefined,
+    includeAllMagnitudes: false,
+    includeAllOrigins: false,
+    includeAllArrivals: false,
+    minDepth: undefined,
+    maxDepth: undefined,
+    locationType: undefined,
+    minLatitude: undefined,
+    maxLatitude: undefined,
+    minLongitude: undefined,
+    maxLongitude: undefined,
+    latitude: undefined,
+    longitude: undefined,
+    maxRadiusKm: undefined,
+};
 
 function Map() {
-    const [location, setLocation] = useState<[number, number]>();
-    const earthquakes = useData((state) => state.earthquake);
+    const [filters, setFilters] = useState<FilterFormValues>(defaultFilters);
+    const [filterOpen, setFilterOpen] = useState(false);
     const setEarthquakes = useData((state) => state.setEarthquake);
 
-    const handleBoundsChange = useCallback(async (bounds: L.LatLngBounds) => {
-        setLocation(undefined);
+    useEffect(() => {
+        fetchData();
+    }, [filters]);
 
+    const fetchData = async () => {
         try {
-            const data = await getEarthquakes({
-                maxlatitude: bounds.getNorthEast().lat,
-                minlatitude: bounds.getSouthWest().lat,
-                maxlongitude: bounds.getNorthEast().lng,
-                minlongitude: bounds.getSouthWest().lng,
-            });
-
+            const data = await getFilteredEarthquakes(filters);
             setEarthquakes(data);
-            console.log('Earthquakes:', data);
         } catch (e) {
             console.error('Error fetching earthquakes:', e);
         }
-    }, []);
+    };
 
-    const handleEarthquakeClick = (feature: Feature<Point, EarthquakeProperties>) => {
-        setLocation([feature.geometry.coordinates[1], feature.geometry.coordinates[0]]);
+    const toggleFilter = () => {
+        setFilterOpen((prev) => !prev);
+    };
+
+    const handleFilterSubmit = async (filters: FilterFormValues) => {
+        toggleFilter();
+        setFilters(filters);
     };
 
     return (
-        <div className="h-full w-full flex">
-            <MapComponent
-                location={location}
-                locationZoom={10}
-                onBoundsChange={handleBoundsChange}
-                animate={true}
-            />
-            <div className="flex flex-col w-[400px] overflow-y-auto">
-                {earthquakes &&
-                    earthquakes.features.map((feature) => (
-                        <div
-                            key={feature.id}
-                            className="p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
-                            onClick={() => handleEarthquakeClick(feature)}
-                        >
-                            <h4 className="text-md font-semibold">{feature.properties.place}</h4>
-                            <p className="text-sm text-gray-500">Magnitude: {feature.properties.mag}</p>
+        <Page>
+            <MapComponent />
+            <div className="flex flex-col w-[400px] gap-2">
+                {filterOpen ? (
+                    <React.Fragment>
+                        <div className="w-full flex justify-between p-4">
+                            <h4 className="text-lg font-semibold">Filters</h4>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={toggleFilter}
+                            >
+                                <FontAwesomeIcon icon={faXmark} />
+                            </Button>
                         </div>
-                    ))}
+                        <Filters
+                            values={filters}
+                            defaultValues={defaultFilters}
+                            onSubmit={handleFilterSubmit}
+                        />
+                    </React.Fragment>
+                ) : (
+                    <div className="w-full flex gap-4 p-4">
+                        <Searchbar
+                            iconPosition="left"
+                            onChange={(value) => {
+                                console.log('Search value:', value);
+                            }}
+                            onSubmit={(value) => {
+                                console.log('Search submitted:', value);
+                            }}
+                        />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={toggleFilter}
+                        >
+                            <FontAwesomeIcon icon={faFilter} />
+                        </Button>
+                    </div>
+                )}
             </div>
-        </div>
+        </Page>
     );
 }
 

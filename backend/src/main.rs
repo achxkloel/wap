@@ -9,7 +9,7 @@ use sqlx::PgPool;
 use std::future::IntoFuture;
 use utoipa_axum::{router::OpenApiRouter, routes};
 
-use backend::config::Config;
+use backend::config::WapSettings;
 use backend::shared::models::AppState;
 use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
@@ -93,20 +93,57 @@ struct Login {
     password: String,
 }
 
+use std::future::Future;
+
+use futures_util::{future, StreamExt};
+use tokio_util::sync::CancellationToken;
+
+async fn interrupt_signal<FT>(ft: FT)
+where
+    FT: Future + Send + 'static,
+{
+    use tokio::signal::unix;
+    use tokio_stream::wrappers::SignalStream;
+
+    let sigterm = SignalStream::new(
+        unix::signal(unix::SignalKind::terminate()).expect("BUG: Error listening for SIGTERM"),
+    );
+    let sigint = SignalStream::new(
+        unix::signal(unix::SignalKind::interrupt()).expect("BUG: Error listening for SIGINT"),
+    );
+
+    future::select(sigterm.into_future(), sigint.into_future()).await;
+    ft.await;
+}
+
+pub(crate) trait HaltOnSignal {
+    fn halt_on_signal(&self);
+}
+
+impl HaltOnSignal for CancellationToken {
+    fn halt_on_signal(&self) {
+        let this = self.clone();
+        tokio::spawn(interrupt_signal(async move { this.cancel() }));
+        // tokio::spawn(interrupt_signal(this.cancel()));
+    }
+}
+
+// async fn test_end_print(token: CancellationToken) {
+//     token.cancelled().await;
+//     tracing::info!("Starting graceful shutdown");
+// }
+
 #[tokio::main]
 async fn main() {
-    // Initialize database
-    let db = init_db().await;
-
-    // Load env variables
-    let config = Config::init();
+    // Logging
+    let _r = tracing_subscriber::fmt::fmt().try_init();
 
     let state = AppState {
-        db: db.clone(),
-        env: config.clone(),
+        db: init_db().await,
+        settings: WapSettings::init(),
     };
 
-    println!("Starting server with config: {:?}", state.env);
+    tracing::info!("Loaded config: {:#?}", state.settings);
 
     let (router, api_docs) = app_router(state).await.split_for_parts();
 
@@ -115,9 +152,17 @@ async fn main() {
         .merge(Scalar::with_url("/scalar", api_docs));
 
     // run our app with hyper, listening globally on port 3000
-    println!(
-        "Listening on http://localhost:3000, for OpenAPI docs go to: http://localhost:3000/scalar"
+    tracing::info!(
+    "Starting up the server on http://localhost:3000, for OpenAPI docs go to: http://localhost:3000/scalar"
     );
+
+    // tracing
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, router).await.unwrap();
+    let token = CancellationToken::new();
+    token.halt_on_signal();
+    // tokio::spawn(test_end_print(token.clone()));
+    axum::serve(listener, router)
+        .with_graceful_shutdown(token.cancelled_owned())
+        .await
+        .unwrap();
 }

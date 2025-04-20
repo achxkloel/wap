@@ -12,7 +12,7 @@ pub fn router(app: AppState) -> utoipa_axum::router::OpenApiRouter {
     let router = utoipa_axum::router::OpenApiRouter::new()
         .routes(routes!(handlers::register))
         .routes(routes!(handlers::login))
-        .routes(routes!(handlers::logout).layer(axum::middleware::from_fn_with_state(app.clone(), middlewares::auth)))
+        // .routes(routes!(handlers::logout).layer(axum::middleware::from_fn_with_state(app.clone(), middlewares::auth)))
         .routes(routes!(handlers::refresh).layer(axum::middleware::from_fn_with_state(app.clone(), middlewares::auth)))
         .with_state(app);
     router

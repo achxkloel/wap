@@ -1,18 +1,18 @@
-use crate::shared::models::{AppState};
+use crate::config::WapSettings;
+use crate::routes::auth::models::User;
+use crate::routes::weather_location::models::{UserSettings, UserSettingsUpdateRequest};
+use crate::shared::models::AppState;
 use axum::{
     extract::{Json, State},
     http::StatusCode,
     response::IntoResponse,
     Extension, Json as AxumJson,
 };
-use std::sync::Arc;
-use crate::routes::auth::models::User;
-use crate::routes::weather_location::models::Settings;
 
 #[utoipa::path(
     method(put),
     path = "/user/settings",
-    request_body = Settings,
+    request_body = UserSettingsUpdateRequest,
     responses(
         (status = 200, description = "Settings updated"),
         (status = 400, description = "Bad request")
@@ -21,7 +21,7 @@ use crate::routes::weather_location::models::Settings;
 pub async fn put_settings(
     State(state): State<AppState>,
     Extension(user): Extension<User>,
-    Json(payload): Json<Settings>,
+    Json(payload): Json<UserSettingsUpdateRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, AxumJson<serde_json::Value>)> {
     // Simulated user ID – in real apps this should come from auth middleware
     println!("{:?}", payload);
@@ -50,7 +50,7 @@ pub async fn put_settings(
     get,
     path = "/user/settings",
     responses(
-        (status = 200, description = "User settings returned", body = Settings),
+        (status = 200, description = "User settings returned", body = UserSettingsUpdateRequest),
         (status = 404, description = "No settings found for user"),
         (status = 500, description = "Internal server error")
     )
@@ -62,7 +62,7 @@ pub async fn get_settings(
     let user_id = user.id;
     println!("user: {:#?}", user);
 
-    let settings = sqlx::query_as::<_, Settings>(
+    let settings = sqlx::query_as::<_, UserSettings>(
         r#"
         SELECT theme, notifications_enabled, radius
         FROM settings
@@ -88,3 +88,113 @@ pub async fn get_settings(
         }
     }
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use axum::{
+//         body::Body,
+//         http::{Method, Request, StatusCode}
+//
+//         ,
+//     };
+//     use http_body_util::BodyExt;
+//     use tower::ServiceExt;
+//
+//     /// Helper that injects a `User` into the request’s extensions.
+//     // fn with_user<B>(mut req: Request<B>, user: &User) -> Request<B> {
+//     //     req.extensions_mut().insert(user.clone());
+//     //     req
+//     // }
+//
+//     #[sqlx::test]
+//     async fn settings_round_trip(pool: sqlx::PgPool) {
+//         /* ─────────────── Arrange ─────────────── */
+//         let app = AppState {
+//             db: pool.clone(),
+//             settings: WapSettings {
+//                 database_url: "".into(),
+//                 jwt_secret: "secret".into(),
+//                 jwt_expires_in: "".into(),
+//                 jwt_maxage: 0,
+//             },
+//         };
+//
+//         let (router, _) = crate::routes::settings::router(app.clone()).split_for_parts();
+//
+//         /* ─────────────── GET (default row) ─────────────── */
+//         let res = router
+//             .clone()
+//             .oneshot(
+//                 Request::builder()
+//                     .method(Method::GET)
+//                     .uri("/user/settings")
+//                     .header("content-type", "application/json")
+//                     .header("accept", "application/json")
+//                     .body(Body::empty())
+//                     .unwrap(),
+//             )
+//             .await
+//             .unwrap();
+//         assert_eq!(res.status(), StatusCode::OK);
+//
+//         let body = res.into_body().collect().await.unwrap().to_bytes();
+//         let settings: WapSettings = serde_json::from_slice(&body).unwrap();
+//         assert_eq!(settings.theme, 0); // default enum value
+//         assert_eq!(settings.radius, 10); // whatever your default is
+//         assert!(settings.notifications_enabled);
+//
+//         /* ─────────────── PUT (update settings) ─────────────── */
+//         let payload = WapSettings {
+//             theme: 1,
+//             notifications_enabled: false,
+//             radius: 42,
+//         };
+//         let res = router
+//             .clone()
+//             .oneshot(
+//                 Request::builder()
+//                     .method(Method::PUT)
+//                     .uri("/user/settings")
+//                     .header("content-type", "application/json")
+//                     .body(Body::from(serde_json::to_vec(&payload).unwrap()))
+//                     .unwrap(),
+//             )
+//             .await
+//             .unwrap();
+//         assert_eq!(res.status(), StatusCode::OK);
+//
+//         /* ─────────────── GET again (should be updated) ─────────────── */
+//         let res = router
+//             .clone()
+//             .oneshot(with_user(
+//                 Request::get("/user/settings").body(Body::empty()).unwrap(),
+//                 &user,
+//             ))
+//             .await
+//             .unwrap();
+//         let body = res.into_body().collect().await.unwrap().to_bytes();
+//         let updated: WapSettings = serde_json::from_slice(&body).unwrap();
+//         assert_eq!(updated, payload);
+//
+//         /* ─────────────── GET for a user with no row (404) ─────────────── */
+//         let other_user = sqlx::query_as!(
+//             User,
+//             r#"INSERT INTO users (email, password)
+//                VALUES ('no_settings@example.com','hashed')
+//                RETURNING id, email, password, created_at, updated_at"#,
+//         )
+//         .fetch_one(&pool)
+//         .await
+//         .unwrap();
+//
+//         let res = router
+//             .oneshot(with_user(
+//                 Request::get("/user/settings").body(Body::empty()).unwrap(),
+//                 &other_user,
+//             ))
+//             .await
+//             .unwrap();
+//         assert_eq!(res.status(), StatusCode::NOT_FOUND);
+//     }
+// }

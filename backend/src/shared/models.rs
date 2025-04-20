@@ -1,10 +1,10 @@
-use crate::config::Config;
+use crate::config::WapSettings;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Clone)]
 pub struct AppState {
     pub db: sqlx::PgPool,
-    pub env: Config,
+    pub settings: WapSettings,
 }
 

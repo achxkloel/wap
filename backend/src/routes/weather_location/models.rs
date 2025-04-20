@@ -12,7 +12,14 @@ pub enum Theme {
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema, sqlx::FromRow)]
-pub struct Settings {
+pub struct UserSettingsUpdateRequest {
+    pub theme: Theme,
+    pub notifications_enabled: bool,
+    pub radius: i32,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema, sqlx::FromRow)]
+pub struct UserSettings {
     pub theme: Theme,
     pub notifications_enabled: bool,
     pub radius: i32,

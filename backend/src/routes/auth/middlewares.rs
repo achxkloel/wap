@@ -1,23 +1,17 @@
+use crate::routes::auth::models::{AuthError, TokenClaims, User};
+use crate::shared::models::AppState;
 use axum::{
     body::Body,
-    extract::{State},
+    extract::State,
     http::{header, Request, StatusCode},
     middleware::Next,
-    response::{IntoResponse, Response},
+    response::Response,
     Json,
 };
 use axum_extra::extract::cookie::CookieJar;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::Serialize;
-use std::sync::Arc;
-use crate::routes::auth::models::{TokenClaims, User};
-use crate::shared::models::{AppState};
 
-#[derive(Debug, Serialize)]
-pub struct ErrorResponse {
-    pub status: &'static str,
-    pub message: String,
-}
 
 // NOTE: the `E` in `Result<Response, E>` must implement `IntoResponse`.
 pub async fn auth(
@@ -25,21 +19,35 @@ pub async fn auth(
     State(state): State<AppState>,
     mut req: Request<Body>,
     next: Next,
-) -> Result<Response, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<Response, (StatusCode, Json<AuthError>)> {
     /* ─────────────────── 1. extract the token ─────────────────── */
-    let token = jar
-        .get("access_token")
-        .map(|c| c.value().to_owned())
-        .or_else(|| {
-            req.headers()
-                .get(header::AUTHORIZATION)
-                .and_then(|h| h.to_str().ok())
-                .and_then(|v| v.strip_prefix("Bearer ").map(str::to_owned))
-        })
+    // let token = jar
+    //     .get("access_token")
+    //     .map(|c| c.value().to_owned())
+    //     .or_else(|| {
+    //         req.headers()
+    //             .get(header::AUTHORIZATION)
+    //             .and_then(|h| h.to_str().ok())
+    //             .and_then(|v| v.strip_prefix("Bearer ").map(str::to_owned))
+    //     })
+    //     .ok_or_else(|| {
+    //         (
+    //             StatusCode::UNAUTHORIZED,
+    //             Json(ErrorResponse {
+    //                 status: "fail",
+    //                 message: "You are not logged in, please provide a token".into(),
+    //             }),
+    //         )
+    //     })?;
+    let token = req
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer ").map(str::to_owned))
         .ok_or_else(|| {
             (
                 StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
+                Json(AuthError {
                     status: "fail",
                     message: "You are not logged in, please provide a token".into(),
                 }),
@@ -49,25 +57,25 @@ pub async fn auth(
     /* ─────────────────── 2. validate & decode ─────────────────── */
     let claims = decode::<TokenClaims>(
         &token,
-        &DecodingKey::from_secret(state.env.jwt_secret.as_bytes()),
+        &DecodingKey::from_secret(state.settings.jwt_secret.as_bytes()),
         &Validation::default(),
     )
-        .map_err(|_| {
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
-                    status: "fail",
-                    message: "Invalid token".into(),
-                }),
-            )
-        })?
-        .claims;
+    .map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(AuthError {
+                status: "fail",
+                message: "Invalid token".into(),
+            }),
+        )
+    })?
+    .claims;
 
     /* ─────────────────── 3. fetch user ─────────────────────────── */
     let user_id: i32 = claims.sub.parse().map_err(|_| {
         (
             StatusCode::UNAUTHORIZED,
-            Json(ErrorResponse {
+            Json(AuthError {
                 status: "fail",
                 message: "Invalid token subject format".into(),
             }),
@@ -80,7 +88,7 @@ pub async fn auth(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
+                Json(AuthError {
                     status: "fail",
                     message: format!("Database error: {e}"),
                 }),
@@ -89,7 +97,7 @@ pub async fn auth(
         .ok_or_else(|| {
             (
                 StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse {
+                Json(AuthError {
                     status: "fail",
                     message: "The user belonging to this token no longer exists".into(),
                 }),

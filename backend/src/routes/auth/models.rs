@@ -1,14 +1,14 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct LoginSuccess {
     pub status: String,
     pub access_token: String,
     pub refresh_token: String,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct LoginError {
     pub status: String,
     pub message: String,
@@ -55,9 +55,23 @@ pub struct UserRegisterResponse {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
-pub struct RegisterResponse {
+pub struct RegisterSuccess {
     pub data: UserRegisterResponse,
     pub status: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
+pub struct LogoutSuccess {}
+
+#[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
+pub struct LogoutError {
+    pub message: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
+pub struct RegisterError {
+    pub status: String,
+    pub message: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone, ToSchema)]
@@ -82,4 +96,25 @@ pub struct TokenClaims {
     pub iat: usize,
     pub exp: usize,
 }
+
+#[derive(Debug, Serialize)]
+pub struct AuthError {
+    pub status: &'static str,
+    pub message: String,
+}
+
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct RefreshSuccess {
+    pub status: String,
+    pub access_token: String,
+}
+
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+pub struct RefreshError {
+    pub status: String,
+    pub message: String,
+}
+
 

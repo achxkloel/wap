@@ -2,7 +2,7 @@ use crate::routes::weather_location::domains::*;
 use anyhow::Result;
 use async_trait::async_trait;
 use sqlx::PgPool;
-use crate::config::Config;
+use crate::config::WapSettings;
 use crate::shared::models::AppState;
 
 #[async_trait]

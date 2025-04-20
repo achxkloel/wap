@@ -8,7 +8,7 @@ WORKDIR $WORKDIR
 
 COPY frontend/package.json frontend/package-lock.json $WORKDIR/
 RUN <<EOF
-    apt-get update -y && apt-get install -y fish vim tree
+    apt-get update -y && apt-get install -y fish vim tree cloc;
     npm install
 EOF
 
@@ -28,7 +28,7 @@ EOF
 
 # Install production packages
 RUN <<EOF
-    apt-get update -y && apt-get install -y postgresql postgresql-contrib;
+    apt-get update -y && apt-get install -y postgresql postgresql-contrib cloc;
     cargo install sqlx-cli --no-default-features --features postgres;
 EOF
 

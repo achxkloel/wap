@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+pub type JwtToken = String;
+
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct LoginSuccess {
     pub status: String,
@@ -76,7 +78,7 @@ pub struct RegisterError {
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone, ToSchema)]
 pub struct LoginResponse {
-    pub status: String,
+    pub status: Option<String>,
     pub access_token: String,
     pub refresh_token: String,
 }
@@ -85,7 +87,7 @@ pub struct LoginResponse {
 pub struct User {
     pub id: i32,
     pub email: String,
-    pub password: String,
+    pub password_hash: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
@@ -118,3 +120,7 @@ pub struct RefreshError {
 }
 
 
+
+//--------------------------------------------------------------------------------------------------
+// Service
+//--------------------------------------------------------------------------------------------------

@@ -2,7 +2,7 @@ create table users
 (
     id         serial primary key,
     email      varchar(255) not null unique,
-    password   varchar(255) not null,
+    password_hash   varchar(255) not null,
     created_at timestamptz  not null default now(),
     updated_at timestamptz  not null default now()
 );

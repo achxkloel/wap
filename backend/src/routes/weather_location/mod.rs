@@ -1,6 +1,3 @@
-use axum::Router;
-use sqlx::PgPool;
-use std::sync::Arc;
 use utoipa_axum::routes;
 
 pub mod domains;
@@ -8,16 +5,16 @@ pub mod handlers;
 pub mod models;
 pub mod services;
 
+use crate::routes::auth::middlewares::auth;
 use crate::routes::weather_location::handlers::{
     __path_create_location, __path_delete_location, __path_get_all_locations,
     __path_get_location_by_id, create_location, delete_location, get_all_locations,
     get_location_by_id,
 };
-pub use domains::*;
-pub use services::{WeatherLocationService};
-use crate::routes::auth::middlewares::auth;
 use crate::routes::weather_location::services::WeatherLocationAppStateImpl;
 use crate::shared::models::AppState;
+pub use domains::*;
+pub use services::WeatherLocationService;
 
 // pub fn router<Z:WeatherLocationService>(app: AppState<Z>) -> utoipa_axum::router::OpenApiRouter {
 pub fn router(app: AppState) -> utoipa_axum::router::OpenApiRouter {

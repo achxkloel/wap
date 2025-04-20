@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use crate::routes::natural_phenomenon_location::NaturalPhenomenonLocationService;
-use crate::routes::weather_location::WeatherLocationService;
 
 // pub type SharedState = std::sync::Arc<AppState>;
 #[derive(Debug, Deserialize, Serialize, ToSchema, sqlx::Type)]

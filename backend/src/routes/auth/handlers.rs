@@ -1,17 +1,15 @@
 // use std::sync::Arc;
-use argon2::{password_hash::SaltString, Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use argon2::{PasswordHasher, PasswordVerifier};
 use axum::{
     extract::{Json, State},
-    http::{header, HeaderMap, Response, StatusCode},
+    http::{HeaderMap, Response, StatusCode},
     response::IntoResponse,
 };
 use serde_json::json;
 
-use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
-use rand_core::OsRng;
 use serde::Serialize;
 
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{decode, DecodingKey, Validation};
 
 use crate::shared::models::AppState;
 
@@ -22,32 +20,18 @@ use crate::shared::models::AppState;
 
 // use axum::{Json, response::IntoResponse};
 use crate::routes::auth::models::{
-    LoginError, LoginSuccess, LoginUser, LoginUserSchema, LogoutError, LogoutSuccess, RefreshError,
-    RefreshSuccess, RegisterError, RegisterSuccess, RegisterUserRequestSchema, TokenClaims, User,
+    LoginError, LoginSuccess, LoginUser, LoginUserSchema, RefreshError, RefreshSuccess,
+    RegisterError, RegisterSuccess, RegisterUserRequestSchema, TokenClaims, User,
     UserRegisterResponse,
 };
+use crate::routes::auth::utils::create_token;
 use utoipa::ToSchema;
+
+use crate::routes::auth::service::{AuthService, PgAuthService};
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SignupResponse {
     pub message: String,
-}
-
-fn create_token(user_id: &str, exp: usize, secret: &str) -> String {
-    let now = chrono::Utc::now();
-    let iat = now.timestamp() as usize;
-    let claims: TokenClaims = TokenClaims {
-        sub: user_id.to_string(),
-        exp,
-        iat,
-    };
-
-    encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(secret.as_ref()),
-    )
-    .unwrap()
 }
 
 #[utoipa::path(
@@ -60,63 +44,18 @@ fn create_token(user_id: &str, exp: usize, secret: &str) -> String {
     )
 )]
 pub async fn register(
-    State(state): State<AppState>,
+    State(service): State<PgAuthService>,
     Json(body): Json<RegisterUserRequestSchema>,
 ) -> Result<(StatusCode, Json<RegisterSuccess>), (StatusCode, Json<RegisterError>)> {
-    let salt = SaltString::generate(&mut OsRng);
-    let hashed_password = Argon2::default()
-        .hash_password(body.password.as_bytes(), &salt)
-        .map_err(|e| {
-            let error_response = serde_json::json!({
-                "status": "fail",
-                "message": format!("Error while hashing password: {}", e),
-            });
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(RegisterError {
-                    status: "fail".to_string(),
-                    message: format!("Error while hashing password: {}", e),
-                }),
-            )
-        })
-        .map(|hash| hash.to_string())?;
-
-    let user = sqlx::query_as!(
-        User,
-        "INSERT INTO users (email,password) VALUES ($1, $2) RETURNING id, email, password, created_at, updated_at",
-        body.email.to_string().to_ascii_lowercase(),
-        hashed_password
-    )
-        .fetch_one(&state.db)
-        .await
-        .map_err(|e| {
-            let error_response = serde_json::json!({
-            "status": "fail",
-            "message": format!("Database error: {}", e),
-        });
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(RegisterError {
+    let user = service.register(body).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(RegisterError {
                 status: "fail".to_string(),
-                message: format!("Database error: {}", e),
-            }))
-        })?;
-
-    // Insert new settings
-    sqlx::query!("INSERT INTO settings (user_id) VALUES ($1)", user.id,)
-        .execute(&state.db)
-        .await
-        .map_err(|e| {
-            let error_response = serde_json::json!({
-                "status": "fail",
-                "message": format!("Error inserting settings: {}", e),
-            });
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(RegisterError {
-                    status: "fail".to_string(),
-                    message: format!("Error inserting settings: {}", e),
-                }),
-            )
-        })?;
+                message: e.to_string(),
+            }),
+        )
+    })?;
 
     Ok((
         StatusCode::CREATED,
@@ -151,115 +90,41 @@ fn filter_user_record(user: &User) -> UserRegisterResponse {
     )
 )]
 pub async fn login(
-    State(data): State<AppState>,
+    State(service): State<PgAuthService>,
     Json(body): Json<LoginUserSchema>,
-) -> Result<impl IntoResponse, impl IntoResponse> {
-    let email = body.email.to_ascii_lowercase();
-    tracing::debug!("email: {}", email);
-    let user = sqlx::query_as!(User, "SELECT * FROM users WHERE email = $1", email)
-        .fetch_optional(&data.db)
-        .await
-        .map_err(|e| {
-            let error_response = serde_json::json!({
-                "status": "error",
-                "message": format!("Database error: {}", e),
-            });
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(LoginError {
-                    status: "error".to_string(),
-                    message: format!("Database error: {}", e),
-                }),
-            )
-        })?
-        .ok_or_else(|| {
-            let error_response = serde_json::json!({
-                "status": "fail",
-                "message": "Invalid email or password",
-            });
-            tracing::error!("Something goes wrong");
-            (
-                StatusCode::BAD_REQUEST,
-                Json(LoginError {
-                    status: "fail".to_string(),
-                    message: "Invalid email or password".to_string(),
-                }),
-            )
-        })?;
-
-    let is_valid = match PasswordHash::new(&user.password) {
-        Ok(parsed_hash) => Argon2::default()
-            .verify_password(body.password.as_bytes(), &parsed_hash)
-            .map_or(false, |_| true),
-        Err(_) => false,
-    };
-    tracing::debug!("user: {:?}", user);
-
-    if !is_valid {
-        let error_response = serde_json::json!({
-            "status": "fail",
-            "message": "Invalid email or password"
-        });
-        return Err((
+) -> Result<impl IntoResponse, (StatusCode, Json<LoginError>)> {
+    let user = service.login(body).await.map_err(|e| {
+        (
             StatusCode::BAD_REQUEST,
             Json(LoginError {
                 status: "fail".to_string(),
-                message: "Invalid email or password".to_string(),
+                message: e.to_string(),
             }),
-        ));
-    }
+        )
+    })?;
 
     let now = chrono::Utc::now();
-
     let access_token = create_token(
         &user.id.to_string(),
         (now + chrono::Duration::minutes(60)).timestamp() as usize,
-        data.settings.jwt_secret.as_ref(),
+        service.settings.jwt_secret.as_ref(),
     );
 
     let refresh_token = create_token(
         &user.id.to_string(),
         (now + chrono::Duration::days(30)).timestamp() as usize,
-        data.settings.jwt_secret.as_ref(),
+        service.settings.jwt_secret.as_ref(),
     );
-
-    // TODO: Better to remove token from cookies, when logging out it need to be removed form two places
-    // let access_cookie = Cookie::build(("access_token", access_token.to_owned()))
-    //     .path("/")
-    //     .max_age(time::Duration::minutes(60))
-    //     .same_site(SameSite::Lax)
-    //     .http_only(true)
-    //     .build();
-    //
-    // let refresh_cookie = Cookie::build(("refresh_token", refresh_token.to_owned()))
-    //     .path("/")
-    //     .max_age(time::Duration::days(30))
-    //     .same_site(SameSite::Lax)
-    //     .http_only(true)
-    //     .build();
 
     let mut response = Response::new(
         json!(LoginSuccess {
             status: "success".to_string(),
-            access_token: access_token,
-            refresh_token: refresh_token
+            access_token,
+            refresh_token,
         })
-        .to_string(),
+            .to_string(),
     );
-    let (mut parts, body) = response.into_parts();
-    parts.status = StatusCode::CREATED;
-    response = Response::from_parts(parts, body);
-
-    // response.headers_mut().append(
-    //     header::SET_COOKIE,
-    //     access_cookie.to_string().parse().unwrap(),
-    // );
-    // response.headers_mut().append(
-    //     header::SET_COOKIE,
-    //     refresh_cookie.to_string().parse().unwrap(),
-    // );
-
-    tracing::debug!("response from login handler: {:?}", &response);
+    *response.status_mut() = StatusCode::CREATED;
     Ok(response)
 }
 
@@ -272,30 +137,9 @@ pub async fn login(
     )
 )]
 pub async fn refresh(
-    State(data): State<AppState>,
-    cookie_jar: CookieJar,
+    State(state): State<PgAuthService>,
     header: HeaderMap,
 ) -> Result<impl IntoResponse, (StatusCode, Json<RefreshError>)> {
-    // let token = cookie_jar
-    //     .get("refresh_token")
-    //     .map(|cookie| {
-    //         println!("token cookie");
-    //         cookie.value().to_string()
-    //     })
-    //     .or_else(|| {
-    //         println!("token header");
-    //         header
-    //             .get("Authorization")
-    //             .and_then(|auth_header| auth_header.to_str().ok())
-    //             .and_then(|auth_value| {
-    //                 if auth_value.starts_with("Bearer ") {
-    //                     Some(auth_value[7..].to_owned())
-    //                 } else {
-    //                     None
-    //                 }
-    //             })
-    //     });
-
     let token = header
         .get("Authorization")
         .and_then(|auth_header| auth_header.to_str().ok())
@@ -307,30 +151,20 @@ pub async fn refresh(
             }
         })
         .ok_or_else(|| {
-            let error_response = RefreshError{
+            let error_response = RefreshError {
                 status: "fail".to_string(),
                 message: "You are not logged in, please provide token".to_string(),
             };
             (StatusCode::UNAUTHORIZED, Json(error_response))
         })?;
 
-    // println!("token: {:?}", token);
-    // let token = token.ok_or_else(|| {
-    //     let error_response = serde_json::json!({
-    //         "status": "fail",
-    //         "message": "You are not logged in, please provide token",
-    //     });
-    //     (StatusCode::UNAUTHORIZED, Json(error_response))
-    // })?;
-
-    println!("token ok: {:?}", token);
     let claims = decode::<TokenClaims>(
         &token,
-        &DecodingKey::from_secret(data.settings.jwt_secret.as_ref()),
+        &DecodingKey::from_secret(state.settings.jwt_secret.as_ref()),
         &Validation::default(),
     )
     .map_err(|_| {
-        let error_response = RefreshError{
+        let error_response = RefreshError {
             status: "fail".to_string(),
             message: "Invalid token".to_string(),
         };
@@ -338,30 +172,19 @@ pub async fn refresh(
     })?
     .claims;
 
-    // Assuming `users.id` is i32:
     let user_id: i32 = claims.sub.parse().map_err(|_| {
-        let error_response = RefreshError{
+        let error_response = RefreshError {
             status: "fail".to_string(),
-            message: "Invalid token subject format". to_string(),
+            message: "Invalid token subject format".to_string(),
         };
         (StatusCode::UNAUTHORIZED, Json(error_response))
     })?;
 
-    let user = sqlx::query_as!(User, "SELECT * FROM users WHERE id = $1", user_id)
-        .fetch_optional(&data.db)
-        .await
-        .map_err(|e| {
-            let error_response = RefreshError{
-                status: "fail".to_string(),
-                message: format!("Error fetching user from database: {}", e),
-            };
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-        })?;
-
-    let user = user.ok_or_else(|| {
+    let service = PgAuthService::new(state.db.clone(), state.settings.clone());
+    let user = service.refresh(user_id).await.map_err(|e| {
         let error_response = RefreshError {
             status: "fail".to_string(),
-            message: "The user belonging to this token no longer exists".to_string(),
+            message: e.to_string(),
         };
         (StatusCode::UNAUTHORIZED, Json(error_response))
     })?;
@@ -370,15 +193,8 @@ pub async fn refresh(
     let new_access_token = create_token(
         &user.id.to_string(),
         (now + chrono::Duration::minutes(60)).timestamp() as usize,
-        data.settings.jwt_secret.as_ref(),
+        state.settings.jwt_secret.as_ref(),
     );
-
-    // let new_access_cookie = Cookie::build(("access_token", new_access_token.to_owned()))
-    //     .path("/")
-    //     .max_age(time::Duration::minutes(60))
-    //     .same_site(SameSite::Lax)
-    //     .http_only(true)
-    //     .build();
 
     let mut response = Response::new(
         json!(RefreshSuccess {
@@ -391,13 +207,6 @@ pub async fn refresh(
     let (mut parts, body) = response.into_parts();
     parts.status = StatusCode::CREATED;
     response = Response::from_parts(parts, body);
-
-    // response.headers_mut().insert(
-    //     header::SET_COOKIE,
-    //     new_access_cookie.to_string().parse().unwrap(),
-    // );
-
-    println!("response: {:?}", &response);
 
     Ok(response)
 }
@@ -417,7 +226,7 @@ pub async fn refresh(
 //         .same_site(SameSite::Lax)
 //         .http_only(true)
 //         .build();
-// 
+//
 //     let mut response = Response::new(json!(LogoutSuccess {}).to_string());
 //     response
 //         .headers_mut()
@@ -433,7 +242,6 @@ pub async fn refresh(
 
 #[cfg(test)]
 mod tests {
-    use std::thread::sleep;
     use super::*;
     use crate::config::WapSettings;
     use axum::body::Body;
@@ -551,7 +359,7 @@ mod tests {
         //     )
         //     .await
         //     .unwrap();
-        // 
+        //
         // assert_eq!(logout_response.status(), StatusCode::UNAUTHORIZED);
 
         // let logout_response = router
@@ -570,7 +378,7 @@ mod tests {
         //     )
         //     .await
         //     .unwrap();
-        // 
+        //
         // assert_eq!(logout_response.status(), StatusCode::OK);
         // println!("logout_response: {:?}", &logout_response);
 
@@ -604,12 +412,12 @@ mod tests {
             .unwrap()
             .to_bytes();
         let refresh_body: RefreshSuccess = serde_json::from_slice(&body).expect("error");
-        
+
         // assert_ne!(
         //     refresh_body.access_token,
         //     login_body.access_token
         // );
-        
+
         // TODO: how can I mock now.timestamp so the access token will be different for each request
 
         // Logout

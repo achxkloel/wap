@@ -1,6 +1,6 @@
+use crate::routes::natural_phenomenon_location::{NaturalPhenomenonLocationId, NaturalPhenomenonLocationService, UserId};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use crate::routes::natural_phenomenon_location::{NaturalPhenomenonLocationId, NaturalPhenomenonLocationService, UserId};
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateNaturalPhenomenonLocationRequest {

@@ -10,7 +10,6 @@ use axum::{
 };
 use axum_extra::extract::cookie::CookieJar;
 use jsonwebtoken::{decode, DecodingKey, Validation};
-use serde::Serialize;
 
 
 // NOTE: the `E` in `Result<Response, E>` must implement `IntoResponse`.

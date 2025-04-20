@@ -1,6 +1,6 @@
-use utoipa_axum::routes;
 use crate::routes::auth::middlewares::auth;
 use crate::shared::models::AppState;
+use utoipa_axum::routes;
 
 pub mod handlers;
 

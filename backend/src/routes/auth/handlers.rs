@@ -254,16 +254,8 @@ mod tests {
     #[sqlx::test]
     async fn test_register_and_login(pool: sqlx::PgPool) {
         // Test the login function here
-        let app = AppState {
-            db: pool.clone(),
-            settings: WapSettings {
-                database_url: "".to_string(),
-                jwt_secret: "aaaaa".to_string(),
-                jwt_expires_in: "".to_string(),
-                jwt_maxage: 0,
-            },
-        };
-
+        let app = crate::tests::tests::init_app_state(pool.clone()).await;
+        
         // Prepare router
         let (router, _) = crate::routes::auth::router(app.clone()).split_for_parts();
 

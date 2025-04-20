@@ -1,69 +1,105 @@
 #[cfg(test)]
-mod tests {
+pub mod tests {
+    use crate::config::WapSettings;
     use crate::routes::auth::models::User;
-    use argon2::PasswordHasher;
-    use axum::{extract::State, http::HeaderMap, Json};
+    use crate::routes::auth::utils::create_token;
+    use crate::shared::models::AppState;
+    use axum::extract::State;
+    use axum::http::HeaderMap;
     use sqlx::PgPool;
-    use uuid::Uuid;
 
-    // #[derive(Deserialize)]
-    // struct CreateUserRequest {
-    //     username: String,
-    //     password: String,
-    // }
-    //
-    // #[derive(Deserialize)]
-    // struct LoginRequest {
-    //     username: String,
-    //     password: String,
-    // }
-    //
-    // #[derive(Serialize)]
-    // struct UserResponse {
-    //     id: Uuid,
-    //     username: String,
-    // }
-    //
+    pub struct TestTokens {
+        access_token: String,
+        refresh_token: String,
+    }
+
+    pub struct TestAppUser {
+        pub user: User,
+        pub header: HeaderMap,
+        pub tokens: TestTokens,
+    }
+
+    pub struct TestApp {
+        pub app: AppState,
+        pub users: Vec<TestAppUser>,
+    }
+
+    impl TestApp {
+        pub async fn new(pool: PgPool) -> Self {
+            let app = init_app_state(pool.clone()).await;
+            let users = create_test_users(State(pool.clone())).await;
+            TestApp { app, users }
+        }
+    }
+    
+    pub async fn init_app_state(pool: PgPool) -> AppState {
+        AppState {
+            db: pool.clone(),
+            settings: WapSettings {
+                database_url: "".to_string(),
+                jwt_secret: "aaaaa".to_string(),
+                jwt_expires_in: "".to_string(),
+                jwt_maxage: 0,
+            },
+        }
+    }
+
     // Handler: create a test user by registering then logging in, return user + keys with headers
-    async fn create_test_user(
-        State(pool): State<PgPool>,
-    ) -> (HeaderMap, axum::http::StatusCode, Json<serde_json::Value>) {
+    pub async fn create_test_users(State(pool): State<PgPool>) -> Vec<TestAppUser> {
+        let app = init_app_state(pool.clone()).await;
+
         // Fixed test credentials
-        let username = format!("test_{}", Uuid::new_v4());
+        let email = format!("test_1@wap.com");
         use crate::routes::auth::utils::hash_password;
         let hashed_password = hash_password(&"password123".to_string())
             .await
             .expect("hash_password failed");
 
         // Reuse registration logic
-        let rec: User = sqlx::query_as!(
+        let user: User = sqlx::query_as!(
             User,
             r#"INSERT INTO users (email, password_hash)
            VALUES ($1, $2)
            RETURNING id, email, password_hash, created_at, updated_at"#,
-            username,
+            email,
             hashed_password
         )
-        .fetch_one(&pool)
-        .await
-        .expect("Failed to insert test user");
+            .fetch_one(&pool)
+            .await
+            .expect("Failed to insert test user");
 
         // Reuse login logic (without password hashing here for simplicity)
-        let access_key = Uuid::new_v4().to_string();
-        let secret_key = Uuid::new_v4().to_string();
+        let now = chrono::Utc::now();
+        let access_token = create_token(
+            &user.id.to_string(),
+            (now + chrono::Duration::minutes(60)).timestamp() as usize,
+            app.settings.jwt_secret.as_ref(),
+        );
+
+        let refresh_token = create_token(
+            &user.id.to_string(),
+            (now + chrono::Duration::days(30)).timestamp() as usize,
+            app.settings.jwt_secret.as_ref(),
+        );
 
         // Prepare headers
         let mut headers = HeaderMap::new();
-        headers.insert("x-access-key", access_key.parse().unwrap());
-        headers.insert("x-secret-key", secret_key.parse().unwrap());
+        headers.insert(
+            "Authorization",
+            format!("Bearer {}", access_token).parse().unwrap(),
+        );
 
         // Response body
-        let body = Json(serde_json::json!({
-            "user": { "id": rec.id, "username": rec.email },
-            "access_key": headers["x-access-key"].to_str().unwrap(),
-            "secret_key": headers["x-secret-key"].to_str().unwrap(),
-        }));
+        let test_user = TestAppUser {
+            user: user,
+            header: headers,
+            tokens: TestTokens {
+                access_token: access_token,
+                refresh_token: refresh_token,
+            },
+        };
 
-        (headers, axum::http::StatusCode::CREATED, body)
+        // Return test user
+        vec![test_user]
     }
 }

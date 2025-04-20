@@ -1,14 +1,21 @@
 use serde::Serialize;
 
-use axum::extract::{Extension, Json, State};
+use axum::extract::{Extension, Json, Path, State};
 use std::sync::Arc;
 
 use crate::routes::natural_phenomenon_location::domain::{
     CreateNaturalPhenomenonLocationRequest, NaturalPhenomenonLocation, UserId,
 };
-use crate::routes::natural_phenomenon_location::service::{NaturalPhenomenonLocationService, SharedService};
+use crate::routes::natural_phenomenon_location::model::{
+    UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds,
+};
+use crate::routes::natural_phenomenon_location::service::{
+    NaturalPhenomenonLocationService, SharedService,
+};
+use crate::routes::natural_phenomenon_location::NaturalPhenomenonLocationId;
 use anyhow::Result;
 use axum::http::StatusCode;
+use utoipa::ToSchema;
 
 #[derive(Debug, Serialize)]
 struct ErrorResponse {
@@ -62,10 +69,10 @@ struct ErrorResponse {
     )
 )]
 pub async fn create_location(
-    State(service): State<SharedService>,          // ← concrete, no <S>
+    State(service): State<SharedService>, // ← concrete, no <S>
     Extension(user_id): Extension<UserId>,
     Json(req): Json<CreateNaturalPhenomenonLocationRequest>,
-) -> Result<Json<NaturalPhenomenonLocation>, (StatusCode, String)>  // ← see §2
+) -> Result<Json<NaturalPhenomenonLocation>, (StatusCode, String)> // ← see §2
 {
     let domain = NaturalPhenomenonLocation {
         id: None,
@@ -79,32 +86,47 @@ pub async fn create_location(
     service
         .create(domain)
         .await
-        .map(Json)                                        // Ok side
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR,  // Err side
-                      e.to_string()))
+        .map(Json) // Ok side
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR, // Err side
+                e.to_string(),
+            )
+        })
+}
+#[utoipa::path(
+    put,
+    path = "/natural_phenomenon_locations/{id}",
+    request_body = UpdateNaturalPhenomenonLocationRequest,
+    params(
+        ("id" = NaturalPhenomenonLocationId, Path, description = "Location ID to update")
+    ),
+    responses(
+        (status = 200, description = "Location updated", body = NaturalPhenomenonLocation),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn update_location(
+    State(service): State<SharedService>,
+    Extension(user_id): Extension<UserId>,
+    Path(id): Path<NaturalPhenomenonLocationId>,
+    Json(payload): Json<UpdateNaturalPhenomenonLocationRequest>, // ← body extractor
+) -> Result<Json<NaturalPhenomenonLocation>, (StatusCode, String)> {
+    let dto = UpdateNaturalPhenomenonLocationRequestWithIds {
+        id,
+        user_id,
+        payload,
+    };
+
+    let updated = service
+        .update(dto)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(updated))
 }
 
-// #[utoipa::path(
-//     put,
-//     path = "/natural_phenomenon_locations/{id}",
-//     request_body = NaturalPhenomenonLocation,
-//     params(
-//         ("id" = NaturalPhenomenonLocationId, Path, description = "Location ID to update"),
-//     ),
-//     responses(
-//         (status = 200, description = "Location updated", body = NaturalPhenomenonLocation),
-//         (status = 500, description = "Internal server error")
-//     )
-// )]
-// pub async fn update_location(
-//     State(service): State<Arc<dyn NaturalPhenomenonLocationService>>,
-//     Extension(user_id): Extension<UserId>,
-//     Path(id): Path<NaturalPhenomenonLocationId>,
-// ) -> Result<Json<NaturalPhenomenonLocation>> {
-//     let updated = service.update(user_id, id).await?;
-//     Ok(Json(updated))
-// }
-//
 // #[utoipa::path(
 //     delete,
 //     path = "/natural_phenomenon_locations/{id}",
@@ -114,7 +136,7 @@ pub async fn create_location(
 //     )
 // )]
 // pub async fn delete_location(
-//     State(service): State<Arc<dyn NaturalPhenomenonLocationService>>,
+//     State(service): State<SharedService>,
 //     Extension(user_id): Extension<UserId>,
 //     Path(id): Path<NaturalPhenomenonLocationId>,
 // ) -> Result<()> {

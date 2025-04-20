@@ -21,11 +21,11 @@ use utoipa_axum::router::UtoipaMethodRouterExt;
 use utoipa_scalar::{Scalar, Servable};
 
 #[derive(OpenApi)]
-#[openapi(
-    tags(
-            (name = "fooo", description = "Todo items management API")
-    )
-)]
+// #[openapi(
+//     tags(
+//             (name = "fooo", description = "Todo items management API")
+//     )
+// )]
 struct ApiDoc;
 
 pub async fn init_db() -> PgPool {
@@ -69,10 +69,10 @@ fn prepare_cors() -> CorsLayer {
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE])
 }
 
-async fn app_router(state: Arc<Mutex<AppState>>) -> (Router, utoipa::openapi::OpenApi) {
-    let auth_middleware = axum::middleware::from_fn_with_state(state.clone(), auth);
+async fn app_router(state: Arc<AppState>) -> (Router, utoipa::openapi::OpenApi) {
+    // let auth_middleware = axum::middleware::from_fn_with_state(state.clone(), auth);
 
-    let db = state.lock().await.db.clone();
+    let db = state.db.clone();
     let natural_phenomenon_location_router = natural_phenomenon_location_router(db);
 
     let (router, api_docs) = OpenApiRouter::new()
@@ -87,18 +87,18 @@ async fn app_router(state: Arc<Mutex<AppState>>) -> (Router, utoipa::openapi::Op
         // .routes( routes!(get_settings) //.layer(axum::middleware::from_fn_with_state(state.clone(), auth)),
         //              )
         // Weather Location routes
-        .routes(
-            routes!(backend::routes::weather_location::handlers::create_weather_location)
-                .layer(axum::middleware::from_fn_with_state(state.lock().await?.clone(), auth)),
-        )
-        .routes(
-            routes!(backend::routes::weather_location::handlers::delete_weather_location)
-                .layer(axum::middleware::from_fn_with_state(state.clone(), auth)),
-        )
+        // .routes(
+        //     routes!(backend::routes::weather_location::handlers::create_weather_location)
+        //         .layer(axum::middleware::from_fn_with_state(state.lock().await?.clone(), auth)),
+        // )
+        // .routes(
+        //     routes!(backend::routes::weather_location::handlers::delete_weather_location)
+        //         .layer(axum::middleware::from_fn_with_state(state.clone(), auth)),
+        // )
         .layer(prepare_cors())
         .with_state(state)
         .split_for_parts();
-
+    
     (
         router.merge(natural_phenomenon_location_router.0),
         api_docs.merge_from(natural_phenomenon_location_router.1),
@@ -136,7 +136,7 @@ async fn main() {
 
     println!("Starting server with config: {:?}", state.env);
 
-    let (router, api_docs) = app_router(state);
+    let (router, api_docs) = app_router(state).await;
 
     let router = Router::new()
         .merge(router)

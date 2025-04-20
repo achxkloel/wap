@@ -20,16 +20,12 @@ pub struct ErrorResponse {
 }
 
 // NOTE: the `E` in `Result<Response, E>` must implement `IntoResponse`.
-pub async fn auth<B>(
+pub async fn auth(
     jar: CookieJar,
     State(state): State<SharedState>,
-    mut req: Request<B>,
+    mut req: Request<Body>,
     next: Next,
-) -> Result<Response, (StatusCode, Json<ErrorResponse>)>
-where
-    // B: Send + 'static,
-    B: http_body::Body<Data = bytes::Bytes> + Send + 'static,
-{
+) -> Result<Response, (StatusCode, Json<ErrorResponse>)> {
     /* ─────────────────── 1. extract the token ─────────────────── */
     let token = jar
         .get("access_token")
@@ -102,7 +98,7 @@ where
 
     /* ─────────────────── 4. stash user & continue ─────────────── */
     req.extensions_mut().insert(user);
-    let req: Request<Body> = req.map(|b| Body::from_stream(b));
+    // let req: Request<Body> = req.map(|b| Body::from_stream(b));
     Ok(next.run(req).await)
 
     // Ok(next.run(req_body).await)

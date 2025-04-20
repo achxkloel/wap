@@ -22,9 +22,8 @@ use utoipa_scalar::{Scalar, Servable};
 
 #[derive(OpenApi)]
 #[openapi(
-    modifiers(&SecurityAddon),
     tags(
-            (name = TODO_TAG, description = "Todo items management API")
+            (name = "fooo", description = "Todo items management API")
     )
 )]
 struct ApiDoc;
@@ -90,7 +89,7 @@ async fn app_router(state: Arc<Mutex<AppState>>) -> (Router, utoipa::openapi::Op
         // Weather Location routes
         .routes(
             routes!(backend::routes::weather_location::handlers::create_weather_location)
-                .layer(axum::middleware::from_fn_with_state(state.clone(), auth)),
+                .layer(axum::middleware::from_fn_with_state(state.lock().await?.clone(), auth)),
         )
         .routes(
             routes!(backend::routes::weather_location::handlers::delete_weather_location)

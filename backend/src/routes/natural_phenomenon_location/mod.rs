@@ -22,22 +22,15 @@ pub use handlers::{
 };
 
 pub use service::{NaturalPhenomenonLocationService, PgNaturalPhenomenonLocationService};
+use crate::routes::natural_phenomenon_location::service::SharedService;
 
 pub fn natural_phenomenon_location_router(db: PgPool) -> (Router, utoipa::openapi::OpenApi) {
-    // let store = Arc::new(PgNaturalPhenomenonLocationService::new(db.clone()));
-    let service = Arc::new(PgNaturalPhenomenonLocationService::new(db));
+    let service: SharedService = std::sync::Arc::new(PgNaturalPhenomenonLocationService::new(db));
 
-    // let _middleware = axum::middleware::from_fn_with_state(service.clone(), auth);
-
-    let (router, api_docs) = OpenApiRouter::new()
+    let (router, api) = utoipa_axum::router::OpenApiRouter::new()
         .routes(routes!(create_location))
-        // .routes(routes!(get_all_locations))
-        // .routes(routes!(get_location))
-        // .routes(routes!(update_location))
-        // .routes(routes!(delete_location))
-        // .layer(_middleware)
-        .with_state(service)
+        .with_state(service)          // type matches the handler’s `State`
         .split_for_parts();
 
-    (router, api_docs)
+    (router, api)
 }

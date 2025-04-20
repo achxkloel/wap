@@ -1,18 +1,17 @@
-use std::sync::Arc;
-
 use axum::{
     body::Body,
-    extract::State,
+    extract::{State},
     http::{header, Request, StatusCode},
     middleware::Next,
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     Json,
 };
 use axum_extra::extract::cookie::CookieJar;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::Serialize;
+use std::sync::Arc;
 
-use crate::shared::models::{AppState, TokenClaims, User};
+use crate::shared::models::{AppState, SharedState, TokenClaims, User};
 
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {
@@ -20,88 +19,91 @@ pub struct ErrorResponse {
     pub message: String,
 }
 
-pub async fn auth(
-    cookie_jar: CookieJar,
-    State(data): State<Arc<AppState>>,
-    mut req: Request<Body>,
-    next: Next, // TODO: Should we store it in axum Extension or rather in the AppState?
-) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
-    println!("Auth middleware");
-    let token = cookie_jar
+// NOTE: the `E` in `Result<Response, E>` must implement `IntoResponse`.
+pub async fn auth<B>(
+    jar: CookieJar,
+    State(state): State<SharedState>,
+    mut req: Request<B>,
+    next: Next,
+) -> Result<Response, (StatusCode, Json<ErrorResponse>)>
+where
+    // B: Send + 'static,
+    B: http_body::Body<Data = bytes::Bytes> + Send + 'static,
+{
+    /* ─────────────────── 1. extract the token ─────────────────── */
+    let token = jar
         .get("access_token")
-        .map(|cookie| {
-            println!("token cookie");
-            cookie.value().to_string()
-        })
+        .map(|c| c.value().to_owned())
         .or_else(|| {
-            println!("token header");
             req.headers()
                 .get(header::AUTHORIZATION)
-                .and_then(|auth_header| auth_header.to_str().ok())
-                .and_then(|auth_value| {
-                    if auth_value.starts_with("Bearer ") {
-                        Some(auth_value[7..].to_owned())
-                    } else {
-                        None
-                    }
-                })
-        });
+                .and_then(|h| h.to_str().ok())
+                .and_then(|v| v.strip_prefix("Bearer ").map(str::to_owned))
+        })
+        .ok_or_else(|| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    status: "fail",
+                    message: "You are not logged in, please provide a token".into(),
+                }),
+            )
+        })?;
 
-    println!("token: {:?}", token);
-
-    let token = token.ok_or_else(|| {
-        let json_error = ErrorResponse {
-            status: "fail",
-            message: "You are not logged in, please provide token".to_string(),
-        };
-        println!("{}", json_error.message);
-        (StatusCode::UNAUTHORIZED, Json(json_error))
-    })?;
-
-    println!("token ok: {:?}", token);
+    /* ─────────────────── 2. validate & decode ─────────────────── */
     let claims = decode::<TokenClaims>(
         &token,
-        &DecodingKey::from_secret(data.env.jwt_secret.as_ref()),
+        &DecodingKey::from_secret(state.env.jwt_secret.as_bytes()),
         &Validation::default(),
     )
-    .map_err(|_| {
-        let json_error = ErrorResponse {
-            status: "fail",
-            message: "Invalid token".to_string(),
-        };
-        (StatusCode::UNAUTHORIZED, Json(json_error))
-    })?
-    .claims;
+        .map_err(|_| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    status: "fail",
+                    message: "Invalid token".into(),
+                }),
+            )
+        })?
+        .claims;
 
-    // Assuming `users.id` is i32:
+    /* ─────────────────── 3. fetch user ─────────────────────────── */
     let user_id: i32 = claims.sub.parse().map_err(|_| {
-        let json_error = ErrorResponse {
-            status: "fail",
-            message: "Invalid token subject format".to_string(),
-        };
-        (StatusCode::UNAUTHORIZED, Json(json_error))
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                status: "fail",
+                message: "Invalid token subject format".into(),
+            }),
+        )
     })?;
 
     let user = sqlx::query_as!(User, "SELECT * FROM users WHERE id = $1", user_id)
-        .fetch_optional(&data.db)
+        .fetch_optional(&state.db)
         .await
         .map_err(|e| {
-            let json_error = ErrorResponse {
-                status: "fail",
-                message: format!("Error fetching user from database: {}", e),
-            };
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(json_error))
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    status: "fail",
+                    message: format!("Database error: {e}"),
+                }),
+            )
+        })?
+        .ok_or_else(|| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    status: "fail",
+                    message: "The user belonging to this token no longer exists".into(),
+                }),
+            )
         })?;
 
-    let user = user.ok_or_else(|| {
-        let json_error = ErrorResponse {
-            status: "fail",
-            message: "The user belonging to this token no longer exists".to_string(),
-        };
-        (StatusCode::UNAUTHORIZED, Json(json_error))
-    })?;
-
+    /* ─────────────────── 4. stash user & continue ─────────────── */
     req.extensions_mut().insert(user);
-
+    let req: Request<Body> = req.map(|b| Body::from_stream(b));
     Ok(next.run(req).await)
+
+    // Ok(next.run(req_body).await)
 }

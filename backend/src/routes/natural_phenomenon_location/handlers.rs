@@ -6,8 +6,9 @@ use std::sync::Arc;
 use crate::routes::natural_phenomenon_location::domain::{
     CreateNaturalPhenomenonLocationRequest, NaturalPhenomenonLocation, UserId,
 };
-use crate::routes::natural_phenomenon_location::service::NaturalPhenomenonLocationService;
+use crate::routes::natural_phenomenon_location::service::{NaturalPhenomenonLocationService, SharedService};
 use anyhow::Result;
+use axum::http::StatusCode;
 
 #[derive(Debug, Serialize)]
 struct ErrorResponse {
@@ -60,25 +61,27 @@ struct ErrorResponse {
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn create_location<S>(
-    State(state): State<Arc<S>>,
+pub async fn create_location(
+    State(service): State<SharedService>,          // ← concrete, no <S>
     Extension(user_id): Extension<UserId>,
-    Json(request): Json<CreateNaturalPhenomenonLocationRequest>,
-) -> Result<Json<NaturalPhenomenonLocation>>
-where
-    S: NaturalPhenomenonLocationService,
+    Json(req): Json<CreateNaturalPhenomenonLocationRequest>,
+) -> Result<Json<NaturalPhenomenonLocation>, (StatusCode, String)>  // ← see §2
 {
-    let location = NaturalPhenomenonLocation {
+    let domain = NaturalPhenomenonLocation {
         id: None,
         user_id,
-        name: request.name,
-        latitude: request.latitude,
-        longitude: request.longitude,
-        description: request.description,
+        name: req.name,
+        latitude: req.latitude,
+        longitude: req.longitude,
+        description: req.description,
     };
 
-    let created = state.create(location).await?;
-    Ok(Json(created))
+    service
+        .create(domain)
+        .await
+        .map(Json)                                        // Ok side
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR,  // Err side
+                      e.to_string()))
 }
 
 // #[utoipa::path(

@@ -36,6 +36,8 @@ pub struct AppState {
     pub env: Config,
 }
 
+pub type SharedState = std::sync::Arc<AppState>;
+
 #[derive(Debug, Deserialize)]
 pub struct CreateUser {
     pub email: String,

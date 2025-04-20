@@ -25,6 +25,8 @@ impl PgNaturalPhenomenonLocationService {
     }
 }
 
+pub type SharedService = std::sync::Arc<dyn NaturalPhenomenonLocationService + Send + Sync>;
+
 #[async_trait]
 impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
     async fn create(
@@ -35,20 +37,25 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             r#"
             INSERT INTO natural_phenomenon_locations (user_id, name, latitude, longitude, description)
             VALUES ($1, $2, $3, $4, $5)
-            RETURNING id
+            RETURNING id, user_id, name, latitude, longitude, description
             "#,
             location.user_id.0,
             location.name,
             location.latitude,
             location.longitude,
-            location.description
+            location.description,
         )
-            .fetch_one(&self.db)
-            .await?;
+        .fetch_one(&self.db)
+        .await?;
 
+        // Build a *fresh* domain object from the row we just got back
         Ok(NaturalPhenomenonLocation {
             id: Some(NaturalPhenomenonLocationId(rec.id)),
-            ..location
+            user_id: UserId(rec.user_id),
+            name: rec.name,
+            latitude: rec.latitude,
+            longitude: rec.longitude,
+            description: rec.description,
         })
     }
 }

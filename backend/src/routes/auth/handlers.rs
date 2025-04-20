@@ -12,12 +12,8 @@ use rand_core::OsRng;
 use serde::Serialize;
 
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
-use std::sync::Arc;
 
-use crate::shared::models::{
-    AppState, LoginUser, LoginUserSchema, RegisterResponse, RegisterUserRequestSchema, TokenClaims,
-    User, UserRegisterResponse,
-};
+use crate::shared::models::AppState;
 
 // -------------------------------------------------------------------------------------------------
 // Routes
@@ -25,6 +21,10 @@ use crate::shared::models::{
 // SIGNUP handler
 
 // use axum::{Json, response::IntoResponse};
+use crate::routes::auth::models::{
+    LoginError, LoginSuccess, LoginUser, LoginUserSchema, RegisterResponse,
+    RegisterUserRequestSchema, TokenClaims, User, UserRegisterResponse,
+};
 use utoipa::ToSchema;
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -50,7 +50,7 @@ fn create_token(user_id: &str, exp: usize, secret: &str) -> String {
 }
 
 #[utoipa::path(
-    method(post),
+    post,
     path = "/auth/register",
     request_body(content = RegisterUserRequestSchema, content_type = "application/json"),
     responses(
@@ -59,7 +59,7 @@ fn create_token(user_id: &str, exp: usize, secret: &str) -> String {
     )
 )]
 pub async fn register(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppState>,
     Json(body): Json<RegisterUserRequestSchema>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let salt = SaltString::generate(&mut OsRng);
@@ -119,7 +119,7 @@ fn filter_user_record(user: &User) -> UserRegisterResponse {
 }
 
 #[utoipa::path(
-    method(post),
+    post,
     path = "/auth/login",
     request_body(content = LoginUser, content_type = "application/json"),
     responses(
@@ -128,9 +128,9 @@ fn filter_user_record(user: &User) -> UserRegisterResponse {
     )
 )]
 pub async fn login(
-    State(data): State<Arc<AppState>>,
+    State(data): State<AppState>,
     Json(body): Json<LoginUserSchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<(StatusCode, Json<LoginSuccess>), (StatusCode, Json<LoginError>)> {
     let email = body.email.to_ascii_lowercase();
     println!("email: {}", email);
     let user = sqlx::query_as!(User, "SELECT * FROM users WHERE email = $1", email)
@@ -141,7 +141,13 @@ pub async fn login(
                 "status": "error",
                 "message": format!("Database error: {}", e),
             });
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(LoginError {
+                    status: "error".to_string(),
+                    message: format!("Database error: {}", e),
+                }),
+            )
         })?
         .ok_or_else(|| {
             let error_response = serde_json::json!({
@@ -149,7 +155,13 @@ pub async fn login(
                 "message": "Invalid email or password",
             });
             println!("Something goes wrong");
-            (StatusCode::BAD_REQUEST, Json(error_response))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(LoginError {
+                    status: "fail".to_string(),
+                    message: "Invalid email or password".to_string(),
+                }),
+            )
         })?;
 
     let is_valid = match PasswordHash::new(&user.password) {
@@ -165,7 +177,13 @@ pub async fn login(
             "status": "fail",
             "message": "Invalid email or password"
         });
-        return Err((StatusCode::BAD_REQUEST, Json(error_response)));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(LoginError {
+                status: "fail".to_string(),
+                message: "Invalid email or password".to_string(),
+            }),
+        ));
     }
 
     let now = chrono::Utc::now();
@@ -209,11 +227,18 @@ pub async fn login(
         refresh_cookie.to_string().parse().unwrap(),
     );
     println!("response: {:?}", &response);
-    Ok(response)
+    Ok((
+        StatusCode::CREATED,
+        Json(LoginSuccess {
+            status: "success".to_string(),
+            access_token: access_token,
+            refresh_token: refresh_token,
+        }),
+    ))
 }
 
 #[utoipa::path(
-    method(post),
+    post,
     path = "/auth/refresh",
     responses(
         (status = axum::http::StatusCode::OK, description = "Success", content_type = "text/plain"),
@@ -221,7 +246,7 @@ pub async fn login(
     )
 )]
 pub async fn refresh(
-    State(data): State<Arc<AppState>>,
+    State(data): State<AppState>,
     cookie_jar: CookieJar,
     header: HeaderMap,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
@@ -322,7 +347,7 @@ pub async fn refresh(
 }
 
 #[utoipa::path(
-    method(post),
+    post,
     path = "/auth/logout",
     responses(
         (status = axum::http::StatusCode::OK, description = "Success", content_type = "text/plain"),
@@ -345,4 +370,69 @@ pub async fn logout() -> Result<impl IntoResponse, (StatusCode, Json<serde_json:
         .headers_mut()
         .insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
     Ok(response)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+    use axum::body::Body;
+    use axum::http;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    #[sqlx::test]
+    async fn test_register_and_login(pool: sqlx::PgPool) {
+        // Test the login function here
+        let app = AppState {
+            db: pool.clone(),
+            env: Config {
+                database_url: "".to_string(),
+                jwt_secret: "".to_string(),
+                jwt_expires_in: "".to_string(),
+                jwt_maxage: 0,
+            },
+        };
+
+        let (router, _) = crate::routes::auth::router(app).split_for_parts();
+
+        let register_request = RegisterUserRequestSchema {
+            email: "a@a.com".to_string(),
+            password: "123456".to_string(),
+        };
+        let register_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/auth/register")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(serde_json::to_vec(&register_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        println!("register_response: {:?}", &register_response);
+        // assert_eq!(register_response.status(), StatusCode::OK);
+
+        let login_request = LoginUser {
+            email: "a@a.com".to_string(),
+            password: "123456".to_string(),
+        };
+        let login_response = router
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/auth/login")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(serde_json::to_vec(&login_request).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        println!("login_response: {:?}", &login_response);
+        // assert_eq!(login_response.status(), StatusCode::OK);
+    }
 }

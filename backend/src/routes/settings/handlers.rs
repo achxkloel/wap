@@ -1,4 +1,4 @@
-use crate::shared::models::{AppState, Settings, User};
+use crate::shared::models::{AppState};
 use axum::{
     extract::{Json, State},
     http::StatusCode,
@@ -6,6 +6,8 @@ use axum::{
     Extension, Json as AxumJson,
 };
 use std::sync::Arc;
+use crate::routes::auth::models::User;
+use crate::routes::weather_location::models::Settings;
 
 #[utoipa::path(
     method(put),
@@ -17,7 +19,7 @@ use std::sync::Arc;
     )
 )]
 pub async fn put_settings(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppState>,
     Extension(user): Extension<User>,
     Json(payload): Json<Settings>,
 ) -> Result<impl IntoResponse, (StatusCode, AxumJson<serde_json::Value>)> {
@@ -55,7 +57,7 @@ pub async fn put_settings(
 )]
 pub async fn get_settings(
     Extension(user): Extension<User>, // Get user injected by middleware
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppState>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let user_id = user.id;
     println!("user: {:#?}", user);

@@ -7,13 +7,9 @@ use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::future::IntoFuture;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use backend::config::Config;
-use backend::routes::auth::middlewares::auth;
-use backend::routes::natural_phenomenon_location::natural_phenomenon_location_router;
 use backend::shared::models::AppState;
 use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
@@ -69,40 +65,20 @@ fn prepare_cors() -> CorsLayer {
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE])
 }
 
-async fn app_router(state: Arc<AppState>) -> (Router, utoipa::openapi::OpenApi) {
-    // let auth_middleware = axum::middleware::from_fn_with_state(state.clone(), auth);
+async fn app_router(app: AppState) -> OpenApiRouter {
+    let setting_router = backend::routes::settings::router(app.clone());
+    let auth_router = backend::routes::auth::router(app.clone());
+    let natural_phenomenon_location_router =
+        backend::routes::natural_phenomenon_location::router(app.clone());
+    let weather_location_router = backend::routes::weather_location::router(app.clone());
 
-    let db = state.db.clone();
-    let natural_phenomenon_location_router = natural_phenomenon_location_router(db);
+    let router = OpenApiRouter::new().layer(prepare_cors());
 
-    let (router, api_docs) = OpenApiRouter::new()
-        // Auth routes
-        .routes(routes!(backend::routes::auth::handlers::register))
-        .routes(routes!(backend::routes::auth::handlers::login))
-        .routes(routes!(backend::routes::auth::handlers::logout))
-        .routes(routes!(backend::routes::auth::handlers::refresh))
-        // Settings routes
-        // .routes(routes!(backend::routes::settings::handlers::put_settings).layer(auth_middleware))
-        // .routes(routes!(backend::routes::settings::handlers::get_settings).layer(auth_middleware))
-        // .routes( routes!(get_settings) //.layer(axum::middleware::from_fn_with_state(state.clone(), auth)),
-        //              )
-        // Weather Location routes
-        // .routes(
-        //     routes!(backend::routes::weather_location::handlers::create_weather_location)
-        //         .layer(axum::middleware::from_fn_with_state(state.lock().await?.clone(), auth)),
-        // )
-        // .routes(
-        //     routes!(backend::routes::weather_location::handlers::delete_weather_location)
-        //         .layer(axum::middleware::from_fn_with_state(state.clone(), auth)),
-        // )
-        .layer(prepare_cors())
-        .with_state(state)
-        .split_for_parts();
-    
-    (
-        router.merge(natural_phenomenon_location_router.0),
-        api_docs.merge_from(natural_phenomenon_location_router.1),
-    )
+    router
+        .merge(setting_router)
+        .merge(auth_router)
+        .merge(weather_location_router)
+        .merge(natural_phenomenon_location_router)
 }
 
 #[derive(Debug, Deserialize)]
@@ -122,26 +98,21 @@ async fn main() {
     // Initialize database
     let db = init_db().await;
 
-    let v = vec![1, 2, 3];
-    println!("{:?}", v);
-
     // Load env variables
     let config = Config::init();
 
-    // Create shared application state
-    let state = Arc::new(AppState {
+    let state = AppState {
         db: db.clone(),
         env: config.clone(),
-    });
+    };
 
     println!("Starting server with config: {:?}", state.env);
 
-    let (router, api_docs) = app_router(state).await;
+    let (router, api_docs) = app_router(state).await.split_for_parts();
 
     let router = Router::new()
         .merge(router)
         .merge(Scalar::with_url("/scalar", api_docs));
-    // .route("/", get(|| async { "Hello, World!" }))
 
     // run our app with hyper, listening globally on port 3000
     println!(

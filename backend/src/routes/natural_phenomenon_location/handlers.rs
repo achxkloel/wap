@@ -1,17 +1,15 @@
 use serde::Serialize;
 
 use axum::extract::{Extension, Json, Path, State};
-use std::sync::Arc;
 
-use crate::routes::natural_phenomenon_location::domain::{
+use crate::routes::natural_phenomenon_location::domains::{
     CreateNaturalPhenomenonLocationRequest, NaturalPhenomenonLocation, UserId,
 };
-use crate::routes::natural_phenomenon_location::model::{
-    UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds,
+use crate::routes::natural_phenomenon_location::models::{
+    SharedService, UpdateNaturalPhenomenonLocationRequest,
+    UpdateNaturalPhenomenonLocationRequestWithIds,
 };
-use crate::routes::natural_phenomenon_location::service::{
-    NaturalPhenomenonLocationService, SharedService,
-};
+use crate::routes::natural_phenomenon_location::services::NaturalPhenomenonLocationService;
 use crate::routes::natural_phenomenon_location::NaturalPhenomenonLocationId;
 use anyhow::Result;
 use axum::http::StatusCode;
@@ -22,42 +20,48 @@ struct ErrorResponse {
     error: String,
 }
 
-// #[utoipa::path(
-//     get,
-//     path = "/natural_phenomenon_locations",
-//     responses(
-//         (status = 200, description = "All user locations", body = Vec<NaturalPhenomenonLocation>),
-//         (status = 500, description = "Internal server error")
-//     )
-// )]
-// pub async fn get_all_locations(
-//     State(service): State<Arc<dyn NaturalPhenomenonLocationService>>,
-//     Extension(user_id): Extension<UserId>,
-// ) -> Result<Json<Vec<NaturalPhenomenonLocation>>> {
-//     let locations = service.get_all(user_id).await?;
-//     Ok(Json(locations))
-// }
-//
-// #[utoipa::path(
-//     get,
-//     path = "/natural_phenomenon_locations/{id}",
-//     params(
-//         ("id" = NaturalPhenomenonLocationId, Path, description = "Location ID to retrieve"),
-//     ),
-//     responses(
-//         (status = 200, description = "Location found", body = NaturalPhenomenonLocation),
-//         (status = 404, description = "Location not found"),
-//         (status = 500, description = "Internal server error")
-//     )
-// )]
-// pub async fn get_location(
-//     State(service): State<Arc<dyn NaturalPhenomenonLocationService>>,
-//     Extension(user_id): Extension<UserId>,
-//     Path(id): Path<NaturalPhenomenonLocationId>,
-// ) -> Result<Json<NaturalPhenomenonLocation>> {
-//     let location = service.get_by_id(user_id, id).await?;
-//     Ok(Json(location))
-// }
+#[utoipa::path(
+    get,
+    path = "/natural_phenomenon_locations",
+    responses(
+        (status = 200, description = "All user locations", body = Vec<NaturalPhenomenonLocation>),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn get_all_locations(
+    State(service): State<SharedService>,
+    Extension(user_id): Extension<UserId>,
+) -> Result<Json<Vec<NaturalPhenomenonLocation>>, (StatusCode, String)> {
+    let locations = service
+        .get_all(user_id)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(locations))
+}
+
+#[utoipa::path(
+    get,
+    path = "/natural_phenomenon_locations/{id}",
+    params(
+        ("id" = NaturalPhenomenonLocationId, Path, description = "Location ID to retrieve"),
+    ),
+    responses(
+        (status = 200, description = "Location found", body = NaturalPhenomenonLocation),
+        (status = 404, description = "Location not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn get_location(
+    State(service): State<SharedService>,
+    Extension(user_id): Extension<UserId>,
+    Path(id): Path<NaturalPhenomenonLocationId>,
+) -> Result<Json<NaturalPhenomenonLocation>, (StatusCode, String)> {
+    let location = service
+        .get_by_id(user_id, id)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(location))
+}
 
 #[utoipa::path(
     post,
@@ -127,18 +131,22 @@ pub async fn update_location(
     Ok(Json(updated))
 }
 
-// #[utoipa::path(
-//     delete,
-//     path = "/natural_phenomenon_locations/{id}",
-//     responses(
-//         (status = 204, description = "Location deleted"),
-//         (status = 500, description = "Internal server error")
-//     )
-// )]
-// pub async fn delete_location(
-//     State(service): State<SharedService>,
-//     Extension(user_id): Extension<UserId>,
-//     Path(id): Path<NaturalPhenomenonLocationId>,
-// ) -> Result<()> {
-//     service.delete(user_id, id).await
-// }
+#[utoipa::path(
+    delete,
+    path = "/natural_phenomenon_locations/{id}",
+    params(
+        ("id" = NaturalPhenomenonLocationId, Path, description = "Location ID to update")
+    ),
+    responses(
+        (status = 204, description = "Location deleted"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn delete_location(
+    State(service): State<SharedService>,
+    Extension(user_id): Extension<UserId>,
+    Path(id): Path<NaturalPhenomenonLocationId>,
+) -> Result<(), (StatusCode, String)> {
+    service.delete(user_id, id).await;
+    Ok(())
+}

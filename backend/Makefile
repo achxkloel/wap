@@ -19,5 +19,6 @@ migration-info:
 connect-to-db-local:
 	psql postgres://postgres:postgres@localhost:5432/wap_db
 
-
+test:
+	cargo test -- --nocapture
 

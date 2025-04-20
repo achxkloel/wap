@@ -1,39 +1,32 @@
 use std::sync::Arc;
-use axum::Router;
-use sqlx::PgPool;
 use utoipa_axum::routes;
 
-mod domain;
+mod domains;
 mod handlers;
-mod model;
-mod service;
+mod models;
+mod services;
 
-pub use domain::{
+pub use domains::{
     CreateNaturalPhenomenonLocationRequest, NaturalPhenomenonLocation, NaturalPhenomenonLocationId,
     UserId,
 };
 
-pub use handlers::{
-    __path_create_location,
-    __path_update_location,
-    // __path_delete_location,
-    create_location,
-    update_location,
-    // delete_location,
-};
+use crate::routes::auth::middlewares::auth;
+use crate::routes::natural_phenomenon_location::models::SharedService;
+use crate::shared::models::AppState;
+pub use services::{NaturalPhenomenonLocationService, PgNaturalPhenomenonLocationService};
 
-use crate::routes::natural_phenomenon_location::service::SharedService;
-pub use service::{NaturalPhenomenonLocationService, PgNaturalPhenomenonLocationService};
+pub fn router(app: AppState) -> utoipa_axum::router::OpenApiRouter {
+    let service: SharedService = Arc::new(PgNaturalPhenomenonLocationService::new(app.clone().db));
 
-pub fn natural_phenomenon_location_router(db: PgPool) -> (Router, utoipa::openapi::OpenApi) {
-    let service: SharedService = Arc::new(PgNaturalPhenomenonLocationService::new(db));
+    let router = utoipa_axum::router::OpenApiRouter::new()
+        .routes(routes!(handlers::get_all_locations))
+        .routes(routes!(handlers::get_location))
+        .routes(routes!(handlers::create_location))
+        .routes(routes!(handlers::update_location))
+        .routes(routes!(handlers::delete_location))
+        .layer(axum::middleware::from_fn_with_state(app.clone(), auth))
+        .with_state(service);
 
-    let (router, api) = utoipa_axum::router::OpenApiRouter::new()
-        .routes(routes!(create_location))
-        .routes(routes!(update_location))
-        // .routes(routes!(delete_location))
-        .with_state(service) // type matches the handler’s `State`
-        .split_for_parts();
-
-    (router, api)
+    router
 }

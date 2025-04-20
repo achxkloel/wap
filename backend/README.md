@@ -1,5 +1,8 @@
 # WAP - Backend
 
+# TODO:
+- faster build - https://github.com/rui314/mold
+
 # Lint project!
 ```bash
 cargo fmt

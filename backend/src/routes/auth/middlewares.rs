@@ -10,8 +10,8 @@ use axum_extra::extract::cookie::CookieJar;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::Serialize;
 use std::sync::Arc;
-
-use crate::shared::models::{AppState, SharedState, TokenClaims, User};
+use crate::routes::auth::models::{TokenClaims, User};
+use crate::shared::models::{AppState};
 
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {
@@ -22,7 +22,7 @@ pub struct ErrorResponse {
 // NOTE: the `E` in `Result<Response, E>` must implement `IntoResponse`.
 pub async fn auth(
     jar: CookieJar,
-    State(state): State<SharedState>,
+    State(state): State<AppState>,
     mut req: Request<Body>,
     next: Next,
 ) -> Result<Response, (StatusCode, Json<ErrorResponse>)> {

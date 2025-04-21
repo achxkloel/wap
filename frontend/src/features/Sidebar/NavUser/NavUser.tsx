@@ -39,11 +39,9 @@ function NavUser() {
             <Button
                 variant="ghost"
                 className="p-2"
+                onClick={handleLogout}
             >
-                <LogOutIcon
-                    className="size-4"
-                    onClick={handleLogout}
-                />
+                <LogOutIcon className="size-4" />
             </Button>
         </div>
     );

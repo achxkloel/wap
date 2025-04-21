@@ -1,5 +1,5 @@
 use crate::routes::auth::models::User;
-use crate::routes::settings::models::UserSettingsUpdateRequest;
+use crate::routes::settings::models::{UserSettingsServiceSuccess, UserSettingsUpdateRequest};
 use crate::routes::settings::services::{PgSettingsService, SettingsService};
 use axum::{
     extract::{Json, State},
@@ -7,6 +7,7 @@ use axum::{
     response::IntoResponse,
     Extension,
 };
+use std::sync::Arc;
 use tracing::error;
 
 #[utoipa::path(
@@ -18,11 +19,14 @@ use tracing::error;
         (status = 400, description = "Bad request")
     )
 )]
-pub async fn put_settings(
-    State(service): State<PgSettingsService>,
+pub async fn put_settings<S>(
+    State(service): State<Arc<S>>,
     Extension(user): Extension<User>,
     Json(payload): Json<UserSettingsUpdateRequest>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)>
+where
+    S: SettingsService,
+{
     service
         .update_settings(&user.id, &payload)
         .await
@@ -38,18 +42,22 @@ pub async fn put_settings(
     get,
     path = "/user/settings",
     responses(
-        (status = 200, description = "User settings returned", body = UserSettingsUpdateRequest),
+        (status = 200, description = "User settings returned", body = UserSettingsServiceSuccess),
         (status = 404, description = "No settings found for user"),
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn get_settings(
+pub async fn get_settings<S>(
     Extension(user): Extension<User>,
-    State(service): State<PgSettingsService>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    State(service): State<Arc<S>>,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)>
+where
+    S: SettingsService,
+{
     let settings = service.get_settings(&user.id).await.map_err(|err| {
         tracing::error!("Error in service.get_settings: {:?}", err);
-        let json = serde_json::json!({ "error": format!("Error in service.get_settings: {}", err) });
+        let json =
+            serde_json::json!({ "error": format!("Error in service.get_settings: {}", err) });
         (StatusCode::INTERNAL_SERVER_ERROR, Json(json))
     })?;
 
@@ -57,7 +65,7 @@ pub async fn get_settings(
         Some(s) => {
             tracing::debug!("User settings: {:?}", s);
             Ok((StatusCode::OK, Json(s)))
-        },
+        }
         None => {
             tracing::error!("Settings not found for user: {:?}", user.id);
             let json = serde_json::json!({
@@ -82,44 +90,45 @@ mod tests {
         http,
         http::{Method, Request, StatusCode},
     };
+    use http_body_util::BodyExt;
     use jsonwebtoken::Header;
+    use mockall::mock;
     use mockall::predicate::*;
     use sqlx::PgPool;
+    use std::sync::Arc;
     use tower::ServiceExt;
     use tracing_test::traced_test;
 
-    /// Helper that injects a `User` into the request's extensions.
-    // fn with_user<B>(mut req: Request<B>, user: &User) -> Request<B> {
-    //     req.extensions_mut().insert(user.clone());
-    //     req
-    // }
-
     #[sqlx::test]
-    #[ignore]
     #[traced_test]
     async fn test_get_settings(pool: PgPool) {
         let test_app = TestApp::new(pool).await;
-        let user_id: DatabaseId = test_app.users[0].user.id.clone();
+        let user_id: DatabaseId = test_app.users[0].user.id; // no `.clone()` needed
         let access_token = test_app.users[0].tokens.access_token.clone();
         tracing::debug!("access_token: {:?}", access_token);
 
+        let payload = UserSettingsServiceSuccess {
+            user_id,
+            theme: Theme::Dark,
+            notifications_enabled: true,
+            radius: 10,
+        };
+
+        // let mut mock = MockSettingsService::new();
         let mut mock = MockSettingsService::new();
         mock.expect_get_settings()
-            .with(eq(user_id.clone()))
+            .with(eq(user_id))
             .times(1)
             .returning(move |_| {
-                let id = user_id.clone();
-                Box::pin(async move {
-                    Ok(Some(UserSettingsServiceSuccess {
-                        user_id: id,
-                        theme: Theme::Dark,
-                        notifications_enabled: true,
-                        radius: 10,
-                    }))
-                })
+                // `user_id` is `Copy`, so this copies, doesn't consume:
+                let id = user_id;
+                Box::pin(async move { Ok(Some(payload.clone())) })
             });
 
-        let (router, _) = routers::router(test_app.app.clone()).split_for_parts();
+        // let (router, _) = routers::router_with_service(test_app.app.clone(), mock).split_for_parts();
+        let arc_mocked_service = Arc::new(mock);
+        let (router, _) = routers::router_with_service(test_app.app.clone(), arc_mocked_service)
+            .split_for_parts();
         let request = Request::builder()
             .method(Method::GET)
             .uri("/user/settings")
@@ -134,37 +143,62 @@ mod tests {
 
         let response = router.oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
+
+        // parse the response body and check content against the mocked data
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let refresh_body: UserSettingsServiceSuccess =
+            serde_json::from_slice(&body).expect("error");
+
+        assert_eq!(refresh_body.user_id, user_id);
+        assert_eq!(refresh_body.theme, Theme::Dark);
+        assert_eq!(refresh_body.notifications_enabled, true);
+        assert_eq!(refresh_body.radius, 10);
+        tracing::debug!("response: {:?}", refresh_body);
     }
 
-    // #[sqlx::test]
-    // async fn test_get_settings(pool: PgPool) {
-    //     let test_app = TestApp::new(pool).await;
-    //
-    //     let mut mock = MockSettingsService::new();
-    //     mock.expect_get_settings()
-    //         .with(eq(test_app.users[0].user.id))
-    //         .times(1)
-    //         .returning(move |_| {
-    //             // Box the async block so it implements Future
-    //             let foo = test_app.clone();
-    //             Box::pin(async move {
-    //                 Ok(Some(UserSettingsServiceSuccess {
-    //                     user_id: foo.users[0].user.id.clone(),
-    //                     theme: Theme::Dark,
-    //                     notifications_enabled: true,
-    //                     radius: 10,
-    //                 }))
-    //             })
-    //         });
-    //
-    //     let request = Request::builder()
-    //         .method(Method::GET)
-    //         .uri("/user/settings")
-    //         .header("Authorization", format!("Bearer {}",test_app.clone().users[0].tokens.access_token))
-    //         .body(Body::empty())
-    //         .unwrap();
-    //
-    //     let (router, _) = routers::router(test_app.app).split_for_parts();
-    //     let response = router.oneshot(request).await.unwrap();
-    // }
+    #[sqlx::test]
+    #[traced_test]
+    async fn test_put_settings(pool: PgPool) {
+        // 1) spin up the app & extract user info/token
+        let test_app = TestApp::new(pool).await;
+        let user_id: DatabaseId = test_app.users[0].user.id; // Copy newtype
+        let token = test_app.users[0].tokens.access_token.clone();
+
+        // 2) prepare a dummy payload
+        let payload = UserSettingsUpdateRequest {
+            theme: Theme::Light,
+            notifications_enabled: false,
+            radius: 20,
+        };
+
+        // 3) mock & expect the service.update_settings call
+        let mut mock = MockSettingsService::new();
+        mock.expect_update_settings()
+            .with(eq(user_id), eq(payload))
+            .times(1)
+            .returning(move |_, _| Box::pin(async move { Ok(()) }));
+
+        // 4) build a router that uses our mock
+        let service = Arc::new(mock);
+        let (router, _) =
+            routers::router_with_service(test_app.app.clone(), service).split_for_parts();
+
+        // 5) serialize payload and assemble the PUT request
+        let body = serde_json::to_string(&payload).unwrap();
+        let request = Request::builder()
+            .method(Method::PUT)
+            .uri("/user/settings")
+            .header(http::header::AUTHORIZATION, format!("Bearer {}", token))
+            .header(http::header::CONTENT_TYPE, "application/json")
+            .body(Body::from(body))
+            .unwrap();
+
+        // 6) dispatch and inspect the response
+        let response = router.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // (optionally) verify the response body
+        let txt = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(&txt[..], b"Settings saved successfully");
+    }
 }

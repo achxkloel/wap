@@ -15,7 +15,7 @@ use crate::shared::models::AppState;
 
 // TODO: add to response also user dat
 // TODO: add endpoint to change user passwords
-// TODO: add endpoint to authenticate google auth
+// TODO: add endpoint to authenticate google auth + googleId field to user
 
 // -------------------------------------------------------------------------------------------------
 // Routes

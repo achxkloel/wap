@@ -11,7 +11,7 @@ pub enum Theme {
     Light,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema, sqlx::FromRow)]
+#[derive(Debug, Deserialize, Serialize, ToSchema, sqlx::FromRow, Clone, Copy, PartialEq)]
 pub struct UserSettingsUpdateRequest {
     pub theme: Theme,
     pub notifications_enabled: bool,
@@ -41,7 +41,7 @@ pub struct UserSettingsCreate {
 }
 
 
-#[derive(Debug, Deserialize, Serialize, ToSchema, sqlx::FromRow)]
+#[derive(Debug, Deserialize, Serialize, ToSchema, sqlx::FromRow, Clone, Copy, PartialEq)]
 pub struct UserSettingsServiceSuccess {
     pub user_id: DatabaseId,
     pub theme: Theme,

@@ -1,27 +1,27 @@
-use crate::routes::natural_phenomenon_location::domains::*;
-use crate::routes::natural_phenomenon_location::models::UpdateNaturalPhenomenonLocationRequestWithIds;
 use anyhow::Result;
 use async_trait::async_trait;
+use serde_json::error::Category::Data;
 use sqlx::PgPool;
+use crate::routes::natural_phenomenon_location::models::{CreateNaturalPhenomenonLocationRequest, NaturalPhenomenonLocationCreateAndUpdateSuccess, UpdateNaturalPhenomenonLocationRequestWithIds};
 use crate::shared::models::DatabaseId;
 
 #[async_trait]
 pub trait NaturalPhenomenonLocationService: Send + Sync + 'static {
     async fn create(
         &self,
-        location: NaturalPhenomenonLocation,
-    ) -> Result<NaturalPhenomenonLocation>;
-    async fn get_all(&self, user_id: DatabaseId) -> Result<Vec<NaturalPhenomenonLocation>>;
+        location: CreateNaturalPhenomenonLocationRequest,
+    ) -> Result<NaturalPhenomenonLocationCreateAndUpdateSuccess>;
+    async fn get_all(&self, user_id: DatabaseId) -> Result<Vec<NaturalPhenomenonLocationCreateAndUpdateSuccess>>;
     async fn get_by_id(
         &self,
         user_id: DatabaseId,
-        id: NaturalPhenomenonLocationId,
-    ) -> Result<NaturalPhenomenonLocation>;
+        id: DatabaseId,
+    ) -> Result<NaturalPhenomenonLocationCreateAndUpdateSuccess>;
     async fn update(
         &self,
         location: UpdateNaturalPhenomenonLocationRequestWithIds,
-    ) -> Result<NaturalPhenomenonLocation>;
-    async fn delete(&self, user_id: DatabaseId, id: NaturalPhenomenonLocationId) -> Result<()>;
+    ) -> Result<NaturalPhenomenonLocationCreateAndUpdateSuccess>;
+    async fn delete(&self, user_id: DatabaseId, id: DatabaseId) -> Result<()>;
 }
 
 pub struct PgNaturalPhenomenonLocationService {
@@ -38,8 +38,8 @@ impl PgNaturalPhenomenonLocationService {
 impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
     async fn create(
         &self,
-        location: NaturalPhenomenonLocation,
-    ) -> Result<NaturalPhenomenonLocation> {
+        location: CreateNaturalPhenomenonLocationRequest,
+    ) -> Result<NaturalPhenomenonLocationCreateAndUpdateSuccess> {
         let rec = sqlx::query!(
             r#"
             INSERT INTO natural_phenomenon_locations (user_id, name, latitude, longitude, description)
@@ -56,8 +56,8 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             .await?;
 
         // Build a *fresh* domain object from the row we just got back
-        Ok(NaturalPhenomenonLocation {
-            id: Some(NaturalPhenomenonLocationId(rec.id)),
+        Ok(NaturalPhenomenonLocationCreateAndUpdateSuccess {
+            id: DatabaseId(rec.id),
             user_id: DatabaseId(rec.user_id),
             name: rec.name,
             latitude: rec.latitude,
@@ -66,7 +66,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         })
     }
 
-    async fn get_all(&self, user_id: DatabaseId) -> Result<Vec<NaturalPhenomenonLocation>> {
+    async fn get_all(&self, user_id: DatabaseId) -> Result<Vec<NaturalPhenomenonLocationCreateAndUpdateSuccess>> {
         let locations = sqlx::query!(
             r#"
                 SELECT id, user_id, name, latitude, longitude, description
@@ -78,8 +78,8 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         .fetch_all(&self.db)
         .await?
         .into_iter()
-        .map(|rec| NaturalPhenomenonLocation {
-            id: Some(NaturalPhenomenonLocationId(rec.id)),
+        .map(|rec| NaturalPhenomenonLocationCreateAndUpdateSuccess {
+            id: DatabaseId(rec.id),
             user_id: DatabaseId(rec.user_id),
             name: rec.name,
             latitude: rec.latitude,
@@ -94,8 +94,8 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
     async fn get_by_id(
         &self,
         user_id: DatabaseId,
-        id: NaturalPhenomenonLocationId,
-    ) -> Result<NaturalPhenomenonLocation> {
+        id: DatabaseId,
+    ) -> Result<NaturalPhenomenonLocationCreateAndUpdateSuccess> {
         let rec = sqlx::query!(
             r#"
                 SELECT id, user_id, name, latitude, longitude, description
@@ -108,8 +108,8 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         .fetch_one(&self.db)
         .await?;
 
-        Ok(NaturalPhenomenonLocation {
-            id: Some(NaturalPhenomenonLocationId(rec.id)),
+        Ok(NaturalPhenomenonLocationCreateAndUpdateSuccess {
+            id: DatabaseId(rec.id),
             user_id: DatabaseId(rec.user_id),
             name: rec.name,
             latitude: rec.latitude,
@@ -121,7 +121,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
     async fn update(
         &self,
         location: UpdateNaturalPhenomenonLocationRequestWithIds,
-    ) -> Result<NaturalPhenomenonLocation> {
+    ) -> Result<NaturalPhenomenonLocationCreateAndUpdateSuccess> {
         let record = sqlx::query!(
             r#"
             UPDATE natural_phenomenon_locations
@@ -139,8 +139,8 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         .fetch_one(&self.db)
         .await?;
 
-        Ok(NaturalPhenomenonLocation {
-            id: Some(NaturalPhenomenonLocationId(record.id)),
+        Ok(NaturalPhenomenonLocationCreateAndUpdateSuccess {
+            id: DatabaseId(record.id),
             user_id: DatabaseId(record.user_id),
             name: record.name,
             latitude: record.latitude,
@@ -149,7 +149,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         })
     }
 
-    async fn delete(&self, user_id: DatabaseId, id: NaturalPhenomenonLocationId) -> Result<()> {
+    async fn delete(&self, user_id: DatabaseId, id: DatabaseId) -> Result<()> {
         sqlx::query!(
             r#"
                 DELETE FROM natural_phenomenon_locations
@@ -164,3 +164,5 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         Ok(())
     }
 }
+
+

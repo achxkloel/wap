@@ -1,5 +1,5 @@
 import { SidebarProvider } from '@/components/ui/sidebar';
-import Sidebar from '@/features/NewSidebar';
+import Sidebar from '@/features/Sidebar';
 import { Outlet } from 'react-router';
 
 function Layout() {
@@ -13,15 +13,6 @@ function Layout() {
             </div>
         </SidebarProvider>
     );
-
-    // return (
-    //     <div className="flex h-screen w-screen overflow-hidden">
-    //         <Sidebar />
-    //         <div className="flex-1 flex flex-col">
-    //             <Outlet />
-    //         </div>
-    //     </div>
-    // );
 }
 
 export default Layout;

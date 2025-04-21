@@ -1,26 +1,33 @@
-import { AuthDialog } from '@/components/AuthDialog';
+import {
+    SidebarContent,
+    SidebarFooter,
+    SidebarGroup,
+    SidebarGroupContent,
+    SidebarHeader,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    Sidebar as SidebarUI,
+} from '@/components/ui/sidebar';
 import { useIsAuthorized } from '@/lib/store/auth';
-import { cn } from '@/lib/utils';
-import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
-import { faCloud } from '@fortawesome/free-solid-svg-icons/faCloud';
-import { faGear } from '@fortawesome/free-solid-svg-icons/faGear';
-import { faHouse } from '@fortawesome/free-solid-svg-icons/faHouse';
-import { faMap } from '@fortawesome/free-solid-svg-icons/faMap';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { CloudSunIcon, LucideIcon, MapIcon, MapPinIcon, SettingsIcon } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
+import AppTitle from './AppTitle';
+import NavGuest from './NavGuest';
+import NavUser from './NavUser';
 
-interface NavItem {
+interface MenuItem {
     label: string;
-    to: string;
-    icon: IconDefinition;
+    url: string;
+    icon: LucideIcon;
     protected?: boolean;
 }
 
-const navItems: NavItem[] = [
-    { label: 'Weather', to: '/', icon: faHouse },
-    { label: 'Locations', to: '/locations', icon: faCloud },
-    { label: 'Map', to: '/map', icon: faMap },
-    { label: 'Settings', to: '/settings', icon: faGear, protected: true },
+const items: MenuItem[] = [
+    { label: 'Weather', url: '/', icon: CloudSunIcon },
+    { label: 'Locations', url: '/locations', icon: MapPinIcon },
+    { label: 'Map', url: '/map', icon: MapIcon },
+    { label: 'Settings', url: '/settings', icon: SettingsIcon, protected: true },
 ];
 
 function Sidebar() {
@@ -36,37 +43,39 @@ function Sidebar() {
     };
 
     return (
-        <div className="w-64 shadow-lg z-10 p-4 flex flex-col space-y-4">
-            <nav className="flex-1 flex flex-col space-y-2">
-                {navItems.map((item, index) => {
-                    if (item.protected && !isAuthorized) {
-                        return null;
-                    }
+        <SidebarUI>
+            <SidebarHeader>
+                <AppTitle />
+            </SidebarHeader>
+            <SidebarContent>
+                <SidebarGroup>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            {items.map((item) => {
+                                if (item.protected && !isAuthorized) {
+                                    return null;
+                                }
 
-                    return (
-                        <div
-                            key={index}
-                            className={cn(
-                                'px-3 py-2 rounded transition flex items-center space-x-4 cursor-pointer',
-                                isSelected(item.to) ? 'bg-gray-200' : 'text-gray-700 hover:bg-gray-200',
-                            )}
-                        >
-                            <FontAwesomeIcon
-                                icon={item.icon}
-                                fixedWidth
-                            ></FontAwesomeIcon>
-                            <Link
-                                to={item.to}
-                                className="flex-1"
-                            >
-                                {item.label}
-                            </Link>
-                        </div>
-                    );
-                })}
-            </nav>
-            <AuthDialog />
-        </div>
+                                return (
+                                    <SidebarMenuItem key={item.label}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            isActive={isSelected(item.url)}
+                                        >
+                                            <Link to={item.url}>
+                                                <item.icon />
+                                                <span>{item.label}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                );
+                            })}
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+            </SidebarContent>
+            <SidebarFooter>{isAuthorized ? <NavUser /> : <NavGuest />}</SidebarFooter>
+        </SidebarUI>
     );
 }
 

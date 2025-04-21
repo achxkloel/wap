@@ -1,7 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons/faMagnifyingGlass';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { SearchIcon } from 'lucide-react';
 import { useState } from 'react';
 
 interface SearchbarProps {
@@ -37,10 +36,9 @@ function Searchbar({ onChange, onSubmit, iconPosition = 'right' }: SearchbarProp
                 onKeyDown={handleKeyDown}
                 onChange={handleChange}
             />
-            <FontAwesomeIcon
-                icon={faMagnifyingGlass}
+            <SearchIcon
                 className={cn(
-                    'absolute top-1/2 -translate-y-1/2 text-gray-500',
+                    'absolute top-1/2 -translate-y-1/2 text-gray-500 size-4',
                     iconPosition === 'left' ? 'left-3' : 'right-3',
                 )}
             />

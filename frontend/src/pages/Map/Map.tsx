@@ -4,9 +4,7 @@ import Searchbar from '@/components/Searchbar';
 import { Button } from '@/components/ui/button';
 import getFilteredEarthquakes from '@/lib/data/earthquakes/getFiltered';
 import useData from '@/lib/store/data';
-import { faFilter } from '@fortawesome/free-solid-svg-icons/faFilter';
-import { faXmark } from '@fortawesome/free-solid-svg-icons/faXmark';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { FunnelIcon, XIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import Filters from './Filters';
 import { FilterFormValues } from './Filters/Filters';
@@ -74,8 +72,9 @@ function Map() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={toggleFilter}
+                                className="p-2"
                             >
-                                <FontAwesomeIcon icon={faXmark} />
+                                <XIcon className="size-4" />
                             </Button>
                         </div>
                         <Filters
@@ -99,8 +98,9 @@ function Map() {
                             variant="ghost"
                             size="icon"
                             onClick={toggleFilter}
+                            className="p-2"
                         >
-                            <FontAwesomeIcon icon={faFilter} />
+                            <FunnelIcon className="size-4" />
                         </Button>
                     </div>
                 )}

@@ -1,29 +1,21 @@
+import useMapStore from '@/lib/store/map';
 import 'leaflet/dist/leaflet.css';
 import { useEffect } from 'react';
 import { useMap } from 'react-leaflet';
 
-interface MapBoundsProps {
-    onBoundsChange?: (bounds: L.LatLngBounds) => void;
-}
-
-function MapBounds({ onBoundsChange }: MapBoundsProps) {
+function MapBounds() {
     const map = useMap();
+    const setBounds = useMapStore((state) => state.setBounds);
 
     useEffect(() => {
         if (!map) return;
 
         const initialBounds = map.getBounds();
-
-        if (onBoundsChange) {
-            onBoundsChange(initialBounds);
-        }
+        setBounds(initialBounds);
 
         const handleMoveEnd = () => {
             const bounds = map.getBounds();
-
-            if (onBoundsChange) {
-                onBoundsChange(bounds);
-            }
+            setBounds(bounds);
         };
 
         map.on('moveend', handleMoveEnd);
@@ -31,7 +23,7 @@ function MapBounds({ onBoundsChange }: MapBoundsProps) {
         return () => {
             map.off('moveend', handleMoveEnd);
         };
-    }, [map, onBoundsChange]);
+    }, [map]);
 
     return null;
 }

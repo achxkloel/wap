@@ -1,33 +1,31 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import api from '@/lib/api';
 import { logger } from '@/lib/logger';
-import useAuthStore, { useIsAuthorized } from '@/lib/store/auth';
+import useAuthStore from '@/lib/store/auth';
 import Cookies from 'js-cookie';
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useEffect, useState } from 'react';
 
-export function AuthDialog() {
+interface AuthDialogProps {
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+}
+
+export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
     const setAccessToken = useAuthStore((state) => state.setAccessToken);
     const setRefreshToken = useAuthStore((state) => state.setRefreshToken);
-    const removeAccessToken = useAuthStore((state) => state.removeAccessToken);
-    const removeRefreshToken = useAuthStore((state) => state.removeRefreshToken);
-    const isAuthorized = useIsAuthorized();
 
     const [mode, setMode] = useState<'login' | 'register'>('login');
-    const [isOpen, setIsOpen] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const navigate = useNavigate();
 
-    const handleOpenChange = (open: boolean) => {
-        setIsOpen(open);
+    useEffect(() => {
         if (open) {
             setMode('login');
             setEmail('');
@@ -35,7 +33,7 @@ export function AuthDialog() {
             setConfirm('');
             setError('');
         }
-    };
+    }, [open]);
 
     const handleSubmit = async () => {
         setError('');
@@ -62,7 +60,9 @@ export function AuthDialog() {
             logger.debug('Stored access token:', accessToken);
             logger.debug('Stored refresh token:', refreshToken);
 
-            setIsOpen(false);
+            if (onOpenChange) {
+                onOpenChange(false);
+            }
         } catch (err) {
             console.error(err);
             setError('Something went wrong');
@@ -74,39 +74,11 @@ export function AuthDialog() {
         logger.debug('Token from cookie:', token);
     };
 
-    const handleLogout = async () => {
-        try {
-            await api.post('/auth/logout');
-            removeAccessToken();
-            removeRefreshToken();
-            logger.debug('User logged out');
-            navigate('/');
-        } catch (err) {
-            logger.error('Logout error', err);
-        }
-    };
-
-    // If user is logged in, show logout button
-    if (isAuthorized) {
-        return (
-            <Button
-                variant="outline"
-                onClick={handleLogout}
-            >
-                Logout
-            </Button>
-        );
-    }
-
-    // Otherwise show auth dialog
     return (
         <Dialog
-            open={isOpen}
-            onOpenChange={handleOpenChange}
+            open={open}
+            onOpenChange={onOpenChange}
         >
-            <DialogTrigger asChild>
-                <Button variant="outline">Login</Button>
-            </DialogTrigger>
             <DialogContent className="sm:max-w-[450px]">
                 <Card className="w-full shadow-none border-0">
                     <CardHeader className="pb-2">

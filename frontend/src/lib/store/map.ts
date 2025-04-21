@@ -12,6 +12,8 @@ interface MapStoreState {
     mode: 'rectangle' | 'circle';
     coordinates: RectangleCoordinates | CircleCoordinates | null;
     bounds: L.LatLngBounds | null;
+    colorStrategy: 'magnitude' | 'significance' | 'date';
+    setColorStrategy: (colorStrategy: 'magnitude' | 'significance' | 'date') => void;
     startDraw: (mode: 'rectangle' | 'circle', coordinates?: RectangleCoordinates | CircleCoordinates) => void;
     stopDraw: (coordinates?: RectangleCoordinates | CircleCoordinates) => void;
     setBounds: (bounds: L.LatLngBounds) => void;
@@ -22,6 +24,8 @@ const useMapStore = create<MapStoreState>()((set) => ({
     mode: 'rectangle',
     coordinates: null,
     bounds: null,
+    colorStrategy: 'magnitude',
+    setColorStrategy: (colorStrategy) => set({ colorStrategy }),
     startDraw: (mode, coordinates) => {
         const newState: Partial<MapStoreState> = {
             draw: true,

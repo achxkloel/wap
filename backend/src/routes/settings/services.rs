@@ -1,0 +1,204 @@
+use crate::routes::weather_location::models::{UserSettings, UserSettingsServiceSuccess, UserSettingsUpdateRequest};
+use anyhow::Result;
+use async_trait::async_trait;
+use mockall::automock;
+use sqlx::PgPool;
+use crate::routes::auth::models::UserId;
+
+#[async_trait]
+#[automock]
+pub trait SettingsService: Send + Sync + 'static {
+    async fn get_settings(&self, user_id: UserId) -> Result<Option<UserSettingsServiceSuccess>>;
+    async fn update_settings(
+        &self,
+        user_id: UserId,
+        settings: UserSettingsUpdateRequest,
+    ) -> Result<()>;
+    async fn create_settings(&self, user_id: UserId) -> Result<UserSettings>;
+    async fn delete_settings(&self, user_id: UserId) -> Result<()>;
+}
+
+#[derive(Clone)]
+pub struct PgSettingsService {
+    pub db: PgPool,
+}
+
+impl PgSettingsService {
+    pub fn new(db: PgPool) -> Self {
+        Self { db }
+    }
+}
+
+#[async_trait]
+impl SettingsService for PgSettingsService {
+    async fn get_settings(&self, user_id: UserId) -> Result<Option<UserSettingsServiceSuccess>> {
+        let settings = sqlx::query_as::<_, UserSettingsServiceSuccess>(
+            r#"
+            SELECT theme, notifications_enabled, radius, user_id
+            FROM settings
+            WHERE user_id = $1
+            "#,
+        )
+        .bind(user_id)
+        .fetch_optional(&self.db)
+        .await?;
+
+        Ok(settings)
+    }
+
+    async fn update_settings(
+        &self,
+        user_id: UserId,
+        settings: UserSettingsUpdateRequest,
+    ) -> Result<()> {
+        sqlx::query!(
+            "UPDATE settings SET theme = $1, notifications_enabled = $2, radius = $3, updated_at = NOW() WHERE user_id = $4",
+            settings.theme as _,
+            settings.notifications_enabled,
+            settings.radius,
+            user_id.0
+        )
+        .execute(&self.db)
+        .await?;
+
+        Ok(())
+    }
+
+    async fn create_settings(&self, user_id: UserId) -> Result<UserSettings> {
+        let settings = sqlx::query_as::<_, UserSettings>(
+            r#"
+            INSERT INTO settings (user_id, theme, notifications_enabled, radius)
+            VALUES ($1, Theme::Dark, true, 10)
+            RETURNING theme, notifications_enabled, radius
+            "#,
+        )
+        .bind(user_id)
+        .fetch_one(&self.db)
+        .await?;
+
+        Ok(settings)
+    }
+
+    async fn delete_settings(&self, user_id: UserId) -> Result<()> {
+        // Delete the row; if it wasn’t there, we still return Ok(())
+        sqlx::query!(
+            "DELETE FROM settings WHERE user_id = $1",
+            user_id.0
+        )
+            .execute(&self.db)
+            .await?;
+        Ok(())
+    }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::routes::weather_location::models::Theme;
+    use crate::tests::tests::TestApp;
+    use sqlx::PgPool;
+
+    #[sqlx::test]
+    async fn test_create_settings(pool: PgPool) {
+        let test_app = TestApp::new(pool.clone()).await;
+        let service = PgSettingsService::new(pool.clone());
+
+        // Test getting settings for non-existent user
+        let result = service.get_settings(UserId(999)).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+
+        // Create settings for test user
+        let user_id = test_app.users[0].user.id;
+        service
+            .create_settings(user_id)
+            .await
+            .expect("Failed to create settings");
+
+        // Test getting existing settings
+        let settings = service
+            .get_settings(user_id)
+            .await
+            .expect("Failed to get settings");
+        assert!(settings.is_some());
+        let settings = settings.unwrap();
+        match settings.theme {
+            Theme::Dark => { /* pass */ }
+            other => panic!("expected Dark, got {:?}", other),
+        }
+        assert!(settings.notifications_enabled);
+        assert_eq!(settings.radius, 10);
+    }
+
+    #[sqlx::test]
+    async fn test_update_settings(pool: PgPool) {
+        let test_app = TestApp::new(pool.clone()).await;
+        let service = PgSettingsService::new(pool.clone());
+
+        let user_id = test_app.users[0].user.id;
+        service
+            .create_settings(user_id)
+            .await
+            .expect("Failed to create settings");
+
+        let update_request = UserSettingsUpdateRequest {
+            theme: Theme::Dark,
+            notifications_enabled: false,
+            radius: 20,
+        };
+
+        // Test updating settings
+        let result = service.update_settings(user_id, update_request).await;
+        assert!(result.is_ok());
+
+        // Verify the update
+        let settings = service
+            .get_settings(user_id)
+            .await
+            .expect("Failed to get settings");
+        assert!(settings.is_some());
+        let settings = settings.unwrap();
+        match settings.theme {
+            Theme::Dark => { /* pass */ }
+            other => panic!("expected Dark, got {:?}", other),
+        }
+        assert!(!settings.notifications_enabled);
+        assert_eq!(settings.radius, 20);
+    }
+
+    #[sqlx::test]
+    async fn test_delete_settings(pool: PgPool) {
+        let test_app = TestApp::new(pool.clone()).await;
+        let service = PgSettingsService::new(pool.clone());
+
+        let user_id = test_app.users[0].user.id;
+
+        // 1) Create settings so there is something to delete
+        service
+            .create_settings(user_id)
+            .await
+            .expect("Failed to create settings");
+
+        // 2) Verify it exists
+        let before = service
+            .get_settings(user_id)
+            .await
+            .expect("get_settings failed");
+        assert!(before.is_some());
+
+        // 3) Delete it
+        service
+            .delete_settings(user_id)
+            .await
+            .expect("delete_settings failed");
+
+        // 4) And now get_settings should return None
+        let after = service
+            .get_settings(user_id)
+            .await
+            .expect("get_settings after delete failed");
+        assert!(after.is_none());
+    }
+
+}

@@ -6,3 +6,8 @@ pub struct AppState {
     pub settings: WapSettings,
 }
 
+
+#[derive(Clone, sqlx::FromRow, sqlx::Type)]
+pub struct Id (pub i32);
+
+

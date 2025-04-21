@@ -8,7 +8,6 @@ mod services;
 
 pub use domains::{
     CreateNaturalPhenomenonLocationRequest, NaturalPhenomenonLocation, NaturalPhenomenonLocationId,
-    UserId,
 };
 
 use crate::routes::auth::middlewares::auth;

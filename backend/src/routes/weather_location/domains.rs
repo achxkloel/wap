@@ -2,9 +2,6 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize)]
-pub struct UserId(pub i32);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize)]
 pub struct WeatherLocationId(pub i32);
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]

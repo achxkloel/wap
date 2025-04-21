@@ -22,3 +22,9 @@ connect-to-db-local:
 test:
 	cargo test -- --nocapture
 
+test-watch:
+	cargo watch --exec "test -- --nocapture"
+
+test-current:
+	cargo test -- --exact routes::settings::services::tests::test_create_settings
+

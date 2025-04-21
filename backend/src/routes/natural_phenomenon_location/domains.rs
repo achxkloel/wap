@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::Type;
 use utoipa::ToSchema;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize, Type)]
-pub struct UserId(pub i32);
+use crate::routes::auth::models::UserId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize, Type)]
 pub struct NaturalPhenomenonLocationId(pub i32);

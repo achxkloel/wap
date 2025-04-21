@@ -66,7 +66,7 @@ fn prepare_cors() -> CorsLayer {
 }
 
 async fn app_router(app: AppState) -> OpenApiRouter {
-    let setting_router = backend::routes::settings::router(app.clone());
+    let setting_router = backend::routes::settings::routers::router(app.clone());
     let auth_router = backend::routes::auth::router(app.clone());
     let natural_phenomenon_location_router =
         backend::routes::natural_phenomenon_location::router(app.clone());

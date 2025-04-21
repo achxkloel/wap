@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-pub type JwtToken = String;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize, sqlx::Type, sqlx::FromRow)]
+pub struct UserId(pub i32);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize, sqlx::Type, sqlx::FromRow)]
+pub struct JwtToken(pub String);
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct LoginSuccess {
@@ -85,7 +89,7 @@ pub struct LoginResponse {
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone)]
 pub struct User {
-    pub id: i32,
+    pub id: UserId,
     pub email: String,
     pub password_hash: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,

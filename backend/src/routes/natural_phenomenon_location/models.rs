@@ -1,4 +1,4 @@
-use crate::routes::natural_phenomenon_location::{NaturalPhenomenonLocationId, NaturalPhenomenonLocationService, UserId};
+use crate::routes::natural_phenomenon_location::{NaturalPhenomenonLocationId, NaturalPhenomenonLocationService};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -21,7 +21,7 @@ pub type SharedService = std::sync::Arc<dyn NaturalPhenomenonLocationService + S
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema, Clone)]
 pub struct NaturalPhenomenonLocation {
     pub id: i32,
-    pub user_id: i32,
+    pub user_id: UserId,
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,

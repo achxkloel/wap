@@ -37,6 +37,8 @@ const defaultFilters: FilterFormValues = {
 function Map() {
     const [filters, setFilters] = useState<FilterFormValues>(defaultFilters);
     const [filterOpen, setFilterOpen] = useState(false);
+    const [searchValue, setSearchValue] = useState<string>('');
+    const [searchValueSubmitted, setSearchValueSubmitted] = useState<string>('');
     const setEarthquakes = useData((state) => state.setEarthquake);
 
     useEffect(() => {
@@ -46,6 +48,7 @@ function Map() {
     const fetchData = async () => {
         try {
             const data = await getFilteredEarthquakes(filters);
+            setSearchValue('');
             setEarthquakes(data);
         } catch (e) {
             console.error('Error fetching earthquakes:', e);
@@ -88,13 +91,10 @@ function Map() {
                     <React.Fragment>
                         <div className="w-full flex gap-4 p-4">
                             <Searchbar
+                                value={searchValue}
+                                onChange={setSearchValue}
                                 iconPosition="left"
-                                onChange={(value) => {
-                                    console.log('Search value:', value);
-                                }}
-                                onSubmit={(value) => {
-                                    console.log('Search submitted:', value);
-                                }}
+                                onSubmit={setSearchValueSubmitted}
                             />
                             <Button
                                 variant="ghost"
@@ -105,7 +105,7 @@ function Map() {
                                 <FunnelIcon className="size-4" />
                             </Button>
                         </div>
-                        <EventList />
+                        <EventList search={searchValueSubmitted} />
                     </React.Fragment>
                 )}
             </div>

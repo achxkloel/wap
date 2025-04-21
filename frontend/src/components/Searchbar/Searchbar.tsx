@@ -1,19 +1,16 @@
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { SearchIcon } from 'lucide-react';
-import { useState } from 'react';
 
 interface SearchbarProps {
+    value?: string;
     onChange?: (value: string) => void;
     onSubmit?: (value: string) => void;
     iconPosition?: 'left' | 'right';
 }
 
-function Searchbar({ onChange, onSubmit, iconPosition = 'right' }: SearchbarProps) {
-    const [value, setValue] = useState('');
-
+function Searchbar({ value = '', onChange, onSubmit, iconPosition = 'right' }: SearchbarProps) {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setValue(e.target.value);
         if (onChange) {
             onChange(e.target.value);
         }
@@ -32,6 +29,7 @@ function Searchbar({ onChange, onSubmit, iconPosition = 'right' }: SearchbarProp
             <Input
                 type="text"
                 placeholder="Search"
+                value={value}
                 className={cn(iconPosition === 'right' ? 'pr-10' : 'pl-10')}
                 onKeyDown={handleKeyDown}
                 onChange={handleChange}

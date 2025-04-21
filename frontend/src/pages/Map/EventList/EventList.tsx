@@ -2,18 +2,37 @@ import useData from '@/lib/store/data';
 import { format } from 'date-fns';
 import { Virtuoso } from 'react-virtuoso';
 
-function EventList() {
+interface EventListProps {
+    search?: string;
+}
+
+function EventList({ search }: EventListProps) {
     const earthquakes = useData((state) => state.earthquake);
 
     if (!earthquakes || earthquakes.features.length <= 0) {
         return <div className="p-4 text-center text-gray-500 h-18 ">No items found</div>;
     }
 
+    const getEarthquakes = () => {
+        if (!earthquakes) {
+            return;
+        }
+
+        if (!search) {
+            return earthquakes.features;
+        }
+
+        return earthquakes.features.filter((item) => {
+            const place = item.properties.place.toLowerCase();
+            return place.includes(search.toLowerCase());
+        });
+    };
+
     return (
         <div className="h-full">
             <Virtuoso
                 style={{ height: '100%' }}
-                data={earthquakes?.features}
+                data={getEarthquakes()}
                 itemContent={(index, item) => (
                     <div
                         key={index}

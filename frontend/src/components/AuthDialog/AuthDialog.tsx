@@ -3,9 +3,13 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Dialog, DialogContent, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import api from '@/lib/api';
 import { logger } from '@/lib/logger';
 import useAuthStore from '@/lib/store/auth';
+import { faGoogle } from '@fortawesome/free-brands-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { useGoogleLogin } from '@react-oauth/google';
 import Cookies from 'js-cookie';
 import { useEffect, useState } from 'react';
 
@@ -35,6 +39,39 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
         }
     }, [open]);
 
+    const login = (accessToken: string, refreshToken: string) => {
+        setAccessToken(accessToken);
+        setRefreshToken(refreshToken);
+
+        logger.debug('Stored access token:', accessToken);
+        logger.debug('Stored refresh token:', refreshToken);
+
+        if (onOpenChange) {
+            onOpenChange(false);
+        }
+    };
+
+    const googleLogin = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            try {
+                const res = await api.post('/auth/google', {
+                    code: tokenResponse.code,
+                });
+
+                const data = res.data;
+                login(data.access_token, data.refresh_token);
+            } catch (err) {
+                logger.error('Google login verification error:', err);
+                setError('Google login failed');
+            }
+        },
+        onError: (err) => {
+            logger.error('Google login error:', err);
+            setError('Google login failed');
+        },
+        flow: 'auth-code',
+    });
+
     const handleSubmit = async () => {
         setError('');
 
@@ -51,18 +88,7 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
             setLoading(true);
             const res = await api.post(endpoint, payload);
             const data = res.data;
-            const accessToken = data.access_token;
-            const refreshToken = data.refresh_token;
-
-            setAccessToken(accessToken);
-            setRefreshToken(refreshToken);
-
-            logger.debug('Stored access token:', accessToken);
-            logger.debug('Stored refresh token:', refreshToken);
-
-            if (onOpenChange) {
-                onOpenChange(false);
-            }
+            login(data.access_token, data.refresh_token);
         } catch (err) {
             console.error(err);
             setError('Something went wrong');
@@ -140,19 +166,33 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
                             {error && <p className="text-sm text-red-500">{error}</p>}
                         </CardContent>
 
-                        <CardFooter className="flex justify-between pt-4">
+                        <CardFooter className="pt-4 flex-col gap-4">
+                            <div className="w-full flex justify-between">
+                                <Button
+                                    variant="ghost"
+                                    type="button"
+                                    onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+                                >
+                                    {mode === 'login' ? 'Switch to Register' : 'Switch to Login'}
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={loading}
+                                >
+                                    {loading ? 'Loading...' : mode === 'login' ? 'Login' : 'Register'}
+                                </Button>
+                            </div>
+                            <Separator />
                             <Button
-                                variant="ghost"
+                                variant="outline"
                                 type="button"
-                                onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+                                className="w-full"
+                                onClick={() => {
+                                    googleLogin();
+                                }}
                             >
-                                {mode === 'login' ? 'Switch to Register' : 'Switch to Login'}
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={loading}
-                            >
-                                {loading ? 'Loading...' : mode === 'login' ? 'Login' : 'Register'}
+                                <FontAwesomeIcon icon={faGoogle} />
+                                Continue with Google
                             </Button>
                         </CardFooter>
                     </form>

@@ -6,6 +6,7 @@ import getFilteredEarthquakes from '@/lib/data/earthquakes/getFiltered';
 import useData from '@/lib/store/data';
 import { FunnelIcon, XIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import EventList from './EventList';
 import Filters from './Filters';
 import { FilterFormValues } from './Filters/Filters';
 
@@ -84,25 +85,28 @@ function Map() {
                         />
                     </React.Fragment>
                 ) : (
-                    <div className="w-full flex gap-4 p-4">
-                        <Searchbar
-                            iconPosition="left"
-                            onChange={(value) => {
-                                console.log('Search value:', value);
-                            }}
-                            onSubmit={(value) => {
-                                console.log('Search submitted:', value);
-                            }}
-                        />
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={toggleFilter}
-                            className="p-2"
-                        >
-                            <FunnelIcon className="size-4" />
-                        </Button>
-                    </div>
+                    <React.Fragment>
+                        <div className="w-full flex gap-4 p-4">
+                            <Searchbar
+                                iconPosition="left"
+                                onChange={(value) => {
+                                    console.log('Search value:', value);
+                                }}
+                                onSubmit={(value) => {
+                                    console.log('Search submitted:', value);
+                                }}
+                            />
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={toggleFilter}
+                                className="p-2"
+                            >
+                                <FunnelIcon className="size-4" />
+                            </Button>
+                        </div>
+                        <EventList />
+                    </React.Fragment>
                 )}
             </div>
         </Page>

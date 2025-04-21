@@ -13,6 +13,10 @@ use jsonwebtoken::{decode, DecodingKey, Validation};
 
 use crate::shared::models::AppState;
 
+// TODO: add to response also user dat
+// TODO: add endpoint to change user passwords
+// TODO: add endpoint to authenticate google auth
+
 // -------------------------------------------------------------------------------------------------
 // Routes
 // -------------------------------------------------------------------------------------------------
@@ -73,7 +77,7 @@ pub async fn register(
 
 fn filter_user_record(user: &User) -> UserRegisterResponse {
     UserRegisterResponse {
-        id: user.id,
+        id: user.id.clone(),
         email: user.email.to_owned(),
         created_at: user.created_at,
         updated_at: user.updated_at,
@@ -105,13 +109,13 @@ pub async fn login(
 
     let now = chrono::Utc::now();
     let access_token = create_token(
-        &user.id.to_string(),
+        &user.id.0.to_string(),
         (now + chrono::Duration::minutes(60)).timestamp() as usize,
         service.settings.jwt_secret.as_ref(),
     );
 
     let refresh_token = create_token(
-        &user.id.to_string(),
+        &user.id.0.to_string(),
         (now + chrono::Duration::days(30)).timestamp() as usize,
         service.settings.jwt_secret.as_ref(),
     );
@@ -191,7 +195,7 @@ pub async fn refresh(
 
     let now = chrono::Utc::now();
     let new_access_token = create_token(
-        &user.id.to_string(),
+        &user.id.0.to_string(),
         (now + chrono::Duration::minutes(60)).timestamp() as usize,
         state.settings.jwt_secret.as_ref(),
     );
@@ -243,19 +247,18 @@ pub async fn refresh(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::WapSettings;
     use axum::body::Body;
     use axum::http;
     use axum::http::Request;
     use http_body_util::BodyExt;
     use tower::ServiceExt;
-    // for `collect`
+    use crate::shared::models::DatabaseId;
 
     #[sqlx::test]
     async fn test_register_and_login(pool: sqlx::PgPool) {
         // Test the login function here
         let app = crate::tests::tests::init_app_state(pool.clone()).await;
-        
+
         // Prepare router
         let (router, _) = crate::routes::auth::router(app.clone()).split_for_parts();
 
@@ -335,7 +338,7 @@ mod tests {
         println!("claims: {:?}", claims);
         assert_eq!(
             register_body.data.id,
-            claims.claims.sub.parse::<i32>().unwrap()
+            claims.claims.sub.parse::<DatabaseId>().unwrap()
         );
 
         // Logout user - try failed - authorization header is missing

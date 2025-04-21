@@ -3,6 +3,7 @@ use crate::routes::natural_phenomenon_location::models::UpdateNaturalPhenomenonL
 use anyhow::Result;
 use async_trait::async_trait;
 use sqlx::PgPool;
+use crate::shared::models::DatabaseId;
 
 #[async_trait]
 pub trait NaturalPhenomenonLocationService: Send + Sync + 'static {
@@ -10,17 +11,17 @@ pub trait NaturalPhenomenonLocationService: Send + Sync + 'static {
         &self,
         location: NaturalPhenomenonLocation,
     ) -> Result<NaturalPhenomenonLocation>;
-    async fn get_all(&self, user_id: UserId) -> Result<Vec<NaturalPhenomenonLocation>>;
+    async fn get_all(&self, user_id: DatabaseId) -> Result<Vec<NaturalPhenomenonLocation>>;
     async fn get_by_id(
         &self,
-        user_id: UserId,
+        user_id: DatabaseId,
         id: NaturalPhenomenonLocationId,
     ) -> Result<NaturalPhenomenonLocation>;
     async fn update(
         &self,
         location: UpdateNaturalPhenomenonLocationRequestWithIds,
     ) -> Result<NaturalPhenomenonLocation>;
-    async fn delete(&self, user_id: UserId, id: NaturalPhenomenonLocationId) -> Result<()>;
+    async fn delete(&self, user_id: DatabaseId, id: NaturalPhenomenonLocationId) -> Result<()>;
 }
 
 pub struct PgNaturalPhenomenonLocationService {
@@ -57,7 +58,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         // Build a *fresh* domain object from the row we just got back
         Ok(NaturalPhenomenonLocation {
             id: Some(NaturalPhenomenonLocationId(rec.id)),
-            user_id: UserId(rec.user_id),
+            user_id: DatabaseId(rec.user_id),
             name: rec.name,
             latitude: rec.latitude,
             longitude: rec.longitude,
@@ -65,7 +66,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         })
     }
 
-    async fn get_all(&self, user_id: UserId) -> Result<Vec<NaturalPhenomenonLocation>> {
+    async fn get_all(&self, user_id: DatabaseId) -> Result<Vec<NaturalPhenomenonLocation>> {
         let locations = sqlx::query!(
             r#"
                 SELECT id, user_id, name, latitude, longitude, description
@@ -79,7 +80,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         .into_iter()
         .map(|rec| NaturalPhenomenonLocation {
             id: Some(NaturalPhenomenonLocationId(rec.id)),
-            user_id: UserId(rec.user_id),
+            user_id: DatabaseId(rec.user_id),
             name: rec.name,
             latitude: rec.latitude,
             longitude: rec.longitude,
@@ -92,7 +93,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
 
     async fn get_by_id(
         &self,
-        user_id: UserId,
+        user_id: DatabaseId,
         id: NaturalPhenomenonLocationId,
     ) -> Result<NaturalPhenomenonLocation> {
         let rec = sqlx::query!(
@@ -109,7 +110,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
 
         Ok(NaturalPhenomenonLocation {
             id: Some(NaturalPhenomenonLocationId(rec.id)),
-            user_id: UserId(rec.user_id),
+            user_id: DatabaseId(rec.user_id),
             name: rec.name,
             latitude: rec.latitude,
             longitude: rec.longitude,
@@ -140,7 +141,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
 
         Ok(NaturalPhenomenonLocation {
             id: Some(NaturalPhenomenonLocationId(record.id)),
-            user_id: UserId(record.user_id),
+            user_id: DatabaseId(record.user_id),
             name: record.name,
             latitude: record.latitude,
             longitude: record.longitude,
@@ -148,7 +149,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         })
     }
 
-    async fn delete(&self, user_id: UserId, id: NaturalPhenomenonLocationId) -> Result<()> {
+    async fn delete(&self, user_id: DatabaseId, id: NaturalPhenomenonLocationId) -> Result<()> {
         sqlx::query!(
             r#"
                 DELETE FROM natural_phenomenon_locations

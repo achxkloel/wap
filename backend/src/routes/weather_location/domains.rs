@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use crate::shared::models::DatabaseId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize)]
 pub struct WeatherLocationId(pub i32);
@@ -7,7 +8,7 @@ pub struct WeatherLocationId(pub i32);
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct WeatherLocation {
     pub id: Option<WeatherLocationId>,
-    pub user_id: UserId,
+    pub user_id: DatabaseId,
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,

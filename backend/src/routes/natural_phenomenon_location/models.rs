@@ -1,6 +1,7 @@
 use crate::routes::natural_phenomenon_location::{NaturalPhenomenonLocationId, NaturalPhenomenonLocationService};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use crate::shared::models::DatabaseId;
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateNaturalPhenomenonLocationRequest {
@@ -12,7 +13,7 @@ pub struct UpdateNaturalPhenomenonLocationRequest {
 
 pub struct UpdateNaturalPhenomenonLocationRequestWithIds {
     pub id:          NaturalPhenomenonLocationId,
-    pub user_id:     UserId,
+    pub user_id:     DatabaseId,
     pub payload:     UpdateNaturalPhenomenonLocationRequest,
 }
 
@@ -21,7 +22,7 @@ pub type SharedService = std::sync::Arc<dyn NaturalPhenomenonLocationService + S
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema, Clone)]
 pub struct NaturalPhenomenonLocation {
     pub id: i32,
-    pub user_id: UserId,
+    pub user_id: DatabaseId,
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,

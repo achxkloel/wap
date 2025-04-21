@@ -1,12 +1,12 @@
 use crate::routes::weather_location::services::WeatherLocationAppStateImpl;
-use crate::routes::weather_location::{
-    UserId, WeatherLocation, WeatherLocationId, WeatherLocationService,
+use crate::routes::weather_location::{WeatherLocation, WeatherLocationId, WeatherLocationService,
 };
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::{Extension, Json};
 use serde::Deserialize;
 use utoipa::ToSchema;
+use crate::shared::models::DatabaseId;
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateWeatherLocationRequest {
@@ -27,10 +27,10 @@ pub struct CreateWeatherLocationRequest {
 )]
 pub async fn get_all_locations(
     State(service): State<WeatherLocationAppStateImpl>,
-    Extension(user_id): Extension<UserId>,
+    Extension(user_id): Extension<DatabaseId>,
 ) -> anyhow::Result<Json<Vec<WeatherLocation>>, (StatusCode, String)> {
     let locations = service
-        .get_all(user_id)
+        .get_all(&user_id)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Json(locations))
@@ -50,12 +50,12 @@ pub async fn get_all_locations(
 )]
 pub async fn get_location_by_id(
     State(service): State<WeatherLocationAppStateImpl>,
-    Extension(user_id): Extension<UserId>,
+    Extension(user_id): Extension<DatabaseId>,
     Path(id): Path<i32>,
 ) -> anyhow::Result<Json<WeatherLocation>, (StatusCode, String)>
 {
     let location = service
-        .get_by_id(user_id, WeatherLocationId(id))
+        .get_by_id(&user_id, &WeatherLocationId(id))
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Json(location))
@@ -72,7 +72,7 @@ pub async fn get_location_by_id(
 )]
 pub async fn create_location(
     State(service): State<WeatherLocationAppStateImpl>,
-    Extension(user_id): Extension<UserId>,
+    Extension(user_id): Extension<DatabaseId>,
     Json(request): Json<CreateWeatherLocationRequest>,
 ) -> anyhow::Result<Json<WeatherLocation>, (StatusCode, String)>
 {
@@ -107,12 +107,12 @@ pub async fn create_location(
 )]
 pub async fn delete_location(
     State(service): State<WeatherLocationAppStateImpl>,
-    Extension(user_id): Extension<UserId>,
+    Extension(user_id): Extension<DatabaseId>,
     Path(id): Path<i32>,
 ) -> anyhow::Result<StatusCode, (StatusCode, String)>
 {
     service
-        .delete(user_id, WeatherLocationId(id))
+        .delete(&user_id, &WeatherLocationId(id))
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(StatusCode::NO_CONTENT)

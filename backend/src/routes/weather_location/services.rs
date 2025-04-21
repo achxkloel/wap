@@ -1,14 +1,15 @@
 use crate::routes::weather_location::domains::*;
 use anyhow::Result;
 use async_trait::async_trait;
+use crate::shared::models::DatabaseId;
 
 #[async_trait]
 pub trait WeatherLocationService: Clone + Send + Sync + 'static {
     async fn create(&self, location: WeatherLocation) -> Result<WeatherLocation>;
-    async fn get_all(&self, user_id: UserId) -> Result<Vec<WeatherLocation>>;
-    async fn get_by_id(&self, user_id: UserId, id: WeatherLocationId) -> Result<WeatherLocation>;
-    async fn update(&self, location: WeatherLocation) -> Result<WeatherLocation>;
-    async fn delete(&self, user_id: UserId, id: WeatherLocationId) -> Result<()>;
+    async fn get_all(&self, user_id: &DatabaseId) -> Result<Vec<WeatherLocation>>;
+    async fn get_by_id(&self, user_id: &DatabaseId, id: &WeatherLocationId) -> Result<WeatherLocation>;
+    async fn update(&self, location: &WeatherLocation) -> Result<WeatherLocation>;
+    async fn delete(&self, user_id: &DatabaseId, id: &WeatherLocationId) -> Result<()>;
 }
 
 #[derive(Clone)]
@@ -47,14 +48,13 @@ impl WeatherLocationService for WeatherLocationAppStateImpl {
         .await?;
 
         tx.commit().await?;
-
         Ok(WeatherLocation {
             id: Some(WeatherLocationId(rec.id)),
             ..location
         })
     }
 
-    async fn get_all(&self, user_id: UserId) -> Result<Vec<WeatherLocation>> {
+    async fn get_all(&self, user_id: &DatabaseId) -> Result<Vec<WeatherLocation>> {
         let locations = sqlx::query!(
             r#"
             SELECT id, user_id, name, latitude, longitude, is_default, description
@@ -68,7 +68,7 @@ impl WeatherLocationService for WeatherLocationAppStateImpl {
         .into_iter()
         .map(|rec| WeatherLocation {
             id: Some(WeatherLocationId(rec.id)),
-            user_id: UserId(rec.user_id),
+            user_id: DatabaseId(rec.user_id),
             name: rec.name,
             latitude: rec.latitude,
             longitude: rec.longitude,
@@ -80,7 +80,7 @@ impl WeatherLocationService for WeatherLocationAppStateImpl {
         Ok(locations)
     }
 
-    async fn get_by_id(&self, user_id: UserId, id: WeatherLocationId) -> Result<WeatherLocation> {
+    async fn get_by_id(&self, user_id: &DatabaseId, id: &WeatherLocationId) -> Result<WeatherLocation> {
         let rec = sqlx::query!(
             r#"
             SELECT id, user_id, name, latitude, longitude, is_default, description
@@ -95,7 +95,7 @@ impl WeatherLocationService for WeatherLocationAppStateImpl {
 
         Ok(WeatherLocation {
             id: Some(WeatherLocationId(rec.id)),
-            user_id: UserId(rec.user_id),
+            user_id: DatabaseId(rec.user_id),
             name: rec.name,
             latitude: rec.latitude,
             longitude: rec.longitude,
@@ -104,7 +104,7 @@ impl WeatherLocationService for WeatherLocationAppStateImpl {
         })
     }
 
-    async fn update(&self, location: WeatherLocation) -> Result<WeatherLocation> {
+    async fn update(&self, location: &WeatherLocation) -> Result<WeatherLocation> {
         let mut tx = self.db.begin().await?;
 
         if location.is_default {
@@ -138,7 +138,7 @@ impl WeatherLocationService for WeatherLocationAppStateImpl {
 
         Ok(WeatherLocation {
             id: Some(WeatherLocationId(rec.id)),
-            user_id: UserId(rec.user_id),
+            user_id: DatabaseId(rec.user_id),
             name: rec.name,
             latitude: rec.latitude,
             longitude: rec.longitude,
@@ -147,7 +147,7 @@ impl WeatherLocationService for WeatherLocationAppStateImpl {
         })
     }
 
-    async fn delete(&self, user_id: UserId, id: WeatherLocationId) -> Result<()> {
+    async fn delete(&self, user_id: &DatabaseId, id: &WeatherLocationId) -> Result<()> {
         sqlx::query!(
             "DELETE FROM weather_locations WHERE id = $1 AND user_id = $2",
             id.0,

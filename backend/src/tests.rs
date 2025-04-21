@@ -1,7 +1,7 @@
 #[cfg(test)]
 pub mod tests {
     use crate::config::WapSettings;
-    use crate::routes::auth::models::{User, UserId};
+    use crate::routes::auth::models::{User};
     use crate::routes::auth::utils::create_token;
     use crate::shared::models::AppState;
     use axum::extract::State;
@@ -68,7 +68,7 @@ pub mod tests {
         //     .unwrap();
         //
         // let user = User {
-        //     id: UserId(row.id), // wrap the i32 yourself
+        //     id: DatabaseId(row.id), // wrap the i32 yourself
         //     email: row.email,
         //     password_hash: Some(row.password_hash),
         //     created_at: row.created_at,

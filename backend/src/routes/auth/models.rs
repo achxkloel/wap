@@ -1,8 +1,7 @@
+use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize, sqlx::Type, sqlx::FromRow)]
-pub struct UserId(pub i32);
+use crate::shared::models::DatabaseId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize, sqlx::Type, sqlx::FromRow)]
 pub struct JwtToken(pub String);
@@ -54,7 +53,7 @@ pub struct CreateLocationRequest {
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone, ToSchema)]
 pub struct UserRegisterResponse {
-    pub id: i32,
+    pub id: DatabaseId,
     pub email: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
@@ -87,9 +86,9 @@ pub struct LoginResponse {
     pub refresh_token: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone)]
+#[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone, ToSchema)]
 pub struct User {
-    pub id: UserId,
+    pub id: DatabaseId,
     pub email: String,
     pub password_hash: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,

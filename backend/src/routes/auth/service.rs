@@ -42,7 +42,7 @@ impl AuthService for PgAuthService {
         .await?;
 
         // Insert new settings
-        sqlx::query!("INSERT INTO settings (user_id) VALUES ($1)", user.id)
+        sqlx::query!("INSERT INTO settings (user_id) VALUES ($1)", user.id.0)
             .execute(&self.db)
             .await?;
 

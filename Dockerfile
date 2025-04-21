@@ -18,7 +18,10 @@ EOF
 FROM rust:1.85 AS backend
 
 ENV WORKDIR /opt/backend
+ENV HOMEDIR /root
 WORKDIR $WORKDIR
+
+COPY backend/.cargo $HOMEDIR/.cargo
 
 # Install development packages
 RUN <<EOF
@@ -28,7 +31,7 @@ EOF
 
 # Install production packages
 RUN <<EOF
-    apt-get update -y && apt-get install -y postgresql postgresql-contrib cloc;
+    apt-get update -y && apt-get install -y postgresql postgresql-contrib cloc mold clang;
     cargo install sqlx-cli --no-default-features --features postgres;
 EOF
 

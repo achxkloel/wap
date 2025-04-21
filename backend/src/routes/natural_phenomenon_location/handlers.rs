@@ -3,7 +3,7 @@ use serde::Serialize;
 use axum::extract::{Extension, Json, Path, State};
 
 use crate::routes::natural_phenomenon_location::domains::{
-    CreateNaturalPhenomenonLocationRequest, NaturalPhenomenonLocation, UserId,
+    CreateNaturalPhenomenonLocationRequest, NaturalPhenomenonLocation,
 };
 use crate::routes::natural_phenomenon_location::models::{
     SharedService, UpdateNaturalPhenomenonLocationRequest,
@@ -14,6 +14,7 @@ use crate::routes::natural_phenomenon_location::NaturalPhenomenonLocationId;
 use anyhow::Result;
 use axum::http::StatusCode;
 use utoipa::ToSchema;
+use crate::shared::models::DatabaseId;
 
 #[derive(Debug, Serialize)]
 struct ErrorResponse {
@@ -30,7 +31,7 @@ struct ErrorResponse {
 )]
 pub async fn get_all_locations(
     State(service): State<SharedService>,
-    Extension(user_id): Extension<UserId>,
+    Extension(user_id): Extension<DatabaseId>,
 ) -> Result<Json<Vec<NaturalPhenomenonLocation>>, (StatusCode, String)> {
     let locations = service
         .get_all(user_id)
@@ -53,7 +54,7 @@ pub async fn get_all_locations(
 )]
 pub async fn get_location(
     State(service): State<SharedService>,
-    Extension(user_id): Extension<UserId>,
+    Extension(user_id): Extension<DatabaseId>,
     Path(id): Path<NaturalPhenomenonLocationId>,
 ) -> Result<Json<NaturalPhenomenonLocation>, (StatusCode, String)> {
     let location = service
@@ -74,7 +75,7 @@ pub async fn get_location(
 )]
 pub async fn create_location(
     State(service): State<SharedService>, // ← concrete, no <S>
-    Extension(user_id): Extension<UserId>,
+    Extension(user_id): Extension<DatabaseId>,
     Json(req): Json<CreateNaturalPhenomenonLocationRequest>,
 ) -> Result<Json<NaturalPhenomenonLocation>, (StatusCode, String)> // ← see §2
 {
@@ -113,7 +114,7 @@ pub async fn create_location(
 )]
 pub async fn update_location(
     State(service): State<SharedService>,
-    Extension(user_id): Extension<UserId>,
+    Extension(user_id): Extension<DatabaseId>,
     Path(id): Path<NaturalPhenomenonLocationId>,
     Json(payload): Json<UpdateNaturalPhenomenonLocationRequest>, // ← body extractor
 ) -> Result<Json<NaturalPhenomenonLocation>, (StatusCode, String)> {
@@ -144,7 +145,7 @@ pub async fn update_location(
 )]
 pub async fn delete_location(
     State(service): State<SharedService>,
-    Extension(user_id): Extension<UserId>,
+    Extension(user_id): Extension<DatabaseId>,
     Path(id): Path<NaturalPhenomenonLocationId>,
 ) -> Result<(), (StatusCode, String)> {
     service.delete(user_id, id).await;

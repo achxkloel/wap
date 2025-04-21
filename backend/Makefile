@@ -22,7 +22,10 @@ connect-to-db-local:
 test:
 	cargo test -- --nocapture
 
-test-watch:
+test-watch-ignore:
+	cargo watch --exec "test -- --nocapture --ignored"
+
+test-watch-all:
 	cargo watch --exec "test -- --nocapture"
 
 test-current:

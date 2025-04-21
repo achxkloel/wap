@@ -11,7 +11,6 @@ use axum::{
 use axum_extra::extract::cookie::CookieJar;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 
-
 // NOTE: the `E` in `Result<Response, E>` must implement `IntoResponse`.
 pub async fn auth(
     jar: CookieJar,
@@ -38,12 +37,14 @@ pub async fn auth(
     //             }),
     //         )
     //     })?;
+    tracing::debug!("auth middleware: {:?}", req);
     let token = req
         .headers()
         .get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer ").map(str::to_owned))
         .ok_or_else(|| {
+            tracing::error!("Missing bearer token");
             (
                 StatusCode::UNAUTHORIZED,
                 Json(AuthError {
@@ -54,12 +55,13 @@ pub async fn auth(
         })?;
 
     /* ─────────────────── 2. validate & decode ─────────────────── */
-    let claims = decode::<TokenClaims>(
+    let claims: TokenClaims = decode::<TokenClaims>(
         &token,
         &DecodingKey::from_secret(state.settings.jwt_secret.as_bytes()),
         &Validation::default(),
     )
     .map_err(|_| {
+        tracing::error!("Decoding jwt failed");
         (
             StatusCode::UNAUTHORIZED,
             Json(AuthError {
@@ -72,6 +74,7 @@ pub async fn auth(
 
     /* ─────────────────── 3. fetch user ─────────────────────────── */
     let user_id: i32 = claims.sub.parse().map_err(|_| {
+        tracing::error!("Token sub is not a valid user id");
         (
             StatusCode::UNAUTHORIZED,
             Json(AuthError {
@@ -85,6 +88,7 @@ pub async fn auth(
         .fetch_optional(&state.db)
         .await
         .map_err(|e| {
+            tracing::error!("Database error: {e}");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(AuthError {
@@ -94,6 +98,7 @@ pub async fn auth(
             )
         })?
         .ok_or_else(|| {
+            tracing::error!("No user with id {}", claims.sub);
             (
                 StatusCode::UNAUTHORIZED,
                 Json(AuthError {
@@ -106,6 +111,8 @@ pub async fn auth(
     /* ─────────────────── 4. stash user & continue ─────────────── */
     req.extensions_mut().insert(user);
     // let req: Request<Body> = req.map(|b| Body::from_stream(b));
+    
+    tracing::debug!("Authenticated user: {:?}", req.extensions().get::<User>());
     Ok(next.run(req).await)
 
     // Ok(next.run(req_body).await)

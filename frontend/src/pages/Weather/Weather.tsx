@@ -47,7 +47,7 @@ const CityCard: React.FC<CityCardProps> = ({ name }) => {
             const lon = geoData.results?.[0]?.longitude;
 
             if (lat && lon) {
-                // Získej aktuální počasí
+                // Získej Current Weather
                 const weatherRes = await fetch(
                     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=precipitation_sum&timezone=Europe%2FPrague`,
                 );
@@ -81,14 +81,16 @@ const CityCard: React.FC<CityCardProps> = ({ name }) => {
     }, [name]);
 
     return (
-        <div className="p-4 flex flex-col items-center bg-gray-300 rounded-lg shadow-xl hover:scale-105 transform transition-all duration-300 ease-in-out">
+        <div className="p-4 flex flex-col items-center bg-gray-200 rounded-lg shadow-xl hover:scale-105 transform transition-all duration-300 ease-in-out">
             <img
                 src={image}
                 alt={`City ${name}`}
                 className="w-[300vw] h-[300vw] max-w-[200px] max-h-[200px] flex-shrink-0 rounded-xl object-cover shadow-md mb-4"
             />
+
             <div className="text-sm  mt-2 text-center">
                 <p className=" text-lg font-bold">{name}</p>
+
                 <p className="text-gray-800">
                     Temperature: <span className=" font-semibold">{temp}°C</span>
                 </p>
@@ -131,7 +133,7 @@ const WeatherNoSelect = ({ onGetLocation }: { onGetLocation: () => void }) => {
                     <div className="text-xl font-semibold mb-2 text-gray-800">No location selected</div>
                     <br />
                     <div
-                        className="bg-black  px-6 py-3 rounded-full border-2 border-gray-700 text-xl font-semibold shadow-lg cursor-pointer hover:bg-gray-300 transform transition-all duration-300 ease-in-out hover:scale-105"
+                        className="  px-6 py-3 rounded-full border-2 border-gray-700 text-xl shadow-xl font-semibold shadow-lg cursor-pointer hover:bg-gray-200 transform transition-all duration-300 ease-in-out hover:scale-105"
                         onClick={onGetLocation}
                     >
                         Location selection
@@ -215,24 +217,19 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
     return (
         <div className="flex flex-rows overflow gap-8  justify-center items-center ">
             <div className="  flex-row-1 p-4  overflow-x-auto">
-                <div
-                    onClick={onBack}
-                    className="text-xl font-semibold mb-2 cursor-pointer hover:underline"
-                >
-                    {location}
-                </div>
+                <div className="text-xl font-semibold mb-4">{location}</div>
 
-                <div className="flex items-center justify-between bg-gray-300 p-4 rounded-xl mb-4 hover:scale-105 transform transition-all duration-300 ease-in-out">
+                <div className="flex items-center justify-between bg-gray-200 p-4 rounded-xl mb-4 hover:scale-105 transform transition-all duration-300 ease-in-out">
                     <div>
-                        <div className="text-4xl font-bold">{current.temperature}°</div>
+                        <div className="text-4xl font-bold">{current.temperature}°C</div>
                         <div className="text-sm">
-                            Nejvyšší: {daily.temperature_2m_max[0]}° • Nejnižší: {daily.temperature_2m_min[0]}°
+                            Highest: {daily.temperature_2m_max[0]}°C • Lowest: {daily.temperature_2m_min[0]}°C
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-gray-300 p-4 rounded-xl mb-4 overflow-x-auto h-[200px] min-h-[150px] hover:scale-105 transform transition-all duration-300 ease-in-out">
-                    <h2 className="text-lg font-semibold mb-1">Hodinová předpověď</h2>
+                <div className="bg-gray-200 p-4 rounded-xl mb-4 overflow-x-auto  min-h-[150px] hover:scale-105 transform transition-all duration-300 ease-in-out">
+                    <h2 className="text-lg font-semibold mb-1">Hourly forecast</h2>
                     <div className="flex space-x-1 ">
                         {(() => {
                             const plusHours = 8;
@@ -247,13 +244,13 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
                             return temps.map((temp: number, i: number) => {
                                 const hour = new Date(hours[i]).getHours();
                                 const rain = precipitation[i];
-                                const oblačnost = cloud[i];
+                                const cloudiness = cloud[i];
 
                                 let icon = '☀️';
                                 if (rain > 5) icon = '🌧️';
                                 else if (rain > 0) icon = '🌦️';
-                                else if (oblačnost > 60) icon = '☁️';
-                                else if (oblačnost > 20) icon = '⛅';
+                                else if (cloudiness > 60) icon = '☁️';
+                                else if (cloudiness > 20) icon = '⛅';
 
                                 return (
                                     <div
@@ -261,7 +258,7 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
                                         className="flex flex-col items-center min-w-[70px] text-center"
                                     >
                                         <div className="text-lg mr-1">{icon}</div>
-                                        <div className="text-sm font-medium mt-2">{temp}°</div>
+                                        <div className="text-sm font-medium mt-2">{temp}°C</div>
                                         {
                                             <div
                                                 className="text-sm text-blue-400 mt-1"
@@ -280,66 +277,66 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <ConditionCard
-                        title="Vítr"
+                        title="Wind"
                         value={`${current.windspeed} km/h`}
-                        sub="10 m nad zemí"
+                        sub="10 m above ground"
                     />
                     <ConditionCard
-                        title="Směr větru"
+                        title="Wind direction"
                         value={
                             <div className="flex flex-col items-center justify-center">
                                 <div
                                     className="text-2xl"
                                     style={{ transform: `rotate(${hourly.winddirection_10m[0]}deg)` }}
-                                    title={`Směr: ${hourly.winddirection_10m[0]}°`}
+                                    title={`Směr: ${hourly.winddirection_10m[0]}°C`}
                                 >
                                     ↑
                                 </div>
                             </div>
                         }
-                        sub={`${hourly.winddirection_10m[0]}°`}
+                        sub={`${hourly.winddirection_10m[0]}°C`}
                     />
                     <ConditionCard
-                        title="Tlak"
+                        title="Pressure"
                         value={`${hourly.surface_pressure[0]} hPa`}
-                        sub="Aktuální"
+                        sub="Current"
                     />
                     <ConditionCard
                         title="UV Index"
                         value={`${hourly.uv_index[0]}`}
-                        sub="Aktuální"
+                        sub="Current"
                     />
                     <ConditionCard
                         title="Vlhkost"
                         value={`${hourly.relative_humidity_2m[0]}%`}
-                        sub="Relativní"
+                        sub="Relative"
                     />
                     <ConditionCard
-                        title="Oblačnost"
+                        title="Cloudiness"
                         value={`${hourly.cloudcover[0]}%`}
-                        sub="Aktuální"
+                        sub="Current"
                     />
                     <ConditionCard
-                        title="Srážky"
+                        title="Precipitation"
                         value={`${hourly.precipitation[0]} mm`}
-                        sub="Hodinový odhad"
+                        sub="Hourly estimate"
                     />
                 </div>
 
-                <div className="bg-gray-300 p-4 rounded-xl overflow-x-auto hover:scale-105 transform transition-all duration-300 ease-in-out ">
-                    <h2 className="text-lg font-semibold mb-4">Denní předpověď</h2>
+                <div className="bg-gray-200 p-4 rounded-xl overflow-x-auto hover:scale-105 transform transition-all duration-300 ease-in-out ">
+                    <h2 className="text-lg font-semibold mb-4">Dayní předpověď</h2>
                     <table className="w-full text-sm table-auto border-collapse">
                         <thead>
                             <tr className="text-left text-gray-700 border-b border-gray-700">
-                                <th className="py-1 pr-4">Den</th>
-                                <th className="py-1 pr-4">Počasí</th>
-                                <th className="py-1 pr-4">Teploty</th>
-                                <th className="py-1">Srážky</th>
+                                <th className="py-1 pr-4">Day</th>
+                                <th className="py-1 pr-4">Weather</th>
+                                <th className="py-1 pr-4">Temperature</th>
+                                <th className="py-1">Precipitation</th>
                             </tr>
                         </thead>
                         <tbody>
                             {daily.time.map((day: string, i: number) => {
-                                const den = new Date(day).toLocaleDateString('cs-CZ', {
+                                const Day = new Date(day).toLocaleDateString('en-US', {
                                     weekday: 'long',
                                 });
 
@@ -351,22 +348,22 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
 
                                 const max = daily.temperature_2m_max[i];
                                 const min = daily.temperature_2m_min[i];
-                                const srazky = daily.precipitation_sum[i];
+                                const precipitation = daily.precipitation_sum[i];
 
-                                let ikona = '☀️';
-                                let popis = 'Jasno';
-                                if (srazky > 5) {
-                                    ikona = '🌧️';
-                                    popis = 'Silný déšť';
-                                } else if (srazky > 0) {
-                                    ikona = '🌦️';
-                                    popis = 'Přeháňky';
+                                let icon = '☀️';
+                                let description = 'Clear';
+                                if (precipitation > 5) {
+                                    icon = '🌧️';
+                                    description = 'Heavy rain';
+                                } else if (precipitation > 0) {
+                                    icon = '🌦️';
+                                    description = 'Showers';
                                 } else if (avgCloud > 80) {
-                                    ikona = '☁️';
-                                    popis = 'Zataženo';
+                                    icon = '☁️';
+                                    description = 'Overcast';
                                 } else if (avgCloud > 40) {
-                                    ikona = '⛅';
-                                    popis = 'Polojasno';
+                                    icon = '⛅';
+                                    description = 'Partly cloudy';
                                 }
 
                                 return (
@@ -374,15 +371,15 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
                                         key={i}
                                         className="border-b border-gray-700"
                                     >
-                                        <td className="py-2 pr-4 font-medium">{den}</td>
+                                        <td className="py-2 pr-4 font-medium">{Day}</td>
                                         <td className="py-2 pr-4">
-                                            <span className="text-lg mr-1">{ikona}</span>
-                                            {popis}
+                                            <span className="text-lg mr-1">{icon}</span>
+                                            {description}
                                         </td>
                                         <td className="py-2 pr-4">
-                                            {max}° / {min}°
+                                            {max}°C / {min}°C
                                         </td>
-                                        <td className="py-2">{srazky > 0 ? `${srazky} mm` : '—'}</td>
+                                        <td className="py-2">{precipitation > 0 ? `${precipitation} mm` : '—'}</td>
                                     </tr>
                                 );
                             })}
@@ -392,7 +389,7 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
             </div>
 
             {/* Pravý panel - obrázek + lokace */}
-            <div className="w-[250px] flex  flex-col items-center p-4  bg-gray-300 rounded-lg ">
+            <div className="w-[250px] flex  flex-col items-center p-4  bg-gray-200 rounded-lg ">
                 <div>
                     <img
                         src={imgData}
@@ -404,15 +401,18 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
                 {[location, 'Praha 1', 'Praha 5', 'Praha 6'].map((loc, i) => (
                     <div
                         key={i}
-                        className={`w-full text-center py-2 bg-black px-4 mb-3 rounded-lg cursor-pointer transition  border-gray-500  hover:border-white hover:scale-105 
-            ${i === 0 ? 'bg-gray-600 ' : 'border border-gray-300 text-gray-300 hover:bg-gray-300'}
+                        className={`w-full text-center py-2 px-4 mb-3 rounded-full  cursor-pointer transition shadow-xl border-gray-500 border-2 border-black hover:scale-105 
+            ${i === 0 ? 'bg-gray-500 ' : ' hover:bg-gray-500'}
           `}
                     >
                         {loc}
                     </div>
                 ))}
 
-                <div className="w-full text-center py-2 bg-black px-4 mb-3 rounded-lg cursor-pointer transition  border-gray-500  hover:border-white hover:scale-105 border border-gray-300 text-gray-300 hover:bg-gray-300">
+                <div
+                    className="w-full text-center py-2 px-4 mb-3 rounded-full  cursor-pointer transition shadow-xl border-gray-500 border-2 border-black hover:scale-105 hover:bg-gray-500"
+                    onClick={onBack}
+                >
                     +
                 </div>
             </div>
@@ -428,7 +428,7 @@ type ConditionCardProps = {
 
 function ConditionCard({ title, value, sub }: ConditionCardProps) {
     return (
-        <div className="bg-gray-300 p-4 rounded-xl text-center hover:scale-105 transform transition-all duration-300 ease-in-out">
+        <div className="bg-gray-200 p-4 rounded-xl text-center hover:scale-105 transform transition-all duration-300 ease-in-out">
             <div className="text-sm text-gray-800">{title}</div>
             <div className="text-xl font-bold">{value}</div>
             <div className="text-xs text-gray-700">{sub}</div>

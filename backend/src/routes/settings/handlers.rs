@@ -20,8 +20,8 @@ use utoipa_axum::routes;
     path = "/user/settings",
     request_body = UserSettingsUpdateRequest,
     responses(
-        (status = 200, description = "Settings updated"),
-        (status = 400, description = "Bad request")
+        (status = 200, description = "Settings updated", content_type = "application/json"),
+        (status = 400, description = "Bad request", content_type = "application/json")
     )
 )]
 pub async fn put_settings<S>(
@@ -47,9 +47,9 @@ where
     get,
     path = "/user/settings",
     responses(
-        (status = 200, description = "User settings returned", body = UserSettingsServiceSuccess),
-        (status = 404, description = "No settings found for user"),
-        (status = 500, description = "Internal server error")
+        (status = 200, description = "User settings returned", body = UserSettingsServiceSuccess, content_type = "application/json"),
+        (status = 404, description = "No settings found for user", content_type = "application/json"),
+        (status = 500, description = "Internal server error", content_type = "application/json")
     )
 )]
 pub async fn get_settings<S>(
@@ -87,7 +87,11 @@ pub fn router_with_service<S>(app: AppState, service: Arc<S>) -> OpenApiRouter
 where
     S: SettingsServiceImpl + Send + Sync + 'static,
 {
-    let auth_service = Arc::new(AuthService { db: app.db.clone(), settings: app.settings.clone(), http: Default::default() });
+    let auth_service = Arc::new(AuthService {
+        db: app.db.clone(),
+        settings: app.settings.clone(),
+        http: Default::default(),
+    });
     OpenApiRouter::new()
         .routes(routes!(get_settings))
         .routes(routes!(put_settings))
@@ -122,7 +126,7 @@ pub fn router(app: AppState) -> OpenApiRouter {
 //     use std::sync::Arc;
 //     use tower::ServiceExt;
 //     use tracing_test::traced_test;
-// 
+//
 //     #[sqlx::test]
 //     #[traced_test]
 //     async fn test_get_settings(pool: PgPool) {
@@ -130,14 +134,14 @@ pub fn router(app: AppState) -> OpenApiRouter {
 //         let user_id: DatabaseId = test_app.users[0].user.id; // no `.clone()` needed
 //         let access_token = test_app.users[0].tokens.access_token.clone();
 //         tracing::debug!("access_token: {:?}", access_token);
-// 
+//
 //         let payload = UserSettingsServiceSuccess {
 //             user_id,
 //             theme: Theme::Dark,
 //             notifications_enabled: true,
 //             radius: 10,
 //         };
-// 
+//
 //         // let mut mock = MockSettingsService::new();
 //         let mut mock = MockSettingsService::new();
 //         mock.expect_get_settings()
@@ -148,7 +152,7 @@ pub fn router(app: AppState) -> OpenApiRouter {
 //                 let id = user_id;
 //                 Box::pin(async move { Ok(Some(payload.clone())) })
 //             });
-// 
+//
 //         // let (router, _) = routers::router_with_service(test_app.app.clone(), mock).split_for_parts();
 //         let arc_mocked_service = Arc::new(mock);
 //         let (router, _) = router_with_service(test_app.app.clone(), arc_mocked_service)
@@ -162,24 +166,24 @@ pub fn router(app: AppState) -> OpenApiRouter {
 //             )
 //             .body(Body::empty())
 //             .unwrap();
-// 
+//
 //         tracing::debug!("request: {:?}", request);
-// 
+//
 //         let response = router.oneshot(request).await.unwrap();
 //         assert_eq!(response.status(), StatusCode::OK);
-// 
+//
 //         // parse the response body and check content against the mocked data
 //         let body = response.into_body().collect().await.unwrap().to_bytes();
 //         let refresh_body: UserSettingsServiceSuccess =
 //             serde_json::from_slice(&body).expect("error");
-// 
+//
 //         assert_eq!(refresh_body.user_id, user_id);
 //         assert_eq!(refresh_body.theme, Theme::Dark);
 //         assert_eq!(refresh_body.notifications_enabled, true);
 //         assert_eq!(refresh_body.radius, 10);
 //         tracing::debug!("response: {:?}", refresh_body);
 //     }
-// 
+//
 //     #[sqlx::test]
 //     #[traced_test]
 //     async fn test_put_settings(pool: PgPool) {
@@ -187,26 +191,26 @@ pub fn router(app: AppState) -> OpenApiRouter {
 //         let test_app = TestApp::new(pool).await;
 //         let user_id: DatabaseId = test_app.users[0].user.id; // Copy newtype
 //         let token = test_app.users[0].tokens.access_token.clone();
-// 
+//
 //         // 2) prepare a dummy payload
 //         let payload = UserSettingsUpdateRequest {
 //             theme: Theme::Light,
 //             notifications_enabled: false,
 //             radius: 20,
 //         };
-// 
+//
 //         // 3) mock & expect the service.update_settings call
 //         let mut mock = MockSettingsService::new();
 //         mock.expect_update_settings()
 //             .with(eq(user_id), eq(payload))
 //             .times(1)
 //             .returning(move |_, _| Box::pin(async move { Ok(()) }));
-// 
+//
 //         // 4) build a router that uses our mock
 //         let service = Arc::new(mock);
 //         let (router, _) =
 //             router_with_service(test_app.app.clone(), service).split_for_parts();
-// 
+//
 //         // 5) serialize payload and assemble the PUT request
 //         let body = serde_json::to_string(&payload).unwrap();
 //         let request = Request::builder()
@@ -216,14 +220,13 @@ pub fn router(app: AppState) -> OpenApiRouter {
 //             .header(http::header::CONTENT_TYPE, "application/json")
 //             .body(Body::from(body))
 //             .unwrap();
-// 
+//
 //         // 6) dispatch and inspect the response
 //         let response = router.oneshot(request).await.unwrap();
 //         assert_eq!(response.status(), StatusCode::OK);
-// 
+//
 //         // (optionally) verify the response body
 //         let txt = response.into_body().collect().await.unwrap().to_bytes();
 //         assert_eq!(&txt[..], b"Settings saved successfully");
 //     }
 // }
-

@@ -46,6 +46,7 @@ pub mod tests {
                 google_oauth_client_id: None,
                 google_oauth_client_secret: None,
                 google_oauth_redirect_url: None,
+                stage: crate::shared::models::AppStage::Testing,
             },
         }
     }

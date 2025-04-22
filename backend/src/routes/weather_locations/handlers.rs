@@ -1,35 +1,27 @@
 use crate::routes::auth::middlewares::auth;
+use crate::routes::auth::models::UserDb;
 use crate::routes::auth::services::AuthService;
-use crate::routes::weather_locations::models::{WeatherLocation, WeatherLocationId};
-use crate::routes::weather_locations::services::{WeatherLocationService, WeatherLocationServiceImpl};
+use crate::routes::weather_locations::models::{CreateWeatherLocationRequest, WeatherLocation};
+use crate::routes::weather_locations::services::{
+    WeatherLocationService, WeatherLocationServiceImpl,
+};
 use crate::shared::models::{AppState, DatabaseId};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::{Extension, Json};
-use serde::Deserialize;
 use std::sync::Arc;
 use utoipa::ToSchema;
 use utoipa_axum::routes;
-use crate::routes::auth::models::UserDb;
-
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct CreateWeatherLocationRequest {
-    pub name: String,
-    pub latitude: f64,
-    pub longitude: f64,
-    pub is_default: bool,
-    pub description: Option<String>,
-}
 
 #[utoipa::path(
     get,
     path = "/weather_locations",
     responses(
-        (status = 200, description = "All user locations", body = Vec<WeatherLocation>),
-        (status = 500, description = "Internal server error")
+        (status = 200, description = "All user locations", body = Vec<WeatherLocation>, content_type = "application/json"),
+        (status = 500, description = "Internal server error", content_type = "application/json")
     )
 )]
-pub async fn get_all_locations<S>(
+pub(crate) async fn get_all_locations<S>(
     State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
 ) -> anyhow::Result<Json<Vec<WeatherLocation>>, (StatusCode, String)>
@@ -64,7 +56,7 @@ where
     S: WeatherLocationServiceImpl,
 {
     let location = service
-        .get_by_id(&user.id, &WeatherLocationId(id))
+        .get_by_id(&user.id, &DatabaseId(id))
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Json(location))
@@ -79,7 +71,7 @@ where
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn create_location<S>(
+pub(crate) async fn create_location<S>(
     State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
     Json(request): Json<CreateWeatherLocationRequest>,
@@ -87,8 +79,7 @@ pub async fn create_location<S>(
 where
     S: WeatherLocationServiceImpl,
 {
-    let location = WeatherLocation {
-        id: None,
+    let location = CreateWeatherLocationRequest {
         user_id: user.id,
         name: request.name,
         latitude: request.latitude,
@@ -98,7 +89,7 @@ where
     };
 
     let created_location = service
-        .create(location)
+        .create(&location)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Json(created_location))
@@ -108,24 +99,24 @@ where
     delete,
     path = "/weather_locations/{id}",
     responses(
-        (status = 204, description = "Location deleted"),
-        (status = 404, description = "Location not found"),
-        (status = 500, description = "Internal server error")
+        (status = 204, description = "Location deleted", content_type = "application/json"),
+        (status = 404, description = "Location not found", content_type = "application/json"),
+        (status = 500, description = "Internal server error", content_type = "application/json")
     ),
     params(
         ("id" = i32, Path, description = "Location ID")
     )
 )]
-pub async fn delete_location<S>(
+pub(crate) async fn delete_location<S>(
     State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
-    Path(id): Path<i32>,
+    Path(id): Path<DatabaseId>,
 ) -> anyhow::Result<StatusCode, (StatusCode, String)>
 where
     S: WeatherLocationServiceImpl,
 {
     service
-        .delete(&user.id, &WeatherLocationId(id))
+        .delete(&user.id, &id)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(StatusCode::NO_CONTENT)
@@ -134,7 +125,11 @@ where
 // pub fn router<Z:WeatherLocationService>(app: AppState<Z>) -> utoipa_axum::router::OpenApiRouter {
 pub fn router(app: AppState) -> utoipa_axum::router::OpenApiRouter {
     let weather_service = Arc::new(WeatherLocationService { db: app.db.clone() });
-    let auth_service = Arc::new(AuthService { db: app.db.clone(), settings: app.settings.clone(), http: Default::default() });
+    let auth_service = Arc::new(AuthService {
+        db: app.db.clone(),
+        settings: app.settings.clone(),
+        http: Default::default(),
+    });
 
     let router = utoipa_axum::router::OpenApiRouter::new()
         .routes(routes!(get_all_locations))

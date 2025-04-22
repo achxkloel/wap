@@ -38,3 +38,11 @@ impl FromStr for DatabaseId {
         Ok(DatabaseId(id))
     }
 }
+
+#[derive(Debug, Clone)]
+pub(crate) enum AppStage {
+    Development,
+    Staging,
+    Production,
+    Testing,
+}

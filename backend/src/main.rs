@@ -12,12 +12,14 @@ use std::future::IntoFuture;
 use std::process::exit;
 use tokio_util::sync::CancellationToken;
 use tracing::log::LevelFilter;
-use tracing::Level;
+use tracing::{Instrument, Level};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use backend::config::WapSettings;
 use backend::shared::models::AppState;
 use tower_http::cors::CorsLayer;
+use tracing_subscriber::EnvFilter;
+use tracing_subscriber::filter::Directive;
 use utoipa::OpenApi;
 use utoipa_axum::router::UtoipaMethodRouterExt;
 use utoipa_scalar::{Scalar, Servable};
@@ -125,6 +127,20 @@ impl HaltOnSignal for CancellationToken {
 #[tokio::main]
 async fn main() {
     // Logging
+    let filter = EnvFilter::builder()
+        .with_default_directive(Level::DEBUG.into())
+        .from_env()
+        .unwrap()
+        // .add_directive("backend=debug".parse().unwrap())
+        // Turn off all
+        // .add_directive("none".parse().unwrap())
+        .add_directive("backend=debug".parse().unwrap());
+        // .add_directive("sqlx=info".parse().unwrap());
+
+    // let filter = EnvFilter::try_from_default_env().unwrap()
+    //         .add_directive("backend=debug".parse().unwrap())
+    //     .add_directive("*=info".parse().unwrap());
+
     let _r = tracing_subscriber::fmt::fmt()
         .without_time()
         // .with_max_level(LevelFilter::Debug.into())
@@ -132,6 +148,7 @@ async fn main() {
         .with_max_level(Level::DEBUG)
         .with_file(true)
         .with_line_number(true)
+        .with_env_filter(filter)
         .try_init();
 
     tracing::debug!("Starting server");

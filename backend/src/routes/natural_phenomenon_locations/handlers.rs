@@ -16,6 +16,7 @@ use axum::response::IntoResponse;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
+use crate::routes::auth::models::UserDb;
 
 #[derive(Debug, Serialize)]
 struct ErrorResponse {
@@ -32,13 +33,13 @@ struct ErrorResponse {
 )]
 pub async fn get_all_locations<S>(
     State(service): State<Arc<S>>,
-    Extension(user_id): Extension<DatabaseId>,
+    Extension(user): Extension<UserDb>,
 ) -> Result<Json<Vec<ServiceCreateAndUpdateResponseSuccess>>, (StatusCode, String)>
 where
     S: NaturalPhenomenonLocationService,
 {
     let locations = service
-        .get_all(user_id)
+        .get_all(user.id)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Json(locations))
@@ -58,14 +59,14 @@ where
 )]
 pub async fn get_location<S>(
     State(service): State<Arc<S>>,
-    Extension(user_id): Extension<DatabaseId>,
+    Extension(user): Extension<UserDb>,
     Path(id): Path<DatabaseId>,
 ) -> Result<Json<ServiceCreateAndUpdateResponseSuccess>, (StatusCode, String)>
 where
     S: NaturalPhenomenonLocationService,
 {
     let location = service
-        .get_by_id(user_id, id)
+        .get_by_id(user.id, id)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Json(location))
@@ -82,14 +83,14 @@ where
 )]
 pub async fn create_location<S>(
     State(service): State<Arc<S>>, // ← concrete, no <S>
-    Extension(user_id): Extension<DatabaseId>,
+    Extension(user): Extension<UserDb>,
     Json(req): Json<CreateNaturalPhenomenonLocationRequest>,
 ) -> Result<Json<ServiceCreateAndUpdateResponseSuccess>, (StatusCode, String)>
 where
     S: NaturalPhenomenonLocationService,
 {
     let domain = CreateNaturalPhenomenonLocationRequest {
-        user_id,
+        user_id: user.id,
         name: req.name,
         latitude: req.latitude,
         longitude: req.longitude,
@@ -122,7 +123,7 @@ where
 )]
 pub async fn update_location<S>(
     State(service): State<Arc<S>>,
-    Extension(user_id): Extension<DatabaseId>,
+    Extension(user): Extension<UserDb>,
     Path(id): Path<DatabaseId>,
     Json(payload): Json<UpdateNaturalPhenomenonLocationRequest>, // ← body extractor
 ) -> Result<Json<ServiceCreateAndUpdateResponseSuccess>, (StatusCode, String)>
@@ -131,7 +132,7 @@ where
 {
     let dto = UpdateNaturalPhenomenonLocationRequestWithIds {
         id,
-        user_id,
+        user_id: user.id,
         payload,
     };
 
@@ -156,14 +157,14 @@ where
 )]
 pub async fn delete_location<S>(
     State(service): State<Arc<S>>,
-    Extension(user_id): Extension<DatabaseId>,
+    Extension(user): Extension<UserDb>,
     Path(id): Path<DatabaseId>,
 ) -> Result<impl IntoResponse, (StatusCode, String)>
 where
     S: NaturalPhenomenonLocationService,
 {
     service
-        .delete(user_id, id)
+        .delete(user.id, id)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok((StatusCode::OK, "Location deleted"))

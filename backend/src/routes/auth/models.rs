@@ -39,6 +39,36 @@ pub(crate) struct UserDb {
     pub(crate) updated_at: chrono::DateTime<chrono::Utc>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, FromRow, Serialize, Deserialize, ToSchema)]
+pub(crate) struct UserData {
+    /// Primary key
+    pub(crate) id: DatabaseId,
+
+    /// Unique email address
+    pub(crate) email: String,
+
+    /// Optional first name
+    pub(crate) first_name: Option<String>,
+
+    /// Optional last name
+    pub(crate) last_name: Option<String>,
+
+    /// Optional URL to the user's avatar/image
+    pub(crate) image_url: Option<String>,
+
+    /// Optional Provider
+    pub(crate) provider: Option<String>,
+
+    /// Optional Google OAuth ID
+    pub(crate) google_id: Option<String>,
+
+    /// When the row was created
+    pub(crate) created_at: chrono::DateTime<chrono::Utc>,
+
+    /// When the row was last updated
+    pub(crate) updated_at: chrono::DateTime<chrono::Utc>,
+}
+
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize, sqlx::Type, sqlx::FromRow,
 )]

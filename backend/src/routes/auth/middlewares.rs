@@ -30,6 +30,8 @@ pub(crate) async fn auth<S>(
 where
     S: AuthServiceImpl,
 {
+    tracing::debug!("auth middleware: {:?}", req);
+
     // 1) extract Bearer token
     let token = req
         .headers()
@@ -45,6 +47,7 @@ where
     let user: UserDb = service.validate_token(&token).await?;
 
     // 3) stash in request extensions
+    tracing::debug!("Adding user: {:?}", user);
     req.extensions_mut().insert(user);
 
     // 4) forward

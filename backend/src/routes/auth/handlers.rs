@@ -2,11 +2,7 @@
 use argon2::{PasswordHasher, PasswordVerifier};
 use axum::extract::Query;
 use axum::http::{header, HeaderValue};
-use axum::{
-    extract::{Json, State},
-    http::{HeaderMap, Response, StatusCode},
-    response::IntoResponse,
-};
+use axum::{extract::{Json, State}, http::{HeaderMap, Response, StatusCode}, response::IntoResponse, Extension};
 use chrono::Utc;
 use serde::Serialize;
 use serde_json::json;
@@ -27,7 +23,7 @@ use crate::shared::models::{AppState, DatabaseId};
 
 // use axum::{Json, response::IntoResponse};
 use crate::routes::auth::middlewares::auth;
-use crate::routes::auth::models::{AuthError, LoginError, LoginSuccess, LoginUser, LoginUserSchema, OAuthParams, QueryCode, RefreshSuccess, RegisterError, RegisterSuccess, RegisterUserRequestSchema, TokenClaims, UserDb, UserRegisterResponse};
+use crate::routes::auth::models::{AuthError, LoginError, LoginSuccess, LoginUser, LoginUserSchema, OAuthParams, QueryCode, RefreshSuccess, RegisterError, RegisterSuccess, RegisterUserRequestSchema, TokenClaims, UserData, UserDb, UserRegisterResponse};
 use crate::routes::auth::services::{
     AuthService, AuthServiceImpl, GoogleAuthService, JwtConfigImpl,
 };
@@ -48,8 +44,8 @@ pub struct SignupResponse {
     path = "/auth/register",
     request_body(content = RegisterUserRequestSchema, content_type = "application/json"),
     responses(
-        (status = axum::http::StatusCode::OK, description = "Success", body = RegisterSuccess, content_type = "text/plain"),
-        (status = axum::http::StatusCode::BAD_REQUEST, body = RegisterError, description = "Error", content_type = "text/plain")
+        (status = axum::http::StatusCode::OK, description = "Success", body = RegisterSuccess, content_type = "application/json"),
+        (status = axum::http::StatusCode::BAD_REQUEST, body = RegisterError, description = "Error", content_type = "application/json")
     )
 )]
 pub async fn register<S>(
@@ -124,8 +120,8 @@ where
     path = "/auth/login",
     request_body(content = LoginUser, content_type = "application/json"),
     responses(
-        (status = axum::http::StatusCode::OK, body=LoginSuccess, description = "Success", content_type = "text/plain"),
-        (status = axum::http::StatusCode::BAD_REQUEST, body=LoginError, description = "Error", content_type = "text/plain")
+        (status = axum::http::StatusCode::OK, body=LoginSuccess, description = "Success", content_type = "application/json"),
+        (status = axum::http::StatusCode::BAD_REQUEST, body=LoginError, description = "Error", content_type = "application/json")
     )
 )]
 pub async fn login<S>(
@@ -154,44 +150,18 @@ where
     post,
     path = "/auth/refresh",
     responses(
-        (status = axum::http::StatusCode::OK, body=RefreshSuccess, description = "Success", content_type = "text/plain"),
-        (status = axum::http::StatusCode::BAD_REQUEST, body=AuthError, description = "Error", content_type = "text/plain")
+        (status = axum::http::StatusCode::OK, body=RefreshSuccess, description = "Success", content_type = "application/json"),
+        (status = axum::http::StatusCode::BAD_REQUEST, body=AuthError, description = "Error", content_type = "application/json")
     )
 )]
 pub async fn refresh<S>(
     State(state): State<Arc<S>>,
-    header: HeaderMap,
+    Extension(user): Extension<UserDb>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<AuthError>)>
 where
     S: AuthServiceImpl,
 {
-    let token = header
-        .get("Authorization")
-        .and_then(|auth_header| auth_header.to_str().ok())
-        .and_then(|auth_value| {
-            if auth_value.starts_with("Bearer ") {
-                Some(auth_value[7..].to_owned())
-            } else {
-                None
-            }
-        })
-        .ok_or_else(|| {
-            let error_response = AuthError {
-                message: "You are not logged in, please provide token".to_string(),
-            };
-            (StatusCode::UNAUTHORIZED, Json(error_response))
-        })?;
-
-    let claims = state.token_claim(&token).await?;
-
-    let user_id: i32 = claims.sub.parse().map_err(|_| {
-        let error_response = AuthError {
-            message: "Invalid token subject format".to_string(),
-        };
-        (StatusCode::UNAUTHORIZED, Json(error_response))
-    })?;
-
-    let user = state.refresh(user_id).await?;
+    let user = state.refresh(user.id).await?;
 
     let now = chrono::Utc::now();
     let new_access_token = state
@@ -219,8 +189,8 @@ where
     post,
     path = "/auth/google",
     responses(
-        (status = axum::http::StatusCode::OK, body=RefreshSuccess, description = "Success", content_type = "text/plain"),
-        (status = axum::http::StatusCode::BAD_REQUEST, body=AuthError, description = "Error", content_type = "text/plain")
+        (status = axum::http::StatusCode::OK, body=RefreshSuccess, description = "Success", content_type = "application/json"),
+        (status = axum::http::StatusCode::BAD_REQUEST, body=AuthError, description = "Error", content_type = "application/json")
     )
 )]
 pub async fn google_oauth_handler<S>(
@@ -285,6 +255,46 @@ where
     Ok(response)
 }
 
+
+#[utoipa::path(
+    post,
+    path = "/auth/me",
+    responses(
+        (status = 200, body = UserData, description = "Current user info", content_type = "application/json"),
+        (status = 401, body = AuthError, description = "Unauthorized", content_type = "application/json"),
+        (status = 500, body = AuthError, description = "Internal error", content_type = "application/json")
+    )
+)]
+pub async fn user_info<S>(
+    State(svc): State<Arc<S>>,
+    Extension(user): Extension<UserDb>,
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthError>)>
+where
+    S: AuthServiceImpl,
+{
+    // 4) Load the user
+    let user: UserDb = svc
+        .refresh(user.id)
+        .await
+        .map_err(|(code, err)| (code, Json(AuthError::new(err.0.message.clone()))))?;
+
+    // 5) Map to your public DTO
+    let me = UserData {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        image_url: user.image_url,
+        provider: user.provider,
+        google_id: user.google_id,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+    };
+
+    // 6) Return 200 + JSON
+    Ok((StatusCode::OK, Json(me)))
+}
+
 /// Fully‐generic: you supply the `service: S`.
 pub fn router_with_service<S>(app: AppState, normal_service: Arc<S>) -> OpenApiRouter
 where
@@ -295,10 +305,14 @@ where
         .routes(routes!(register))
         .routes(routes!(login))
         .routes(routes!(refresh).layer(axum::middleware::from_fn_with_state(
-            auth_service,
+            auth_service.clone(),
             middlewares::auth,
         )))
         .routes(routes!(google_oauth_handler))
+        .routes(routes!(user_info).layer(axum::middleware::from_fn_with_state(
+            auth_service.clone(),
+            middlewares::auth,
+        )))
         .with_state(normal_service);
 
     router

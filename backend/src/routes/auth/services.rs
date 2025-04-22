@@ -12,6 +12,7 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::{postgres::PgPool, Row};
+use crate::shared::models::DatabaseId;
 
 #[async_trait]
 pub trait AuthServiceImpl: Send + Sync + 'static + JwtConfigImpl {
@@ -25,7 +26,7 @@ pub trait AuthServiceImpl: Send + Sync + 'static + JwtConfigImpl {
     ) -> Result<TokenClaims, (StatusCode, Json<AuthError>)>;
     async fn register_new_user(&self, request: &RegisterUserRequestSchema) -> Result<UserDb>;
     async fn login(&self, request: LoginUserSchema) -> Result<UserDb>;
-    async fn refresh(&self, user_id: i32) -> Result<UserDb, (StatusCode, Json<AuthError>)>;
+    async fn refresh(&self, user_id: DatabaseId) -> Result<UserDb, (StatusCode, Json<AuthError>)>;
 }
 
 #[derive(Clone)]
@@ -170,8 +171,8 @@ impl AuthServiceImpl for AuthService {
         Ok(user.clone())
     }
 
-    async fn refresh(&self, user_id: i32) -> Result<UserDb, (StatusCode, Json<AuthError>)> {
-        let user = sqlx::query_as!(UserDb, "SELECT * FROM users WHERE id = $1", user_id)
+    async fn refresh(&self, user_id: DatabaseId) -> Result<UserDb, (StatusCode, Json<AuthError>)> {
+        let user = sqlx::query_as!(UserDb, "SELECT * FROM users WHERE id = $1", user_id.0)
             .fetch_optional(&self.db)
             .await
             .map_err(|e| {
@@ -358,7 +359,7 @@ mod tests {
         assert!(bad.is_err());
 
         // 4) refresh
-        let r = svc.refresh(user.id.0).await.unwrap();
+        let r = svc.refresh(user.id).await.unwrap();
         assert_eq!(r.id, user.id);
     }
 
@@ -387,7 +388,7 @@ mod tests {
         assert_eq!(claims.sub, user.id.0.to_string());
 
         // 4) refresh should find the same user
-        let refreshed = svc.refresh(user.id.0).await.unwrap();
+        let refreshed = svc.refresh(user.id).await.unwrap();
         assert_eq!(refreshed.id, user.id);
 
         // 5) token_claim should error on invalid JWT
@@ -395,7 +396,7 @@ mod tests {
         assert_eq!(err.0, StatusCode::UNAUTHORIZED);
 
         // 6) refresh should error on missing user
-        let err = svc.refresh(-999).await.unwrap_err();
+        let err = svc.refresh(DatabaseId{0:-999}).await.unwrap_err();
         assert_eq!(err.0, StatusCode::INTERNAL_SERVER_ERROR);
     }
 

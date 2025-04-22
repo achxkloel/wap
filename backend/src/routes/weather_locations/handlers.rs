@@ -10,6 +10,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 use utoipa::ToSchema;
 use utoipa_axum::routes;
+use crate::routes::auth::models::UserDb;
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateWeatherLocationRequest {
@@ -30,13 +31,13 @@ pub struct CreateWeatherLocationRequest {
 )]
 pub async fn get_all_locations<S>(
     State(service): State<Arc<S>>,
-    Extension(user_id): Extension<DatabaseId>,
+    Extension(user): Extension<UserDb>,
 ) -> anyhow::Result<Json<Vec<WeatherLocation>>, (StatusCode, String)>
 where
     S: WeatherLocationServiceImpl,
 {
     let locations = service
-        .get_all(&user_id)
+        .get_all(&user.id)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Json(locations))
@@ -56,14 +57,14 @@ where
 )]
 pub async fn get_location_by_id<S>(
     State(service): State<Arc<S>>,
-    Extension(user_id): Extension<DatabaseId>,
+    Extension(user): Extension<UserDb>,
     Path(id): Path<i32>,
 ) -> anyhow::Result<Json<WeatherLocation>, (StatusCode, String)>
 where
     S: WeatherLocationServiceImpl,
 {
     let location = service
-        .get_by_id(&user_id, &WeatherLocationId(id))
+        .get_by_id(&user.id, &WeatherLocationId(id))
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Json(location))
@@ -80,7 +81,7 @@ where
 )]
 pub async fn create_location<S>(
     State(service): State<Arc<S>>,
-    Extension(user_id): Extension<DatabaseId>,
+    Extension(user): Extension<UserDb>,
     Json(request): Json<CreateWeatherLocationRequest>,
 ) -> anyhow::Result<Json<WeatherLocation>, (StatusCode, String)>
 where
@@ -88,7 +89,7 @@ where
 {
     let location = WeatherLocation {
         id: None,
-        user_id,
+        user_id: user.id,
         name: request.name,
         latitude: request.latitude,
         longitude: request.longitude,
@@ -117,14 +118,14 @@ where
 )]
 pub async fn delete_location<S>(
     State(service): State<Arc<S>>,
-    Extension(user_id): Extension<DatabaseId>,
+    Extension(user): Extension<UserDb>,
     Path(id): Path<i32>,
 ) -> anyhow::Result<StatusCode, (StatusCode, String)>
 where
     S: WeatherLocationServiceImpl,
 {
     service
-        .delete(&user_id, &WeatherLocationId(id))
+        .delete(&user.id, &WeatherLocationId(id))
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(StatusCode::NO_CONTENT)

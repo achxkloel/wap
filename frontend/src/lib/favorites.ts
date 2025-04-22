@@ -1,13 +1,12 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
-export type FavoriteLocation = {
+type FavoriteLocation = {
   id: string;
   name: string;
   lat: number;
   lng: number;
   disaster: string;
-  dangerLevel: 'low' | 'medium' | 'high';
+  dangerLevel: string;
   photo?: string | null;
   radius: number;
 };
@@ -15,37 +14,55 @@ export type FavoriteLocation = {
 interface FavoritesState {
   favorites: FavoriteLocation[];
   addFavorite: (fav: FavoriteLocation) => void;
-  removeFavorite: (id: string) => void;
   updateFavorite: (id: string, updatedFav: Partial<FavoriteLocation>) => void;
+  removeFavorite: (id: string) => void;
 }
 
-const useFavoritesStore = create<FavoritesState>()(
-  persist(
-    (set) => ({
-      favorites: [], 
+const useFavoritesStore = create<FavoritesState>((set) => ({
+  favorites: [],
 
-      addFavorite: (fav) =>
-        set((state) => ({
-          favorites: [...state.favorites, fav], 
-        })),
+  addFavorite: (fav) => {
+    set((state) => ({
+      favorites: [...state.favorites, fav],
+    }));
+    fetch('/location', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(fav),
+    })
+      .then((res) => res.json())
+      .catch((err) => console.error('Error:', err));
+  },
 
-      removeFavorite: (id) =>
-        set((state) => ({
-          favorites: state.favorites.filter((f) => f.id !== id), 
-        })),
+  updateFavorite: (id, updatedFav) => {
+    set((state) => ({
+      favorites: state.favorites.map((fav) =>
+        fav.id === id ? { ...fav, ...updatedFav } : fav
+      ),
+    }));
+    fetch(`/location/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updatedFav),
+    })
+      .then((res) => res.json())
+      .catch((err) => console.error('Error:', err));
+  },
 
-      updateFavorite: (id, updatedFav) =>
-        set((state) => ({
-          favorites: state.favorites.map((fav) =>
-            fav.id === id ? { ...fav, ...updatedFav } : fav 
-          ),
-        })),
-    }),
-    {
-      name: 'favorites-storage', 
-      partialize: (state) => ({ favorites: state.favorites }),
-    }
-  )
-);
+  removeFavorite: (id) => {
+    set((state) => ({
+      favorites: state.favorites.filter((f) => f.id !== id),
+    }));
+    fetch(`/location/${id}`, {
+      method: 'DELETE',
+    })
+      .then((res) => res.json())
+      .catch((err) => console.error('Error:', err));
+  },
+}));
 
 export default useFavoritesStore;

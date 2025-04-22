@@ -186,7 +186,7 @@ where
 
     // 2) exchange code → token_response or 502
     let token_resp = service
-        .request_token(&params.code, &params.state)
+        .request_token(&params.code)
         .await
         .map_err(|e| {
             let msg = e.to_string();

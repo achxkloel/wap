@@ -354,7 +354,7 @@ pub trait JwtConfigImpl: Sync + Send + 'static {
 
 #[async_trait]
 pub trait GoogleAuthService: Send + Sync + 'static + JwtConfigImpl {
-    async fn request_token(&self, code: &str, state: &str) -> Result<TokenResponse>;
+    async fn request_token(&self, code: &str) -> Result<TokenResponse>;
     async fn get_google_user(&self, access_token: &str, id_token: &str) -> Result<GoogleUser>;
     async fn upsert_google_user(&self, google_user: &GoogleUser) -> Result<UserDb>;
 }
@@ -365,7 +365,7 @@ impl GoogleAuthService for AuthService {
     //     create_jwt_token(user_id, exp, self.settings.jwt_secret.as_str()).await
     // }
 
-    async fn request_token(&self, code: &str, state: &str) -> Result<TokenResponse> {
+    async fn request_token(&self, code: &str) -> Result<TokenResponse> {
         let params = [
             ("code", code),
             (
@@ -411,9 +411,9 @@ impl GoogleAuthService for AuthService {
             UserDb,
             r#"
             INSERT INTO users
-                (email, password_hash, first_name, last_name, image_url, google_id, created_at, updated_at)
+                (email, password_hash, first_name, last_name, image_url, provider, google_id, created_at, updated_at)
             VALUES
-                ($1, '', NULL, NULL, $2, $3, NOW(), NOW())
+                ($1, '', $2, $3, $4, 'google', $5, NOW(), NOW())
             ON CONFLICT (google_id) DO UPDATE
                 SET email        = EXCLUDED.email,
                     image_url    = EXCLUDED.image_url,
@@ -421,8 +421,10 @@ impl GoogleAuthService for AuthService {
             RETURNING *
             "#,
             google_user.email,
+            google_user.given_name,
+            google_user.family_name,
             google_user.picture,
-            google_user.id,
+            google_user.sub,
         )
             .fetch_one(&self.db)
             .await?;

@@ -220,13 +220,11 @@ pub struct RefreshSuccess {
 #[derive(Debug, Deserialize)]
 pub struct QueryCode {
     pub code: String,
-    pub state: String,
 }
 
 #[derive(Deserialize)]
 pub struct OAuthParams {
     pub code: String,
-    pub state: String,
 }
 
 #[derive(Debug, Deserialize)]

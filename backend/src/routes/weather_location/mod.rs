@@ -18,9 +18,7 @@ pub use services::WeatherLocationService;
 
 // pub fn router<Z:WeatherLocationService>(app: AppState<Z>) -> utoipa_axum::router::OpenApiRouter {
 pub fn router(app: AppState) -> utoipa_axum::router::OpenApiRouter {
-    let state = WeatherLocationAppStateImpl {
-        db: app.db.clone(),
-    };
+    let state = WeatherLocationAppStateImpl { db: app.db.clone() };
     let router = utoipa_axum::router::OpenApiRouter::new()
         .routes(routes!(get_all_locations))
         .routes(routes!(get_location_by_id))

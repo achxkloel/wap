@@ -25,7 +25,7 @@ where
 
 /// A convenience wrapper that uses the real Postgres implementation.
 pub fn router(app: AppState) -> OpenApiRouter {
-    let service = services::PgSettingsService::new(app.db.clone());
+    let service = services::PgSettingsService::new(app.db.clone(), app.settings.clone());
     let arc_service = Arc::new(service);
     router_with_service(app.clone(), arc_service)
 }

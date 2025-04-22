@@ -67,9 +67,9 @@ fn prepare_cors() -> CorsLayer {
 
 async fn app_router(app: AppState) -> OpenApiRouter {
     let setting_router = backend::routes::settings::routers::router(app.clone());
-    let auth_router = backend::routes::auth::router(app.clone());
+    let auth_router = backend::routes::auth::handlers::router(app.clone());
     let natural_phenomenon_location_router =
-        backend::routes::natural_phenomenon_location::router(app.clone());
+        backend::routes::natural_phenomenon_location::routers::router(app.clone());
     let weather_location_router = backend::routes::weather_location::router(app.clone());
 
     let router = OpenApiRouter::new().layer(prepare_cors());
@@ -93,10 +93,12 @@ struct Login {
     password: String,
 }
 
-use std::future::Future;
-
 use futures_util::{future, StreamExt};
+use std::future::Future;
+use std::process::exit;
 use tokio_util::sync::CancellationToken;
+use tracing::log::LevelFilter;
+use tracing::Level;
 
 async fn interrupt_signal<FT>(ft: FT)
 where
@@ -136,7 +138,16 @@ impl HaltOnSignal for CancellationToken {
 #[tokio::main]
 async fn main() {
     // Logging
-    let _r = tracing_subscriber::fmt::fmt().try_init();
+    let _r = tracing_subscriber::fmt::fmt()
+        .without_time()
+        // .with_max_level(LevelFilter::Debug.into())
+        // .with_max_level( LevelFilter::Debug )
+        .with_max_level(Level::DEBUG)
+        .with_file(true)
+        .with_line_number(true)
+        .try_init();
+
+    tracing::debug!("Starting server");
 
     let state = AppState {
         db: init_db().await,

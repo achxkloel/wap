@@ -1,3 +1,4 @@
+use crate::config::WapSettings;
 use crate::routes::settings::models::{
     Theme, UserSettings, UserSettingsCreate, UserSettingsServiceSuccess, UserSettingsUpdateRequest,
 };
@@ -26,11 +27,12 @@ pub trait SettingsService: Send + Sync + 'static {
 #[derive(Clone)]
 pub struct PgSettingsService {
     pub db: PgPool,
+    pub settings: WapSettings,
 }
 
 impl PgSettingsService {
-    pub fn new(db: PgPool) -> Self {
-        Self { db }
+    pub fn new(db: PgPool, settings: WapSettings) -> Self {
+        Self { db, settings }
     }
 }
 
@@ -137,7 +139,7 @@ mod tests {
     #[sqlx::test]
     async fn test_create_settings(pool: PgPool) {
         let test_app = TestApp::new(pool.clone()).await;
-        let service = PgSettingsService::new(pool.clone());
+        let service = PgSettingsService::new(pool.clone(), test_app.app.settings);
 
         // Test getting settings for non-existent user
         let result = service.get_settings(&DatabaseId { 0: 999 }).await;
@@ -172,7 +174,7 @@ mod tests {
     #[sqlx::test]
     async fn test_update_settings(pool: PgPool) {
         let test_app = TestApp::new(pool.clone()).await;
-        let service = PgSettingsService::new(pool.clone());
+        let service = PgSettingsService::new(pool.clone(), test_app.app.settings);
 
         let user_id = &test_app.users[0].user.id.clone();
         service
@@ -211,7 +213,7 @@ mod tests {
     #[sqlx::test]
     async fn test_delete_settings(pool: PgPool) {
         let test_app = TestApp::new(pool.clone()).await;
-        let service = PgSettingsService::new(pool.clone());
+        let service = PgSettingsService::new(pool.clone(), test_app.app.settings);
 
         let user_id = &test_app.users[0].user.id;
 

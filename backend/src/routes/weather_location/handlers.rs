@@ -1,12 +1,11 @@
 use crate::routes::weather_location::services::WeatherLocationAppStateImpl;
-use crate::routes::weather_location::{WeatherLocation, WeatherLocationId, WeatherLocationService,
-};
+use crate::routes::weather_location::{WeatherLocation, WeatherLocationId, WeatherLocationService};
+use crate::shared::models::DatabaseId;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::{Extension, Json};
 use serde::Deserialize;
 use utoipa::ToSchema;
-use crate::shared::models::DatabaseId;
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateWeatherLocationRequest {
@@ -52,8 +51,7 @@ pub async fn get_location_by_id(
     State(service): State<WeatherLocationAppStateImpl>,
     Extension(user_id): Extension<DatabaseId>,
     Path(id): Path<i32>,
-) -> anyhow::Result<Json<WeatherLocation>, (StatusCode, String)>
-{
+) -> anyhow::Result<Json<WeatherLocation>, (StatusCode, String)> {
     let location = service
         .get_by_id(&user_id, &WeatherLocationId(id))
         .await
@@ -74,8 +72,7 @@ pub async fn create_location(
     State(service): State<WeatherLocationAppStateImpl>,
     Extension(user_id): Extension<DatabaseId>,
     Json(request): Json<CreateWeatherLocationRequest>,
-) -> anyhow::Result<Json<WeatherLocation>, (StatusCode, String)>
-{
+) -> anyhow::Result<Json<WeatherLocation>, (StatusCode, String)> {
     let location = WeatherLocation {
         id: None,
         user_id,
@@ -109,8 +106,7 @@ pub async fn delete_location(
     State(service): State<WeatherLocationAppStateImpl>,
     Extension(user_id): Extension<DatabaseId>,
     Path(id): Path<i32>,
-) -> anyhow::Result<StatusCode, (StatusCode, String)>
-{
+) -> anyhow::Result<StatusCode, (StatusCode, String)> {
     service
         .delete(&user_id, &WeatherLocationId(id))
         .await

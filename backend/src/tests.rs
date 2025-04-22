@@ -1,8 +1,8 @@
 #[cfg(test)]
 pub mod tests {
     use crate::config::WapSettings;
-    use crate::routes::auth::models::{User};
-    use crate::routes::auth::utils::create_token;
+    use crate::routes::auth::models::UserDb;
+    use crate::routes::auth::services::{AuthService, JwtConfigImpl};
     use crate::shared::models::AppState;
     use axum::extract::State;
     use axum::http::HeaderMap;
@@ -16,7 +16,7 @@ pub mod tests {
 
     #[derive(Clone)]
     pub struct TestAppUser {
-        pub user: User,
+        pub user: UserDb,
         pub header: HeaderMap,
         pub tokens: TestTokens,
     }
@@ -43,6 +43,9 @@ pub mod tests {
                 jwt_secret: "aaaaa".to_string(),
                 jwt_expires_in: "".to_string(),
                 jwt_maxage: 0,
+                google_oauth_client_id: None,
+                google_oauth_client_secret: None,
+                google_oauth_redirect_url: None,
             },
         }
     }
@@ -77,31 +80,33 @@ pub mod tests {
 
         // Reuse registration logic
         // TODO: continue here: fix this error
-        let user: User = sqlx::query_as!(
-            User,
+        let user: UserDb = sqlx::query_as!(
+            UserDb,
             r#"INSERT INTO users (email, password_hash)
            VALUES ($1, $2)
-           RETURNING id, email, password_hash, created_at, updated_at"#,
+           RETURNING *"#,
             email,
             hashed_password
         )
-            .fetch_one(&pool)
-            .await
-            .expect("Failed to insert test user");
+        .fetch_one(&pool)
+        .await
+        .expect("Failed to insert test user");
 
         // Reuse login logic (without password hashing here for simplicity)
         let now = chrono::Utc::now();
-        let access_token = create_token(
-            &user.id.0.to_string(),
-            (now + chrono::Duration::minutes(60)).timestamp() as usize,
-            app.settings.jwt_secret.as_ref(),
-        );
-
-        let refresh_token = create_token(
-            &user.id.0.to_string(),
-            (now + chrono::Duration::days(30)).timestamp() as usize,
-            app.settings.jwt_secret.as_ref(),
-        );
+        let auth_service = AuthService::new(pool, &app.settings);
+        let access_token = auth_service
+            .create_jwt_token(
+                &user.id.0.to_string(),
+                (now + chrono::Duration::minutes(60)).timestamp() as usize,
+            )
+            .await;
+        let refresh_token = auth_service
+            .create_jwt_token(
+                &user.id.0.to_string(),
+                (now + chrono::Duration::days(30)).timestamp() as usize,
+            )
+            .await;
 
         // Prepare headers
         let mut headers = HeaderMap::new();

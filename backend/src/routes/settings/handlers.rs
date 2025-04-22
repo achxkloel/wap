@@ -1,4 +1,4 @@
-use crate::routes::auth::models::User;
+use crate::routes::auth::models::UserDb;
 use crate::routes::settings::models::{UserSettingsServiceSuccess, UserSettingsUpdateRequest};
 use crate::routes::settings::services::{PgSettingsService, SettingsService};
 use axum::{
@@ -21,7 +21,7 @@ use tracing::error;
 )]
 pub async fn put_settings<S>(
     State(service): State<Arc<S>>,
-    Extension(user): Extension<User>,
+    Extension(user): Extension<UserDb>,
     Json(payload): Json<UserSettingsUpdateRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)>
 where
@@ -48,7 +48,7 @@ where
     )
 )]
 pub async fn get_settings<S>(
-    Extension(user): Extension<User>,
+    Extension(user): Extension<UserDb>,
     State(service): State<Arc<S>>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)>
 where

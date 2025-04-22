@@ -1,7 +1,6 @@
-
+use crate::shared::models::DatabaseId;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use crate::shared::models::DatabaseId;
 
 // pub type SharedState = std::sync::Arc<AppState>;
 #[derive(Debug, Deserialize, Serialize, ToSchema, sqlx::Type, Copy, Clone, PartialEq)]
@@ -32,14 +31,13 @@ pub struct UserSettings {
 #[derive(Debug, Deserialize, Serialize, ToSchema, Default)]
 pub struct UserSettingsCreate {
     pub user_id: DatabaseId,
-    #[serde(default)]                   // makes JSON deserializing optional too
+    #[serde(default)] // makes JSON deserializing optional too
     pub theme: Option<Theme>,
     #[serde(default)]
     pub notifications_enabled: Option<bool>,
     #[serde(default)]
     pub radius: Option<i32>,
 }
-
 
 #[derive(Debug, Deserialize, Serialize, ToSchema, sqlx::FromRow, Clone, Copy, PartialEq)]
 pub struct UserSettingsServiceSuccess {

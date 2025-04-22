@@ -1,13 +1,17 @@
 use crate::routes::weather_location::domains::*;
+use crate::shared::models::DatabaseId;
 use anyhow::Result;
 use async_trait::async_trait;
-use crate::shared::models::DatabaseId;
 
 #[async_trait]
 pub trait WeatherLocationService: Clone + Send + Sync + 'static {
     async fn create(&self, location: WeatherLocation) -> Result<WeatherLocation>;
     async fn get_all(&self, user_id: &DatabaseId) -> Result<Vec<WeatherLocation>>;
-    async fn get_by_id(&self, user_id: &DatabaseId, id: &WeatherLocationId) -> Result<WeatherLocation>;
+    async fn get_by_id(
+        &self,
+        user_id: &DatabaseId,
+        id: &WeatherLocationId,
+    ) -> Result<WeatherLocation>;
     async fn update(&self, location: &WeatherLocation) -> Result<WeatherLocation>;
     async fn delete(&self, user_id: &DatabaseId, id: &WeatherLocationId) -> Result<()>;
 }
@@ -73,14 +77,18 @@ impl WeatherLocationService for WeatherLocationAppStateImpl {
             latitude: rec.latitude,
             longitude: rec.longitude,
             is_default: rec.is_default,
-            description: rec.description,
+            description: rec.description.into(),
         })
         .collect();
 
         Ok(locations)
     }
 
-    async fn get_by_id(&self, user_id: &DatabaseId, id: &WeatherLocationId) -> Result<WeatherLocation> {
+    async fn get_by_id(
+        &self,
+        user_id: &DatabaseId,
+        id: &WeatherLocationId,
+    ) -> Result<WeatherLocation> {
         let rec = sqlx::query!(
             r#"
             SELECT id, user_id, name, latitude, longitude, is_default, description
@@ -100,7 +108,7 @@ impl WeatherLocationService for WeatherLocationAppStateImpl {
             latitude: rec.latitude,
             longitude: rec.longitude,
             is_default: rec.is_default,
-            description: rec.description,
+            description: rec.description.into(),
         })
     }
 
@@ -143,7 +151,7 @@ impl WeatherLocationService for WeatherLocationAppStateImpl {
             latitude: rec.latitude,
             longitude: rec.longitude,
             is_default: rec.is_default,
-            description: rec.description,
+            description: rec.description.into(),
         })
     }
 
@@ -158,4 +166,4 @@ impl WeatherLocationService for WeatherLocationAppStateImpl {
 
         Ok(())
     }
-} 
+}

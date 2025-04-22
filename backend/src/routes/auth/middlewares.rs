@@ -1,4 +1,4 @@
-use crate::routes::auth::models::{AuthError, TokenClaims, User};
+use crate::routes::auth::models::{AuthError, TokenClaims, UserDb};
 use crate::shared::models::AppState;
 use axum::{
     body::Body,
@@ -18,25 +18,6 @@ pub async fn auth(
     mut req: Request<Body>,
     next: Next,
 ) -> Result<Response, (StatusCode, Json<AuthError>)> {
-    /* ─────────────────── 1. extract the token ─────────────────── */
-    // let token = jar
-    //     .get("access_token")
-    //     .map(|c| c.value().to_owned())
-    //     .or_else(|| {
-    //         req.headers()
-    //             .get(header::AUTHORIZATION)
-    //             .and_then(|h| h.to_str().ok())
-    //             .and_then(|v| v.strip_prefix("Bearer ").map(str::to_owned))
-    //     })
-    //     .ok_or_else(|| {
-    //         (
-    //             StatusCode::UNAUTHORIZED,
-    //             Json(ErrorResponse {
-    //                 status: "fail",
-    //                 message: "You are not logged in, please provide a token".into(),
-    //             }),
-    //         )
-    //     })?;
     tracing::debug!("auth middleware: {:?}", req);
     let token = req
         .headers()
@@ -48,13 +29,12 @@ pub async fn auth(
             (
                 StatusCode::UNAUTHORIZED,
                 Json(AuthError {
-                    status: "fail",
+                    status: "fail".into(),
                     message: "You are not logged in, please provide a token".into(),
                 }),
             )
         })?;
 
-    /* ─────────────────── 2. validate & decode ─────────────────── */
     let claims: TokenClaims = decode::<TokenClaims>(
         &token,
         &DecodingKey::from_secret(state.settings.jwt_secret.as_bytes()),
@@ -65,26 +45,25 @@ pub async fn auth(
         (
             StatusCode::UNAUTHORIZED,
             Json(AuthError {
-                status: "fail",
+                status: "fail".into(),
                 message: "Invalid token".into(),
             }),
         )
     })?
     .claims;
 
-    /* ─────────────────── 3. fetch user ─────────────────────────── */
     let user_id: i32 = claims.sub.parse().map_err(|_| {
         tracing::error!("Token sub is not a valid user id");
         (
             StatusCode::UNAUTHORIZED,
             Json(AuthError {
-                status: "fail",
-                message: "Invalid token subject format".into(),
+                status: "fail".into(),
+                message: "Invalid token".into(),
             }),
         )
     })?;
 
-    let user = sqlx::query_as!(User, "SELECT * FROM users WHERE id = $1", user_id)
+    let user = sqlx::query_as!(UserDb, "SELECT * FROM users WHERE id = $1", user_id)
         .fetch_optional(&state.db)
         .await
         .map_err(|e| {
@@ -92,7 +71,7 @@ pub async fn auth(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(AuthError {
-                    status: "fail",
+                    status: "fail".into(),
                     message: format!("Database error: {e}"),
                 }),
             )
@@ -102,18 +81,13 @@ pub async fn auth(
             (
                 StatusCode::UNAUTHORIZED,
                 Json(AuthError {
-                    status: "fail",
+                    status: "fail".into(),
                     message: "The user belonging to this token no longer exists".into(),
                 }),
             )
         })?;
 
-    /* ─────────────────── 4. stash user & continue ─────────────── */
     req.extensions_mut().insert(user);
-    // let req: Request<Body> = req.map(|b| Body::from_stream(b));
-    
-    tracing::debug!("Authenticated user: {:?}", req.extensions().get::<User>());
+    tracing::debug!("Authenticated user: {:?}", req.extensions().get::<UserDb>());
     Ok(next.run(req).await)
-
-    // Ok(next.run(req_body).await)
 }

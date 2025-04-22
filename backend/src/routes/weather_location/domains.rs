@@ -1,6 +1,6 @@
+use crate::shared::models::DatabaseId;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use crate::shared::models::DatabaseId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize)]
 pub struct WeatherLocationId(pub i32);
@@ -23,4 +23,4 @@ pub struct CreateWeatherLocationRequest {
     pub longitude: f64,
     pub is_default: bool,
     pub description: Option<String>,
-} 
+}

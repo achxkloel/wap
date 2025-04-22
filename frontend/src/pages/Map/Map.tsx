@@ -78,7 +78,7 @@ function Map() {
     return (
         <Page>
             <MapComponent />
-            <div className="flex flex-col w-[400px] gap-2">
+            <div className="flex flex-col w-[400px] gap-2 bg-sidebar">
                 {filterOpen ? (
                     <React.Fragment>
                         <div className="w-full flex justify-between p-4">

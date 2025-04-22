@@ -217,7 +217,7 @@ function Legend() {
 
     return (
         <div
-            className="z-[1000] absolute right-5 bottom-5 bg-background p-2 rounded border-[1px] border-solid border-border cursor-default space-y-4"
+            className="z-[1000] absolute right-5 bottom-5 bg-sidebar p-2 rounded border-[1px] border-solid border-border cursor-default space-y-4"
             ref={stopPropagation}
         >
             <div className="space-y-2">

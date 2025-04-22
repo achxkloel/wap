@@ -6,6 +6,7 @@ import Settings from '@/pages/Settings';
 import React, { useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router';
 import ProtectedRoute from './ProtectedRoute';
+import Weather from '@/pages/Weather';
 
 function Router() {
     const location = useLocation();
@@ -19,7 +20,7 @@ function Router() {
             <Route element={<Layout />}>
                 <Route
                     path="/"
-                    element={<React.Fragment />}
+                    element={<Weather />}
                 />
                 <Route
                     path="/map"

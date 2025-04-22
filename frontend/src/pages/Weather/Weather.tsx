@@ -81,34 +81,34 @@ const CityCard: React.FC<CityCardProps> = ({ name }) => {
     }, [name]);
 
     return (
-        <div className="p-4 flex flex-col items-center bg-gray-800 rounded-lg shadow-xl hover:scale-105 transform transition-all duration-300 ease-in-out">
+        <div className="p-4 flex flex-col items-center bg-gray-300 rounded-lg shadow-xl hover:scale-105 transform transition-all duration-300 ease-in-out">
             <img
                 src={image}
                 alt={`City ${name}`}
                 className="w-[300vw] h-[300vw] max-w-[200px] max-h-[200px] flex-shrink-0 rounded-xl object-cover shadow-md mb-4"
             />
-            <div className="text-sm text-white mt-2 text-center">
-                <p className="text-white text-lg font-bold">{name}</p>
-                <p className="text-gray-300">
-                    Temperature: <span className="text-white font-semibold">{temp}°C</span>
+            <div className="text-sm  mt-2 text-center">
+                <p className=" text-lg font-bold">{name}</p>
+                <p className="text-gray-800">
+                    Temperature: <span className=" font-semibold">{temp}°C</span>
                 </p>
-                <p className="text-gray-300">
-                    Precipitation: <span className="text-white font-semibold">{rain} mm</span>
+                <p className="text-blue-800">
+                    Precipitation: <span className=" font-semibold">{rain} mm</span>
                 </p>
-                <p className="text-gray-300">
-                    Wind: <span className="text-white font-semibold">{wind} km/h</span>
+                <p className="text-green-800">
+                    Wind: <span className=" font-semibold">{wind} km/h</span>
                 </p>
             </div>
         </div>
     );
 };
 
-const WeatherNoUser = ({ onGetLocation }: { onGetLocation: () => void }) => {
+const WeatherNoSelect = ({ onGetLocation }: { onGetLocation: () => void }) => {
     const randomCities = allCities.sort(() => 0.5 - Math.random()).slice(0, 4);
-
+    // w-screen h-screen bg-gray-900
     return (
-        <div className="w-screen h-screen bg-gray-900 overflow-hidden flex justify-center items-center">
-            <div className="grid grid-cols-3 grid-rows-[auto,1fr,auto] gap-8">
+        <div className=" flex justify-center items-center min-h-screen">
+            <div className="grid grid-cols-3  gap-8">
                 {/* 4 rohové karty */}
                 <div className="col-start-1 row-start-1 flex justify-center items-center">
                     <CityCard name={randomCities[0]!} />
@@ -128,10 +128,10 @@ const WeatherNoUser = ({ onGetLocation }: { onGetLocation: () => void }) => {
 
                 {/* Střed */}
                 <div className="col-start-2 row-start-2 flex justify-center items-center flex-col">
-                    <div className="text-xl font-semibold mb-2 text-gray-300">No location selected</div>
+                    <div className="text-xl font-semibold mb-2 text-gray-800">No location selected</div>
                     <br />
                     <div
-                        className="bg-black text-white px-6 py-3 rounded-full border-2 border-gray-700 text-xl font-semibold shadow-lg cursor-pointer hover:bg-gray-800 transform transition-all duration-300 ease-in-out hover:scale-105"
+                        className="bg-black  px-6 py-3 rounded-full border-2 border-gray-700 text-xl font-semibold shadow-lg cursor-pointer hover:bg-gray-300 transform transition-all duration-300 ease-in-out hover:scale-105"
                         onClick={onGetLocation}
                     >
                         Location selection
@@ -205,7 +205,7 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
     }, []);
 
     if (!weatherData || imgData == '') {
-        return <div className="text-white p-8">Loading...</div>;
+        return <div className=" p-8">Loading...</div>;
     }
 
     const current = weatherData.current_weather;
@@ -213,7 +213,7 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
     const daily = weatherData.daily;
 
     return (
-        <div className="w-screen bg-gray-900 flex flex-rows overflow gap-8  justify-center items-center text-white">
+        <div className="flex flex-rows overflow gap-8  justify-center items-center ">
             <div className="  flex-row-1 p-4  overflow-x-auto">
                 <div
                     onClick={onBack}
@@ -222,7 +222,7 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
                     {location}
                 </div>
 
-                <div className="flex items-center justify-between bg-gray-800 p-4 rounded-xl mb-4 hover:scale-105 transform transition-all duration-300 ease-in-out">
+                <div className="flex items-center justify-between bg-gray-300 p-4 rounded-xl mb-4 hover:scale-105 transform transition-all duration-300 ease-in-out">
                     <div>
                         <div className="text-4xl font-bold">{current.temperature}°</div>
                         <div className="text-sm">
@@ -231,7 +231,7 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
                     </div>
                 </div>
 
-                <div className="bg-gray-800 p-4 rounded-xl mb-4 overflow-x-auto h-[200px] min-h-[150px] hover:scale-105 transform transition-all duration-300 ease-in-out">
+                <div className="bg-gray-300 p-4 rounded-xl mb-4 overflow-x-auto h-[200px] min-h-[150px] hover:scale-105 transform transition-all duration-300 ease-in-out">
                     <h2 className="text-lg font-semibold mb-1">Hodinová předpověď</h2>
                     <div className="flex space-x-1 ">
                         {(() => {
@@ -270,7 +270,7 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
                                                 {rain.toFixed(1)} mm
                                             </div>
                                         }
-                                        <div className="text-xs mt-1 text-gray-400">{hour}:00</div>
+                                        <div className="text-xs mt-1 text-gray-700">{hour}:00</div>
                                     </div>
                                 );
                             });
@@ -326,11 +326,11 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
                     />
                 </div>
 
-                <div className="bg-gray-800 p-4 rounded-xl overflow-x-auto hover:scale-105 transform transition-all duration-300 ease-in-out ">
+                <div className="bg-gray-300 p-4 rounded-xl overflow-x-auto hover:scale-105 transform transition-all duration-300 ease-in-out ">
                     <h2 className="text-lg font-semibold mb-4">Denní předpověď</h2>
                     <table className="w-full text-sm table-auto border-collapse">
                         <thead>
-                            <tr className="text-left text-gray-400 border-b border-gray-700">
+                            <tr className="text-left text-gray-700 border-b border-gray-700">
                                 <th className="py-1 pr-4">Den</th>
                                 <th className="py-1 pr-4">Počasí</th>
                                 <th className="py-1 pr-4">Teploty</th>
@@ -392,7 +392,7 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
             </div>
 
             {/* Pravý panel - obrázek + lokace */}
-            <div className="w-[250px] flex  flex-col items-center p-4  bg-gray-800 rounded-lg ">
+            <div className="w-[250px] flex  flex-col items-center p-4  bg-gray-300 rounded-lg ">
                 <div>
                     <img
                         src={imgData}
@@ -404,15 +404,15 @@ function WeatherDashboard({ onBack }: { onBack: () => void }) {
                 {[location, 'Praha 1', 'Praha 5', 'Praha 6'].map((loc, i) => (
                     <div
                         key={i}
-                        className={`w-full text-center py-2 bg-black px-4 mb-3 rounded-lg cursor-pointer transition  border-gray-500 text-white hover:border-white hover:scale-105 
-            ${i === 0 ? 'bg-gray-600 text-white' : 'border border-gray-300 text-gray-300 hover:bg-gray-800'}
+                        className={`w-full text-center py-2 bg-black px-4 mb-3 rounded-lg cursor-pointer transition  border-gray-500  hover:border-white hover:scale-105 
+            ${i === 0 ? 'bg-gray-600 ' : 'border border-gray-300 text-gray-300 hover:bg-gray-300'}
           `}
                     >
                         {loc}
                     </div>
                 ))}
 
-                <div className="w-full text-center py-2 bg-black px-4 mb-3 rounded-lg cursor-pointer transition  border-gray-500 text-white hover:border-white hover:scale-105 border border-gray-300 text-gray-300 hover:bg-gray-800">
+                <div className="w-full text-center py-2 bg-black px-4 mb-3 rounded-lg cursor-pointer transition  border-gray-500  hover:border-white hover:scale-105 border border-gray-300 text-gray-300 hover:bg-gray-300">
                     +
                 </div>
             </div>
@@ -428,10 +428,10 @@ type ConditionCardProps = {
 
 function ConditionCard({ title, value, sub }: ConditionCardProps) {
     return (
-        <div className="bg-gray-800 p-4 rounded-xl text-center hover:scale-105 transform transition-all duration-300 ease-in-out">
-            <div className="text-sm text-gray-400">{title}</div>
+        <div className="bg-gray-300 p-4 rounded-xl text-center hover:scale-105 transform transition-all duration-300 ease-in-out">
+            <div className="text-sm text-gray-800">{title}</div>
             <div className="text-xl font-bold">{value}</div>
-            <div className="text-xs text-gray-400">{sub}</div>
+            <div className="text-xs text-gray-700">{sub}</div>
         </div>
     );
 }
@@ -439,12 +439,13 @@ function ConditionCard({ title, value, sub }: ConditionCardProps) {
 function Weather() {
     const [showDashboard, setShowDashboard] = useState(false);
 
+    // className="bg-gray-900   w-screen   font-sans"
     return (
-        <div className="bg-gray-900 text-white  w-screen   font-sans">
+        <div>
             {showDashboard ? (
                 <WeatherDashboard onBack={() => setShowDashboard(false)} />
             ) : (
-                <WeatherNoUser onGetLocation={() => setShowDashboard(true)} />
+                <WeatherNoSelect onGetLocation={() => setShowDashboard(true)} />
             )}
         </div>
     );

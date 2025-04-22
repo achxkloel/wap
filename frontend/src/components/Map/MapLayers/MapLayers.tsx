@@ -3,6 +3,7 @@ import useData from '@/lib/store/data';
 import useMapStore from '@/lib/store/map';
 import { Feature, Point } from 'geojson';
 import L from 'leaflet';
+import hash from 'object-hash';
 import { useEffect } from 'react';
 import { CircleMarker, FeatureGroup, LayersControl, useMap } from 'react-leaflet';
 import { getDateColor, getMagnitudeColor, getSignificanceColor, getSize } from '../Legend/Legend';
@@ -13,6 +14,7 @@ function MapLayers() {
     const colorStrategy = useMapStore((state) => state.colorStrategy);
     const selected = useData((state) => state.selected);
     const setSelected = useData((state) => state.setSelected);
+    const draw = useMapStore((state) => state.draw);
 
     useEffect(() => {
         if (typeof selected === 'undefined') {
@@ -97,7 +99,8 @@ function MapLayers() {
                         .map((feature) => {
                             return (
                                 <CircleMarker
-                                    key={`${feature.id}-${colorStrategy}-${selected}`}
+                                    key={hash({ id: feature.id, colorStrategy, selected, draw })}
+                                    // key={`${feature.id}-${colorStrategy}-${selected}-${draw}`}
                                     center={[feature.geometry.coordinates[1], feature.geometry.coordinates[0]]}
                                     stroke={true}
                                     color="#000000"
@@ -107,6 +110,10 @@ function MapLayers() {
                                     radius={getRadius(feature)}
                                     eventHandlers={{
                                         click: () => {
+                                            if (draw) {
+                                                return;
+                                            }
+
                                             setSelected(feature.id);
                                         },
                                     }}

@@ -21,7 +21,7 @@ use std::sync::Arc;
 /// * `next`:
 ///
 /// returns: Result<Response<Body>, (StatusCode, Json<AuthError>)>
-pub(crate) async fn auth<S>(
+pub async fn auth<S>(
     jar: CookieJar,
     State(service): State<Arc<S>>,
     mut req: Request<Body>,

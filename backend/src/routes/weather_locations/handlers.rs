@@ -21,7 +21,7 @@ use utoipa_axum::routes;
         (status = 500, description = "Internal server error", content_type = "application/json")
     )
 )]
-pub(crate) async fn get_all_locations<S>(
+pub async fn get_all_locations<S>(
     State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
 ) -> anyhow::Result<Json<Vec<WeatherLocation>>, (StatusCode, String)>
@@ -71,7 +71,7 @@ where
         (status = 500, description = "Internal server error")
     )
 )]
-pub(crate) async fn create_location<S>(
+pub async fn create_location<S>(
     State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
     Json(request): Json<CreateWeatherLocationRequest>,
@@ -107,7 +107,7 @@ where
         ("id" = i32, Path, description = "Location ID")
     )
 )]
-pub(crate) async fn delete_location<S>(
+pub async fn delete_location<S>(
     State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
     Path(id): Path<DatabaseId>,

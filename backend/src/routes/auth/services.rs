@@ -559,20 +559,26 @@ mod tests {
         let test_app = TestApp::new(pool).await;
         let svc = AuthService::new(test_app.app.db.clone(), &test_app.app.settings);
 
-        // emulate a Google profile
+        // emulate a Google profile with all required fields
         let gu = GoogleUser {
-            id: "G123".into(),
+            sub: "G123".into(),
             email: "z@z.com".into(),
-            verified_email: true,
+            email_verified: true,
             name: "Test Z".into(),
+            given_name: "Test".into(),
+            family_name: "Z".into(),
             picture: "http://pic".into(),
         };
 
         // first insert
         let u1 = svc.upsert_google_user(&gu).await.unwrap();
-        assert_eq!(u1.email, "z@z.com");
+        assert_eq!(u1.email, gu.email);
+        assert_eq!(u1.google_id.as_deref(), Some(&gu.sub).map(|x| x.as_str()));
+        assert_eq!(u1.first_name.as_deref(), Some(&gu.given_name).map(|x| x.as_str()));
+        assert_eq!(u1.last_name.as_deref(), Some(&gu.family_name).map(|x| x.as_str()));
+        assert_eq!(u1.provider.as_deref(), Some("google"));
 
-        // update on same google_id should not error
+        // update on same google_id should not error and preserve ID
         let u2 = svc.upsert_google_user(&gu).await.unwrap();
         assert_eq!(u2.id, u1.id);
     }

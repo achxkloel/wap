@@ -13,10 +13,10 @@ pub struct WeatherLocation {
     pub description: String,
 
     /// When the row was created
-    pub(crate) created_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
 
     /// When the row was last updated
-    pub(crate) updated_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -39,8 +39,8 @@ pub struct WeatherLocationCreateRequestSuccess {
     pub is_default: bool,
     pub description: String,
     /// When the row was created
-    pub(crate) created_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
 
     /// When the row was last updated
-    pub(crate) updated_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
 }

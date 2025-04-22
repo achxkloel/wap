@@ -261,11 +261,13 @@ pub struct TokenResponse {
 /// Public profile info from Google
 #[derive(Debug, Deserialize)]
 pub struct GoogleUser {
-    pub id: String,
-    pub email: String,
-    pub verified_email: bool,
+    pub sub: String,
     pub name: String,
+    pub given_name: String,
+    pub family_name: String,
     pub picture: String,
+    pub email: String,
+    pub email_verified: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, PartialEq, Eq)]

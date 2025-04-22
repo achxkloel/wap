@@ -40,7 +40,7 @@ impl FromStr for DatabaseId {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum AppStage {
+pub enum AppStage {
     Development,
     Staging,
     Production,

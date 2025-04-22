@@ -122,7 +122,7 @@ where
     ft.await;
 }
 
-pub(crate) trait HaltOnSignal {
+pub trait HaltOnSignal {
     fn halt_on_signal(&self);
 }
 

@@ -79,8 +79,6 @@ body {
   }
 }
 
-
-
 @layer base {
   * {
     @apply border-border;
@@ -88,4 +86,31 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Map base */
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+  border: 2px solid rgba(0,0,0,0.2);
+  background-clip: padding-box;
+}
+
+/* Map dark theme */
+
+:root {
+  --map-tiles-filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+  --map-control-filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+html.dark .leaflet-control-layers,
+html.dark .leaflet-control-attribution,
+html.dark .leaflet-control-zoom-in,
+html.dark .leaflet-control-zoom-out,
+html.dark .leaflet-layer {
+  filter: var(--map-control-filter, none);
+}
+
+html.dark .leaflet-container {
+  background: var(--background);
 }

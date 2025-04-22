@@ -57,6 +57,9 @@ const formSchema = z
         latitude: z.preprocess(numberPreprocess, z.number().min(-90).max(90).nullish()),
         longitude: z.preprocess(numberPreprocess, z.number().min(-180).max(180).nullish()),
         maxRadiusKm: z.preprocess(numberPreprocess, z.number().positive().max(20001.6).nullish()),
+        limit: z.preprocess(numberPreprocess, z.number().min(1).max(20000).nullish()),
+        orderBy: z.enum(['time', 'magnitude']).optional(),
+        orderDirection: z.enum(['asc', 'desc']).optional(),
     })
     .refine(
         (data) => {
@@ -932,6 +935,49 @@ function Filters(props: FiltersProps) {
                                         )}
                                     />
                                 </FormItem>
+                                <FormField
+                                    control={form.control}
+                                    name="limit"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Results limit</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    placeholder="100"
+                                                    {...field}
+                                                    value={field.value ?? ''}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="orderBy"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Order by</FormLabel>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                defaultValue={field.value}
+                                                value={field.value}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select order field" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="magnitude">Magnitude</SelectItem>
+                                                    <SelectItem value="time">Date</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {/* <FormDescription></FormDescription> */}
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                                 <FormField
                                     control={form.control}
                                     name="includeAllMagnitudes"

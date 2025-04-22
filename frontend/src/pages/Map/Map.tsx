@@ -4,7 +4,7 @@ import Searchbar from '@/components/Searchbar';
 import { Button } from '@/components/ui/button';
 import getFilteredEarthquakes from '@/lib/data/earthquakes/getFiltered';
 import useData from '@/lib/store/data';
-import { FunnelIcon, XIcon } from 'lucide-react';
+import { ArrowDownAZIcon, ArrowUpAZIcon, FunnelIcon, XIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import EventList from './EventList';
 import Filters from './Filters';
@@ -32,6 +32,9 @@ const defaultFilters: FilterFormValues = {
     latitude: undefined,
     longitude: undefined,
     maxRadiusKm: undefined,
+    limit: 20000,
+    orderBy: 'magnitude',
+    orderDirection: 'desc',
 };
 
 function Map() {
@@ -60,6 +63,13 @@ function Map() {
         setFilterOpen((prev) => !prev);
     };
 
+    const toggleOrderDirection = () => {
+        setFilters((prev) => ({
+            ...prev,
+            orderDirection: prev.orderDirection === 'asc' ? 'desc' : 'asc',
+        }));
+    };
+
     const handleFilterSubmit = async (filters: FilterFormValues) => {
         toggleFilter();
         setFilters(filters);
@@ -82,6 +92,7 @@ function Map() {
                                 <XIcon className="size-4" />
                             </Button>
                         </div>
+
                         <Filters
                             values={filters}
                             defaultValues={defaultFilters}
@@ -90,13 +101,26 @@ function Map() {
                     </React.Fragment>
                 ) : (
                     <React.Fragment>
-                        <div className="w-full flex gap-4 p-4">
+                        <div className="w-full flex gap-2 p-4">
                             <Searchbar
                                 value={searchValue}
                                 onChange={setSearchValue}
                                 iconPosition="left"
                                 onSubmit={setSearchValueSubmitted}
                             />
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={toggleOrderDirection}
+                                className="p-2"
+                                disabled={filters.mode === 'realtime'}
+                            >
+                                {filters.orderDirection === 'asc' ? (
+                                    <ArrowDownAZIcon className="size-4" />
+                                ) : (
+                                    <ArrowUpAZIcon className="size-4" />
+                                )}
+                            </Button>
                             <Button
                                 variant="ghost"
                                 size="icon"

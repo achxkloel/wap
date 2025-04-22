@@ -15,6 +15,7 @@ import { Link, useLocation } from 'react-router';
 import AppTitle from './AppTitle';
 import NavGuest from './NavGuest';
 import NavUser from './NavUser';
+import ThemeButton from './ThemeButton';
 
 interface MenuItem {
     label: string;
@@ -74,7 +75,10 @@ function Sidebar() {
                     </SidebarGroupContent>
                 </SidebarGroup>
             </SidebarContent>
-            <SidebarFooter>{isAuthorized ? <NavUser /> : <NavGuest />}</SidebarFooter>
+            <SidebarFooter>
+                <ThemeButton />
+                {isAuthorized ? <NavUser /> : <NavGuest />}
+            </SidebarFooter>
         </SidebarUI>
     );
 }

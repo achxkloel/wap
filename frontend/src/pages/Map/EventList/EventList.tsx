@@ -77,13 +77,13 @@ function EventList({ search }: EventListProps) {
                         }}
                         className={cn(
                             'p-3 cursor-pointer border-b h-18',
-                            selected === item.id ? 'bg-blue-100' : 'hover:bg-gray-50',
+                            selected === item.id ? 'bg-blue-100 dark:bg-sidebar-primary' : 'hover:bg-muted',
                         )}
                     >
                         <h4 className="text-md font-semibold text-ellipsis overflow-hidden whitespace-nowrap">
                             {item.properties.place}
                         </h4>
-                        <p className="text-sm text-gray-500 text-ellipsis overflow-hidden whitespace-nowrap">
+                        <p className="text-sm text-gray-500 dark:text-gray-50 text-ellipsis overflow-hidden whitespace-nowrap">
                             {format(item.properties.time, 'PPPpp')}
                         </p>
                     </div>

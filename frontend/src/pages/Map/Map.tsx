@@ -130,7 +130,6 @@ function Map() {
                                 <FunnelIcon className="size-4" />
                             </Button>
                         </div>
-                        {/* <div className="w-full flex p-4">Sort by</div> */}
                         <EventList search={searchValueSubmitted} />
                     </React.Fragment>
                 )}

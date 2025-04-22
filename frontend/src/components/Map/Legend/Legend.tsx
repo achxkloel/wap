@@ -217,7 +217,7 @@ function Legend() {
 
     return (
         <div
-            className="z-[1000] absolute right-5 bottom-5 bg-white p-2 rounded border-[1px] border-solid border-gray-400 cursor-default space-y-4"
+            className="z-[1000] absolute right-5 bottom-5 bg-background p-2 rounded border-[1px] border-solid border-border cursor-default space-y-4"
             ref={stopPropagation}
         >
             <div className="space-y-2">
@@ -262,7 +262,7 @@ function Legend() {
                             className="flex flex-col items-center"
                         >
                             <div
-                                className="rounded-full border-black border-solid border-[1px]"
+                                className="rounded-full border-black border-solid border-[1px] bg-white"
                                 style={{
                                     width: item.size,
                                     height: item.size,

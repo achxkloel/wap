@@ -2,11 +2,9 @@ use serde::Serialize;
 use std::sync::Arc;
 
 use crate::routes::auth::middlewares::auth;
+use crate::routes::auth::models::UserDb;
 use crate::routes::auth::services::AuthService;
-use crate::routes::natural_phenomenon_locations::models::{
-    CreateNaturalPhenomenonLocationRequest, ServiceCreateAndUpdateResponseSuccess,
-    UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds,
-};
+use crate::routes::natural_phenomenon_locations::models::{CreateNaturalPhenomenonLocationRequest, NaturalPhenomenonResponseSuccess, ServiceCreateAndUpdateResponseSuccess, UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds};
 use crate::routes::natural_phenomenon_locations::services::{NaturalPhenomenonLocationService, PgNaturalPhenomenonLocationService};
 use crate::shared::models::{AppState, DatabaseId};
 use anyhow::Result;
@@ -16,7 +14,6 @@ use axum::response::IntoResponse;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
-use crate::routes::auth::models::UserDb;
 
 #[derive(Debug, Serialize)]
 struct ErrorResponse {
@@ -68,7 +65,7 @@ where
     let location = service
         .get_by_id(user.id, id)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(|e| (StatusCode::NO_CONTENT, e.to_string()))?;
     Ok(Json(location))
 }
 
@@ -151,23 +148,23 @@ where
         ("id" = DatabaseId, Path, description = "Location ID to update")
     ),
     responses(
-        (status = 204, description = "Location deleted"),
-        (status = 500, description = "Internal server error")
+        (status = 204, description = "Location deleted", content_type = "application/json"),
+        (status = 500, description = "Internal server error", content_type = "application/json")
     )
 )]
 pub async fn delete_location<S>(
     State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
     Path(id): Path<DatabaseId>,
-) -> Result<impl IntoResponse, (StatusCode, String)>
+) -> Result<impl IntoResponse, (StatusCode, Json<NaturalPhenomenonResponseSuccess>)>
 where
     S: NaturalPhenomenonLocationService,
 {
     service
         .delete(user.id, id)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    Ok((StatusCode::OK, "Location deleted"))
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(NaturalPhenomenonResponseSuccess { message: e.to_string() })))?;
+    Ok((StatusCode::NO_CONTENT, Json(NaturalPhenomenonResponseSuccess { message: "Location deleted".to_string() })))
 }
 
 // src/routes/natural_phenomenon_location/services/tests.rs
@@ -216,7 +213,7 @@ mod tests {
             name: "Volcano".to_string(),
             latitude: 36.2048,
             longitude: 138.2529,
-            description: Some("A famous volcano".to_string()),
+            description: "A famous volcano".to_string(),
         });
         let created = service
             .create(&location)

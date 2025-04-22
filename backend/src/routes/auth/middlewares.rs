@@ -21,7 +21,7 @@ use std::sync::Arc;
 /// * `next`:
 ///
 /// returns: Result<Response<Body>, (StatusCode, Json<AuthError>)>
-pub(crate) async fn auth<S>(
+pub async fn auth<S>(
     jar: CookieJar,
     State(service): State<Arc<S>>,
     mut req: Request<Body>,
@@ -37,7 +37,10 @@ where
         .headers()
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer ").map(str::to_owned))
+        .and_then(|v| {
+            tracing::debug!("Authorization header: {}", v);
+            v.strip_prefix("Bearer ").map(str::to_owned)
+        })
         .ok_or_else(|| {
             let err = AuthError::new("Missing Authorization Bearer token");
             (StatusCode::UNAUTHORIZED, Json(err))

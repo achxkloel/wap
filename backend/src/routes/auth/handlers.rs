@@ -23,10 +23,8 @@ use crate::shared::models::{AppState, DatabaseId};
 
 // use axum::{Json, response::IntoResponse};
 use crate::routes::auth::middlewares::auth;
-use crate::routes::auth::models::{AuthError, LoginError, LoginSuccess, LoginUser, LoginUserSchema, OAuthParams, QueryCode, RefreshSuccess, RegisterError, RegisterSuccess, RegisterUserRequestSchema, TokenClaims, UserData, UserDb, UserRegisterResponse};
-use crate::routes::auth::services::{
-    AuthService, AuthServiceImpl, GoogleAuthService, JwtConfigImpl,
-};
+use crate::routes::auth::models::{AuthError, ChangePasswordRequest, LoginError, LoginSuccess, LoginUser, LoginUserSchema, OAuthParams, QueryCode, RefreshSuccess, RegisterError, RegisterSuccess, RegisterUserRequestSchema, TokenClaims, UserData, UserDb, UserRegisterResponse};
+use crate::routes::auth::services::{create_login_response, AuthService, AuthServiceImpl, GoogleAuthService, JwtConfigImpl};
 use crate::routes::auth::{middlewares, services};
 use crate::routes::settings::handlers::{get_settings, put_settings};
 use crate::routes::settings::services::SettingsServiceImpl;
@@ -59,7 +57,7 @@ where
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(RegisterError {
-                message: e.to_string(),
+                message: e.1.to_string(),
             }),
         )
     })?;
@@ -86,35 +84,6 @@ fn filter_user_record(user: &UserDb) -> UserRegisterResponse {
     }
 }
 
-/// Pull all of your JWT logic into a single async helper.
-async fn create_login_response<S>(user: UserDb, state: &S) -> LoginSuccess
-where
-    S: JwtConfigImpl, // now jwt_secret is async
-{
-    // 1) grab the secret and expiries asynchronously
-    let secret = state.jwt_secret().await;
-    let access_minutes = state.access_expires_minutes().await;
-    let refresh_days = state.refresh_expires_days().await;
-
-    // 2) compute timestamps
-    let now = chrono::Utc::now();
-    let access_exp = (now + chrono::Duration::minutes(access_minutes)).timestamp() as usize;
-    let refresh_exp = (now + chrono::Duration::days(refresh_days)).timestamp() as usize;
-
-    // 3) sign tokens
-    let access_token = state
-        .create_jwt_token(&user.id.0.to_string(), access_exp)
-        .await;
-    let refresh_token = state
-        .create_jwt_token(&user.id.0.to_string(), refresh_exp)
-        .await;
-
-    LoginSuccess {
-        access_token,
-        refresh_token,
-    }
-}
-
 #[utoipa::path(
     post,
     path = "/auth/login",
@@ -131,7 +100,7 @@ pub async fn login<S>(
 where
     S: AuthServiceImpl,
 {
-    let user = service.login(body).await.map_err(|e| {
+    let user = service.login(&body).await.map_err(|e| {
         (
             StatusCode::BAD_REQUEST,
             Json(LoginError {
@@ -170,10 +139,17 @@ where
             (now + chrono::Duration::minutes(60)).timestamp() as usize,
         )
         .await;
+    let new_refresh_token = state
+        .create_jwt_token(
+            &user.id.0.to_string(),
+            (now + chrono::Duration::days(30)).timestamp() as usize,
+        )
+        .await;
 
     let mut response = Response::new(
         json!(RefreshSuccess {
-            access_token: new_access_token
+            access_token: new_access_token,
+            refresh_token: new_refresh_token,
         })
             .to_string(),
     );
@@ -210,7 +186,7 @@ where
 
     // 2) exchange code → token_response or 502
     let token_resp = service
-        .request_token(&params.code, &params.state)
+        .request_token(&params.code)
         .await
         .map_err(|e| {
             let msg = e.to_string();
@@ -295,6 +271,33 @@ where
     Ok((StatusCode::OK, Json(me)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/change-password",
+    request_body(content = ChangePasswordRequest, content_type = "application/json"),
+    responses(
+        (status = 204, description = "Password changed successfully"),
+        (status = 400, description = "Bad request", body = AuthError, content_type = "application/json"),
+        (status = 401, description = "Unauthorized", body = AuthError, content_type = "application/json"),
+        (status = 500, description = "Internal error", body = AuthError, content_type = "application/json")
+    )
+)]
+pub async fn change_password<S>(
+    State(service): State<Arc<S>>,
+    Extension(user): Extension<UserDb>,
+    Json(body): Json<ChangePasswordRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthError>)>
+where
+    S: AuthServiceImpl,
+{
+    service
+        .change_password(user.id, &body.current_password, &body.new_password, false)
+        .await
+        .map_err(|(code, err)| (code, Json(err))).unwrap();
+
+    Ok((StatusCode::NO_CONTENT, "Password changed successfully"))
+}
+
 /// Fully‐generic: you supply the `service: S`.
 pub fn router_with_service<S>(app: AppState, normal_service: Arc<S>) -> OpenApiRouter
 where
@@ -310,6 +313,10 @@ where
         )))
         .routes(routes!(google_oauth_handler))
         .routes(routes!(user_info).layer(axum::middleware::from_fn_with_state(
+            auth_service.clone(),
+            middlewares::auth,
+        )))
+        .routes(routes!(change_password).layer(axum::middleware::from_fn_with_state(
             auth_service.clone(),
             middlewares::auth,
         )))

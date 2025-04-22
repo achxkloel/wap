@@ -1,7 +1,7 @@
 use axum::{
     http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
     http::{HeaderValue, Method},
-    Router,
+    Json, Router,
 };
 use futures_util::{future, StreamExt};
 use serde::Deserialize;
@@ -15,22 +15,20 @@ use tracing::log::LevelFilter;
 use tracing::{Instrument, Level};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
-use backend::config::WapSettings;
+use backend::config::{WapSettings, WapSettingsImpl};
+use backend::routes::auth::models::{
+    AuthErrorKind, LoginResponse, LoginUserSchema, RegisterUserRequestSchema, RegisterUserSchema,
+    UserData,
+};
+use backend::routes::auth::services::{create_login_response, AuthServiceImpl};
 use backend::shared::models::AppState;
 use tower_http::cors::CorsLayer;
-use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::Directive;
-use utoipa::OpenApi;
+use tracing_subscriber::EnvFilter;
+use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
+use utoipa::{Modify, OpenApi};
 use utoipa_axum::router::UtoipaMethodRouterExt;
 use utoipa_scalar::{Scalar, Servable};
-
-#[derive(OpenApi)]
-// #[openapi(
-//     tags(
-//             (name = "fooo", description = "Todo items management API")
-//     )
-// )]
-struct ApiDoc;
 
 pub async fn init_db() -> PgPool {
     let database_url = std::env::var("DATABASE_URL")
@@ -67,26 +65,50 @@ fn prepare_cors() -> CorsLayer {
                 Method::OPTIONS,
                 Method::HEAD,
             ]
-                .to_vec(),
+            .to_vec(),
         )
         .allow_credentials(true)
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE])
 }
 
 async fn app_router(app: AppState) -> OpenApiRouter {
+    // OpenAPI
+    #[derive(OpenApi)]
+    #[openapi(
+        modifiers(&SecurityAddon),
+        tags(
+            (name = "Wap Backend - OpenApi documentation", description = "")
+        )
+    )]
+    struct ApiDoc;
+
+    struct SecurityAddon;
+
+    impl Modify for SecurityAddon {
+        fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+            if let Some(components) = openapi.components.as_mut() {
+                components.add_security_scheme(
+                    "Authorization 1",
+                    SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("Authorization"))),
+                )
+            }
+        }
+    }
+
     let setting_router = backend::routes::settings::handlers::router(app.clone());
     let auth_router = backend::routes::auth::handlers::router(app.clone());
     let natural_phenomenon_location_router =
         backend::routes::natural_phenomenon_locations::handlers::router(app.clone());
     let weather_location_router = backend::routes::weather_locations::handlers::router(app.clone());
 
-    let router = OpenApiRouter::new().layer(prepare_cors());
+    let router = OpenApiRouter::with_openapi(ApiDoc::openapi());
 
     router
         .merge(setting_router)
         .merge(auth_router)
         .merge(weather_location_router)
         .merge(natural_phenomenon_location_router)
+        .layer(prepare_cors())
 }
 
 async fn interrupt_signal<FT>(ft: FT)
@@ -107,7 +129,7 @@ where
     ft.await;
 }
 
-pub(crate) trait HaltOnSignal {
+pub trait HaltOnSignal {
     fn halt_on_signal(&self);
 }
 
@@ -124,6 +146,55 @@ impl HaltOnSignal for CancellationToken {
 //     tracing::info!("Starting graceful shutdown");
 // }
 
+async fn create_development_user(app: &AppState) {
+    let register_request = RegisterUserRequestSchema {
+        email: "test1@wap.com".into(),
+        password: "test1@wap.com".into(),
+    };
+    let auth_service = backend::routes::auth::services::AuthService {
+        db: app.db.clone(),
+        settings: app.settings.clone(),
+        http: Default::default(),
+    };
+
+    // let user = auth_service.register_new_user(&register_request).await;
+    let user = match auth_service.register_new_user(&register_request).await {
+        Ok(user) => user,
+        Err((_, Json(kind))) => {
+            if kind == AuthErrorKind::UserAlreadyExists {
+                tracing::info!("Development user already exists");
+                auth_service
+                    .get_user_by_id_or_email(&None, &Some(register_request.email.clone()))
+                    .await
+                    .unwrap()
+            } else {
+                tracing::error!("Failed to create development user: {:?}", kind);
+                return;
+            }
+        }
+    };
+
+    let _ = auth_service.change_password(user.id, &"", &register_request.password, true).await;
+
+    let login_request = LoginUserSchema {
+        email: register_request.email.clone(),
+        password: register_request.password.clone(),
+    };
+    let auth_result = auth_service.login(&login_request).await;
+
+    let auth_result = match auth_result {
+        Ok(auth_result) => auth_result,
+        Err(e) => {
+            tracing::error!("Failed to login user: {:?}", e);
+            return;
+        }
+    };
+    let data = create_login_response(user.clone(), &auth_service).await;
+
+    tracing::info!("Development user created and logged in: {:?}", auth_result);
+    tracing::debug!("You can login with: Bearer {}", data.access_token);
+}
+
 #[tokio::main]
 async fn main() {
     // Logging
@@ -131,20 +202,10 @@ async fn main() {
         .with_default_directive(Level::DEBUG.into())
         .from_env()
         .unwrap()
-        // .add_directive("backend=debug".parse().unwrap())
-        // Turn off all
-        // .add_directive("none".parse().unwrap())
         .add_directive("backend=debug".parse().unwrap());
-        // .add_directive("sqlx=info".parse().unwrap());
-
-    // let filter = EnvFilter::try_from_default_env().unwrap()
-    //         .add_directive("backend=debug".parse().unwrap())
-    //     .add_directive("*=info".parse().unwrap());
 
     let _r = tracing_subscriber::fmt::fmt()
         .without_time()
-        // .with_max_level(LevelFilter::Debug.into())
-        // .with_max_level( LevelFilter::Debug )
         .with_max_level(Level::DEBUG)
         .with_file(true)
         .with_line_number(true)
@@ -155,10 +216,13 @@ async fn main() {
 
     let state = AppState {
         db: init_db().await,
-        settings: WapSettings::init(),
+        settings: WapSettings::init().await,
     };
 
     tracing::info!("Loaded config: {:#?}", state.settings);
+    if state.settings.is_development().await {
+        create_development_user(&state).await;
+    }
 
     let (router, api_docs) = app_router(state).await.split_for_parts();
 

@@ -49,6 +49,7 @@ function Map() {
         try {
             const data = await getFilteredEarthquakes(filters);
             setSearchValue('');
+            setSearchValueSubmitted('');
             setEarthquakes(data);
         } catch (e) {
             console.error('Error fetching earthquakes:', e);

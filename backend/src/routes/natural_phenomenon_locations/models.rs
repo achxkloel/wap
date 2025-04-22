@@ -36,7 +36,7 @@ pub struct ServiceCreateAndUpdateResponseSuccess {
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
-    pub description: Option<String>,
+    pub description: String,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -45,13 +45,18 @@ pub struct CreateNaturalPhenomenonLocationRequest {
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
-    pub description: Option<String>,
+    pub description: String,
 }
 
 // Implement display for CreateNaturalPhenomenonLocationRequest
 impl std::fmt::Display for CreateNaturalPhenomenonLocationRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "CreateNaturalPhenomenonLocationRequest {{ user_id: {:?}, name: {}, latitude: {}, longitude: {}, description: {} }}",
-               self.user_id, self.name, self.latitude, self.longitude, self.description.as_deref().unwrap_or("None"))
+               self.user_id, self.name, self.latitude, self.longitude, self.description)
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct NaturalPhenomenonResponseSuccess {
+    pub message: String,
 }

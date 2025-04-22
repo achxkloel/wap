@@ -67,7 +67,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             name: rec.name,
             latitude: rec.latitude,
             longitude: rec.longitude,
-            description: Option::from(rec.description),
+            description: rec.description,
         })
     }
 
@@ -92,7 +92,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
                 name: rec.name,
                 latitude: rec.latitude,
                 longitude: rec.longitude,
-                description: Option::from(rec.description),
+                description: rec.description,
             })
             .collect();
 
@@ -122,7 +122,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             name: rec.name,
             latitude: rec.latitude,
             longitude: rec.longitude,
-            description: Option::from(rec.description),
+            description: rec.description,
         })
     }
 
@@ -131,19 +131,24 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         location: UpdateNaturalPhenomenonLocationRequestWithIds,
     ) -> Result<ServiceCreateAndUpdateResponseSuccess> {
         let record = sqlx::query!(
-            r#"
-            UPDATE natural_phenomenon_locations
-            SET name = $1, latitude = $2, longitude = $3, description = $4
-            WHERE id = $5 AND user_id = $6
-            RETURNING id, user_id, name, latitude, longitude, description
-            "#,
-            location.payload.name,
-            location.payload.latitude,
-            location.payload.longitude,
-            location.payload.description,
-            location.id.0,
-            location.user_id.0,
-        )
+        r#"
+        UPDATE natural_phenomenon_locations
+        SET
+            name        = COALESCE($1, name),
+            latitude    = COALESCE($2, latitude),
+            longitude   = COALESCE($3, longitude),
+            description = COALESCE($4, description)
+        WHERE id = $5 AND user_id = $6
+        RETURNING id, user_id, name, latitude, longitude, description
+        "#,
+        // these are Option<...>, so COALESCE will pick the existing value when None:
+        location.payload.name,
+        location.payload.latitude,
+        location.payload.longitude,
+        location.payload.description,
+        location.id.0,
+        location.user_id.0,
+    )
             .fetch_one(&self.db)
             .await?;
 
@@ -153,7 +158,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             name: record.name,
             latitude: record.latitude,
             longitude: record.longitude,
-            description: Option::from(record.description),
+            description: record.description,
         })
     }
 
@@ -198,7 +203,7 @@ mod tests {
             name: "Grand Canyon".to_string(),
             latitude: 36.1069,
             longitude: -112.1129,
-            description: Some("A famous canyon".to_string()),
+            description: "A famous canyon".to_string(),
         };
         let created: ServiceCreateAndUpdateResponseSuccess =
             service.create(&create_req).await.expect("create failed");
@@ -249,7 +254,7 @@ mod tests {
             updated.longitude,
             update_req.payload.longitude.expect(&"longitude")
         );
-        assert_eq!(updated.description, update_req.payload.description);
+        assert_eq!(updated.description, update_req.payload.description.unwrap());
 
         // 5) DELETE
         service.delete(user_id, id).await.expect("delete failed");

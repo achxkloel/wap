@@ -3,10 +3,13 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Dialog, DialogContent, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import api from '@/lib/api';
 import { logger } from '@/lib/logger';
 import useAuthStore from '@/lib/store/auth';
-import Cookies from 'js-cookie';
+import { faGoogle } from '@fortawesome/free-brands-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { useGoogleLogin } from '@react-oauth/google';
 import { useEffect, useState } from 'react';
 
 interface AuthDialogProps {
@@ -17,6 +20,7 @@ interface AuthDialogProps {
 export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
     const setAccessToken = useAuthStore((state) => state.setAccessToken);
     const setRefreshToken = useAuthStore((state) => state.setRefreshToken);
+    const setUser = useAuthStore((state) => state.setUser);
 
     const [mode, setMode] = useState<'login' | 'register'>('login');
     const [email, setEmail] = useState('');
@@ -35,6 +39,45 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
         }
     }, [open]);
 
+    const login = async (accessToken: string, refreshToken: string) => {
+        setAccessToken(accessToken);
+        setRefreshToken(refreshToken);
+
+        logger.debug('Stored access token:', accessToken);
+        logger.debug('Stored refresh token:', refreshToken);
+
+        // Fetch user data
+        const res = await api.post('/auth/me');
+        setUser(res.data);
+
+        if (onOpenChange) {
+            onOpenChange(false);
+        }
+    };
+
+    const googleLogin = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            try {
+                const res = await api.post('/auth/google', undefined, {
+                    params: {
+                        code: tokenResponse.code,
+                    },
+                });
+
+                const data = res.data;
+                await login(data.access_token, data.refresh_token);
+            } catch (err) {
+                logger.error('Google login verification error:', err);
+                setError('Google login failed');
+            }
+        },
+        onError: (err) => {
+            logger.error('Google login error:', err);
+            setError('Google login failed');
+        },
+        flow: 'auth-code',
+    });
+
     const handleSubmit = async () => {
         setError('');
 
@@ -51,27 +94,13 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
             setLoading(true);
             const res = await api.post(endpoint, payload);
             const data = res.data;
-            const accessToken = data.access_token;
-            const refreshToken = data.refresh_token;
-
-            setAccessToken(accessToken);
-            setRefreshToken(refreshToken);
-
-            logger.debug('Stored access token:', accessToken);
-            logger.debug('Stored refresh token:', refreshToken);
-
-            if (onOpenChange) {
-                onOpenChange(false);
-            }
+            await login(data.access_token, data.refresh_token);
         } catch (err) {
-            console.error(err);
+            logger.error('Login/Register error:', err);
             setError('Something went wrong');
         } finally {
             setLoading(false);
         }
-
-        const token = Cookies.get('token');
-        logger.debug('Token from cookie:', token);
     };
 
     return (
@@ -140,19 +169,33 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
                             {error && <p className="text-sm text-red-500">{error}</p>}
                         </CardContent>
 
-                        <CardFooter className="flex justify-between pt-4">
+                        <CardFooter className="pt-4 flex-col gap-4">
+                            <div className="w-full flex justify-between">
+                                <Button
+                                    variant="ghost"
+                                    type="button"
+                                    onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+                                >
+                                    {mode === 'login' ? 'Switch to Register' : 'Switch to Login'}
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={loading}
+                                >
+                                    {loading ? 'Loading...' : mode === 'login' ? 'Login' : 'Register'}
+                                </Button>
+                            </div>
+                            <Separator />
                             <Button
-                                variant="ghost"
+                                variant="outline"
                                 type="button"
-                                onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+                                className="w-full"
+                                onClick={() => {
+                                    googleLogin();
+                                }}
                             >
-                                {mode === 'login' ? 'Switch to Register' : 'Switch to Login'}
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={loading}
-                            >
-                                {loading ? 'Loading...' : mode === 'login' ? 'Login' : 'Register'}
+                                <FontAwesomeIcon icon={faGoogle} />
+                                Continue with Google
                             </Button>
                         </CardFooter>
                     </form>

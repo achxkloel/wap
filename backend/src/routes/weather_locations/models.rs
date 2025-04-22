@@ -2,25 +2,45 @@ use crate::shared::models::DatabaseId;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize)]
-pub struct WeatherLocationId(pub i32);
-
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct WeatherLocation {
-    pub id: Option<WeatherLocationId>,
+    pub id: DatabaseId,
     pub user_id: DatabaseId,
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
     pub is_default: bool,
-    pub description: Option<String>,
+    pub description: String,
+
+    /// When the row was created
+    pub created_at: chrono::DateTime<chrono::Utc>,
+
+    /// When the row was last updated
+    pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateWeatherLocationRequest {
+    pub user_id: DatabaseId,
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
     pub is_default: bool,
-    pub description: Option<String>,
+    pub description: String,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct WeatherLocationCreateRequestSuccess {
+    pub id: DatabaseId,
+    pub user_id: DatabaseId,
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub is_default: bool,
+    pub description: String,
+    /// When the row was created
+    pub created_at: chrono::DateTime<chrono::Utc>,
+
+    /// When the row was last updated
+    pub updated_at: chrono::DateTime<chrono::Utc>,
 }

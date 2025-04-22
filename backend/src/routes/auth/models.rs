@@ -218,13 +218,11 @@ pub(crate) struct RefreshSuccess {
 #[derive(Debug, Deserialize)]
 pub(crate) struct QueryCode {
     pub(crate) code: String,
-    pub(crate) state: String,
 }
 
 #[derive(Deserialize)]
 pub(crate) struct OAuthParams {
     pub(crate) code: String,
-    pub(crate) state: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -261,9 +259,11 @@ pub(crate) struct TokenResponse {
 /// Public profile info from Google
 #[derive(Debug, Deserialize)]
 pub(crate) struct GoogleUser {
-    pub(crate) id: String,
-    pub(crate) email: String,
-    pub(crate) verified_email: bool,
+    pub(crate) sub: String,
     pub(crate) name: String,
+    pub(crate) given_name: String,
+    pub(crate) family_name: String,
     pub(crate) picture: String,
+    pub(crate) email: String,
+    pub(crate) email_verified: bool,
 }

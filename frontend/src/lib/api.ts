@@ -43,6 +43,7 @@ export const checkToken = () => {
         logger.debug('Access token expired, removing tokens...');
         useAuthStore.getState().removeAccessToken();
         useAuthStore.getState().removeRefreshToken();
+        useAuthStore.getState().setUser(null);
         return;
     }
 
@@ -69,6 +70,7 @@ export const checkToken = () => {
 
 const api = axios.create({
     baseURL: environment.baseUrl,
+    withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {

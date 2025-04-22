@@ -10,7 +10,6 @@ import useAuthStore from '@/lib/store/auth';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useGoogleLogin } from '@react-oauth/google';
-import Cookies from 'js-cookie';
 import { useEffect, useState } from 'react';
 
 interface AuthDialogProps {
@@ -21,6 +20,7 @@ interface AuthDialogProps {
 export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
     const setAccessToken = useAuthStore((state) => state.setAccessToken);
     const setRefreshToken = useAuthStore((state) => state.setRefreshToken);
+    const setUser = useAuthStore((state) => state.setUser);
 
     const [mode, setMode] = useState<'login' | 'register'>('login');
     const [email, setEmail] = useState('');
@@ -39,12 +39,16 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
         }
     }, [open]);
 
-    const login = (accessToken: string, refreshToken: string) => {
+    const login = async (accessToken: string, refreshToken: string) => {
         setAccessToken(accessToken);
         setRefreshToken(refreshToken);
 
         logger.debug('Stored access token:', accessToken);
         logger.debug('Stored refresh token:', refreshToken);
+
+        // Fetch user data
+        const res = await api.post('/auth/me');
+        setUser(res.data);
 
         if (onOpenChange) {
             onOpenChange(false);
@@ -54,12 +58,14 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
     const googleLogin = useGoogleLogin({
         onSuccess: async (tokenResponse) => {
             try {
-                const res = await api.post('/auth/google', {
-                    code: tokenResponse.code,
+                const res = await api.post('/auth/google', undefined, {
+                    params: {
+                        code: tokenResponse.code,
+                    },
                 });
 
                 const data = res.data;
-                login(data.access_token, data.refresh_token);
+                await login(data.access_token, data.refresh_token);
             } catch (err) {
                 logger.error('Google login verification error:', err);
                 setError('Google login failed');
@@ -88,16 +94,13 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
             setLoading(true);
             const res = await api.post(endpoint, payload);
             const data = res.data;
-            login(data.access_token, data.refresh_token);
+            await login(data.access_token, data.refresh_token);
         } catch (err) {
-            console.error(err);
+            logger.error('Login/Register error:', err);
             setError('Something went wrong');
         } finally {
             setLoading(false);
         }
-
-        const token = Cookies.get('token');
-        logger.debug('Token from cookie:', token);
     };
 
     return (

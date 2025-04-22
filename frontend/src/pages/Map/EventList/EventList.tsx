@@ -1,6 +1,8 @@
 import useData from '@/lib/store/data';
+import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Virtuoso } from 'react-virtuoso';
+import { useEffect, useRef, useState } from 'react';
+import { ListRange, Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 
 interface EventListProps {
     search?: string;
@@ -8,10 +10,38 @@ interface EventListProps {
 
 function EventList({ search }: EventListProps) {
     const earthquakes = useData((state) => state.earthquake);
+    const setSelected = useData((state) => state.setSelected);
+    const selected = useData((state) => state.selected);
+    const virtuoso = useRef<VirtuosoHandle>(null);
+    const [visibleRange, setVisibleRange] = useState<ListRange>({ startIndex: 0, endIndex: 0 });
 
-    if (!earthquakes || earthquakes.features.length <= 0) {
-        return <div className="p-4 text-center text-gray-500 h-18 ">No items found</div>;
-    }
+    useEffect(() => {
+        if (typeof selected === 'undefined') {
+            return;
+        }
+
+        if (!earthquakes) {
+            return;
+        }
+
+        const earthquakeIndex = earthquakes.features.findIndex((feature) => feature.id === selected);
+
+        if (earthquakeIndex < 0) {
+            return;
+        }
+
+        if (!virtuoso.current) {
+            return;
+        }
+
+        if (earthquakeIndex >= visibleRange.startIndex && earthquakeIndex <= visibleRange.endIndex) {
+            return;
+        }
+
+        virtuoso.current.scrollToIndex({
+            index: earthquakeIndex,
+        });
+    }, [selected]);
 
     const getEarthquakes = () => {
         if (!earthquakes) {
@@ -28,15 +58,27 @@ function EventList({ search }: EventListProps) {
         });
     };
 
+    if (!earthquakes || earthquakes.features.length <= 0) {
+        return <div className="p-4 text-center text-gray-500 h-18 ">No items found</div>;
+    }
+
     return (
         <div className="h-full">
             <Virtuoso
+                ref={virtuoso}
                 style={{ height: '100%' }}
                 data={getEarthquakes()}
+                rangeChanged={setVisibleRange}
                 itemContent={(index, item) => (
                     <div
                         key={index}
-                        className="p-3 cursor-pointer border-b h-18 hover:bg-gray-50"
+                        onClick={() => {
+                            setSelected(item.id);
+                        }}
+                        className={cn(
+                            'p-3 cursor-pointer border-b h-18',
+                            selected === item.id ? 'bg-blue-100' : 'hover:bg-gray-50',
+                        )}
                     >
                         <h4 className="text-md font-semibold text-ellipsis overflow-hidden whitespace-nowrap">
                             {item.properties.place}

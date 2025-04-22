@@ -3,71 +3,184 @@ import useMapStore from '@/lib/store/map';
 import { differenceInMilliseconds, Duration, sub } from 'date-fns';
 import L from 'leaflet';
 
-export const magnitudeColors = [
+const magnitudeColors = [
     {
-        cond: (magnitude: number) => magnitude < 3,
         label: '1-2',
         color: '#ffffb2',
     },
     {
-        cond: (magnitude: number) => magnitude < 4,
         label: '3',
         color: '#fed976',
     },
     {
-        cond: (magnitude: number) => magnitude < 5,
         label: '4',
         color: '#feb24c',
     },
     {
-        cond: (magnitude: number) => magnitude < 6,
         label: '5',
         color: '#fd8d3c',
     },
     {
-        cond: (magnitude: number) => magnitude < 7,
         label: '6',
         color: '#fc4e2a',
     },
     {
-        cond: (magnitude: number) => magnitude >= 7,
         label: '7+',
         color: '#e31a1c',
     },
 ];
 
-export const significanceColors = [
+const significanceColors = [
     {
-        cond: (significanceLevel: number) => significanceLevel < 100,
         label: '1-99',
         color: '#ffffb2',
     },
     {
-        cond: (significanceLevel: number) => significanceLevel < 300,
         label: '100',
         color: '#fed976',
     },
     {
-        cond: (significanceLevel: number) => significanceLevel < 500,
         label: '300',
         color: '#feb24c',
     },
     {
-        cond: (significanceLevel: number) => significanceLevel < 700,
         label: '500',
         color: '#fd8d3c',
     },
     {
-        cond: (significanceLevel: number) => significanceLevel < 900,
         label: '700',
         color: '#fc4e2a',
     },
     {
-        cond: (significanceLevel: number) => significanceLevel >= 900,
         label: '900+',
         color: '#e31a1c',
     },
 ];
+
+const dateColors = [
+    {
+        label: '<1h',
+        color: '#e31a1c',
+    },
+    {
+        label: '1h',
+        color: '#fd8d3c',
+    },
+    {
+        label: '1d',
+        color: '#fed976',
+    },
+    {
+        label: '7d',
+        color: '#ffffb2',
+    },
+    {
+        label: '30d+',
+        color: '#cccccc',
+    },
+];
+
+const magnitudeSizes = [
+    {
+        label: '1-2',
+        size: 20,
+    },
+    {
+        label: '3',
+        size: 22,
+    },
+    {
+        label: '4',
+        size: 24,
+    },
+    {
+        label: '5',
+        size: 26,
+    },
+    {
+        label: '6',
+        size: 28,
+    },
+    {
+        label: '7+',
+        size: 30,
+    },
+];
+
+export const getMagnitudeColor = (magnitude: number) => {
+    if (magnitude < 3) {
+        return magnitudeColors[0];
+    }
+    if (magnitude < 4) {
+        return magnitudeColors[1];
+    }
+    if (magnitude < 5) {
+        return magnitudeColors[2];
+    }
+    if (magnitude < 6) {
+        return magnitudeColors[3];
+    }
+    if (magnitude < 7) {
+        return magnitudeColors[4];
+    }
+
+    return magnitudeColors[5];
+};
+
+export const getSignificanceColor = (significance: number) => {
+    if (significance < 100) {
+        return significanceColors[0];
+    }
+    if (significance < 300) {
+        return significanceColors[1];
+    }
+    if (significance < 500) {
+        return significanceColors[2];
+    }
+    if (significance < 700) {
+        return significanceColors[3];
+    }
+    if (significance < 900) {
+        return significanceColors[4];
+    }
+
+    return significanceColors[5];
+};
+
+export const getDateColor = (date: number) => {
+    if (compareDate(date, { hours: 1 })) {
+        return dateColors[0];
+    }
+    if (compareDate(date, { days: 1 })) {
+        return dateColors[1];
+    }
+    if (compareDate(date, { days: 7 })) {
+        return dateColors[2];
+    }
+    if (compareDate(date, { days: 30 })) {
+        return dateColors[3];
+    }
+    return dateColors[4];
+};
+
+export const getSize = (magnitude: number) => {
+    if (magnitude < 3) {
+        return magnitudeSizes[0];
+    }
+    if (magnitude < 4) {
+        return magnitudeSizes[1];
+    }
+    if (magnitude < 5) {
+        return magnitudeSizes[2];
+    }
+    if (magnitude < 6) {
+        return magnitudeSizes[3];
+    }
+    if (magnitude < 7) {
+        return magnitudeSizes[4];
+    }
+    return magnitudeSizes[5];
+};
 
 const compareDate = (date: number, duration: Duration) => {
     const now = new Date();
@@ -75,67 +188,6 @@ const compareDate = (date: number, duration: Duration) => {
     const diff = differenceInMilliseconds(now, date);
     return diff < differenceInMilliseconds(now, targetDate);
 };
-
-export const dateColors = [
-    {
-        cond: (date: number) => compareDate(date, { hours: 1 }),
-        label: '1h',
-        color: '#e31a1c',
-    },
-    {
-        cond: (date: number) => compareDate(date, { days: 1 }),
-        label: '1d',
-        color: '#fd8d3c',
-    },
-    {
-        cond: (date: number) => compareDate(date, { days: 7 }),
-        label: '7d',
-        color: '#fed976',
-    },
-    {
-        cond: (date: number) => compareDate(date, { days: 30 }),
-        label: '30d',
-        color: '#ffffb2',
-    },
-    {
-        cond: (date: number) => compareDate(date, { days: 90 }),
-        label: '90d+',
-        color: '#cccccc',
-    },
-];
-
-export const magnitudeSizes = [
-    {
-        cond: (magnitude: number) => magnitude < 3,
-        label: '1-2',
-        size: 20,
-    },
-    {
-        cond: (magnitude: number) => magnitude < 4,
-        label: '3',
-        size: 22,
-    },
-    {
-        cond: (magnitude: number) => magnitude < 5,
-        label: '4',
-        size: 24,
-    },
-    {
-        cond: (magnitude: number) => magnitude < 6,
-        label: '5',
-        size: 26,
-    },
-    {
-        cond: (magnitude: number) => magnitude < 7,
-        label: '6',
-        size: 28,
-    },
-    {
-        cond: (magnitude: number) => magnitude >= 7,
-        label: '7+',
-        size: 30,
-    },
-];
 
 function Legend() {
     const colorStrategy = useMapStore((state) => state.colorStrategy);

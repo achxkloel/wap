@@ -2,9 +2,11 @@ import Router from '@/features/Router';
 import { useEffect } from 'react';
 import api from './lib/api';
 import { logger } from './lib/logger';
-import { isAuthorized } from './lib/store/auth';
+import useAuthStore, { isAuthorized } from './lib/store/auth';
 
 function App() {
+    const setUser = useAuthStore((state) => state.setUser);
+
     useEffect(() => {
         if (!isAuthorized()) {
             return;
@@ -17,7 +19,7 @@ function App() {
         try {
             logger.debug('Fetching user data...');
             const res = await api.post('/auth/me');
-            logger.debug('User data fetched successfully:', res.data);
+            setUser(res.data);
         } catch (error) {
             logger.error('Error fetching user data:', error);
         }

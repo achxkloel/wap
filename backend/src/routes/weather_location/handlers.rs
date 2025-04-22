@@ -1,11 +1,15 @@
-use crate::routes::weather_location::services::WeatherLocationAppStateImpl;
-use crate::routes::weather_location::{WeatherLocation, WeatherLocationId, WeatherLocationService};
-use crate::shared::models::DatabaseId;
+use crate::routes::auth::middlewares::auth;
+use crate::routes::auth::services::AuthService;
+use crate::routes::weather_location::models::{WeatherLocation, WeatherLocationId};
+use crate::routes::weather_location::services::{WeatherLocationService, WeatherLocationServiceImpl};
+use crate::shared::models::{AppState, DatabaseId};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::{Extension, Json};
 use serde::Deserialize;
+use std::sync::Arc;
 use utoipa::ToSchema;
+use utoipa_axum::routes;
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateWeatherLocationRequest {
@@ -24,10 +28,13 @@ pub struct CreateWeatherLocationRequest {
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn get_all_locations(
-    State(service): State<WeatherLocationAppStateImpl>,
+pub async fn get_all_locations<S>(
+    State(service): State<Arc<S>>,
     Extension(user_id): Extension<DatabaseId>,
-) -> anyhow::Result<Json<Vec<WeatherLocation>>, (StatusCode, String)> {
+) -> anyhow::Result<Json<Vec<WeatherLocation>>, (StatusCode, String)>
+where
+    S: WeatherLocationServiceImpl,
+{
     let locations = service
         .get_all(&user_id)
         .await
@@ -47,11 +54,14 @@ pub async fn get_all_locations(
         ("id" = i32, Path, description = "Location ID")
     )
 )]
-pub async fn get_location_by_id(
-    State(service): State<WeatherLocationAppStateImpl>,
+pub async fn get_location_by_id<S>(
+    State(service): State<Arc<S>>,
     Extension(user_id): Extension<DatabaseId>,
     Path(id): Path<i32>,
-) -> anyhow::Result<Json<WeatherLocation>, (StatusCode, String)> {
+) -> anyhow::Result<Json<WeatherLocation>, (StatusCode, String)>
+where
+    S: WeatherLocationServiceImpl,
+{
     let location = service
         .get_by_id(&user_id, &WeatherLocationId(id))
         .await
@@ -68,11 +78,14 @@ pub async fn get_location_by_id(
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn create_location(
-    State(service): State<WeatherLocationAppStateImpl>,
+pub async fn create_location<S>(
+    State(service): State<Arc<S>>,
     Extension(user_id): Extension<DatabaseId>,
     Json(request): Json<CreateWeatherLocationRequest>,
-) -> anyhow::Result<Json<WeatherLocation>, (StatusCode, String)> {
+) -> anyhow::Result<Json<WeatherLocation>, (StatusCode, String)>
+where
+    S: WeatherLocationServiceImpl,
+{
     let location = WeatherLocation {
         id: None,
         user_id,
@@ -102,14 +115,33 @@ pub async fn create_location(
         ("id" = i32, Path, description = "Location ID")
     )
 )]
-pub async fn delete_location(
-    State(service): State<WeatherLocationAppStateImpl>,
+pub async fn delete_location<S>(
+    State(service): State<Arc<S>>,
     Extension(user_id): Extension<DatabaseId>,
     Path(id): Path<i32>,
-) -> anyhow::Result<StatusCode, (StatusCode, String)> {
+) -> anyhow::Result<StatusCode, (StatusCode, String)>
+where
+    S: WeatherLocationServiceImpl,
+{
     service
         .delete(&user_id, &WeatherLocationId(id))
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+// pub fn router<Z:WeatherLocationService>(app: AppState<Z>) -> utoipa_axum::router::OpenApiRouter {
+pub fn router(app: AppState) -> utoipa_axum::router::OpenApiRouter {
+    let weather_service = Arc::new(WeatherLocationService { db: app.db.clone() });
+    let auth_service = Arc::new(AuthService { db: app.db.clone(), settings: app.settings.clone(), http: Default::default() });
+
+    let router = utoipa_axum::router::OpenApiRouter::new()
+        .routes(routes!(get_all_locations))
+        .routes(routes!(get_location_by_id))
+        .routes(routes!(create_location))
+        .routes(routes!(delete_location))
+        .layer(axum::middleware::from_fn_with_state(auth_service, auth))
+        .with_state(weather_service);
+
+    router
 }

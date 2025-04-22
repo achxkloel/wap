@@ -5,13 +5,17 @@ use crate::routes::natural_phenomenon_location::models::{
     CreateNaturalPhenomenonLocationRequest, ServiceCreateAndUpdateResponseSuccess,
     UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds,
 };
-use crate::routes::natural_phenomenon_location::services::NaturalPhenomenonLocationService;
-use crate::shared::models::DatabaseId;
+use crate::routes::natural_phenomenon_location::services::{NaturalPhenomenonLocationService, PgNaturalPhenomenonLocationService};
+use crate::shared::models::{AppState, DatabaseId};
 use anyhow::Result;
 use axum::extract::{Extension, Json, Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use utoipa::ToSchema;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
+use crate::routes::auth::middlewares::auth;
+use crate::routes::auth::services::AuthService;
 
 #[derive(Debug, Serialize)]
 struct ErrorResponse {
@@ -166,6 +170,28 @@ where
 }
 
 // src/routes/natural_phenomenon_location/services/tests.rs
+
+/// Generic router allowing injection of any implementation of the domain service
+pub fn router_with_service<S>(app: AppState, service: Arc<S>) -> OpenApiRouter
+where
+    S: NaturalPhenomenonLocationService + Send + Sync + 'static,
+{
+    let auth_service = Arc::new(AuthService { db: app.db.clone(), settings: app.settings.clone(), http: Default::default() });
+    OpenApiRouter::new()
+        .routes(routes!(get_all_locations))
+        .routes(routes!(get_location))
+        .routes(routes!(create_location))
+        .routes(routes!(update_location))
+        .routes(routes!(delete_location))
+        .layer(axum::middleware::from_fn_with_state(auth_service, auth))
+        .with_state(service)
+}
+
+/// Convenience router using the Postgres-backed implementation
+pub fn router(app: AppState) -> OpenApiRouter {
+    let service = Arc::new(PgNaturalPhenomenonLocationService::new(app.db.clone()));
+    router_with_service(app, service)
+}
 
 #[cfg(test)]
 mod tests {

@@ -1,9 +1,6 @@
 use crate::config::WapSettings;
 use crate::routes::auth::models;
-use crate::routes::auth::models::{
-    GoogleUser, LoginUserSchema, RefreshError, RegisterUserRequestSchema, TokenClaims,
-    TokenResponse, UserDb,
-};
+use crate::routes::auth::models::{GoogleUser, LoginUserSchema, AuthError, RegisterUserRequestSchema, TokenClaims, TokenResponse, UserDb};
 use crate::routes::auth::utils::hash_password;
 use anyhow::Result;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
@@ -19,13 +16,17 @@ use tracing::error;
 
 #[async_trait]
 pub trait AuthServiceImpl: Send + Sync + 'static + JwtConfigImpl {
+    async fn validate_token(
+        &self,
+        token: &str,
+    ) -> Result<UserDb, (StatusCode, Json<AuthError>)>;
     async fn token_claim(
         &self,
         token: &str,
-    ) -> Result<TokenClaims, (StatusCode, Json<RefreshError>)>;
+    ) -> Result<TokenClaims, (StatusCode, Json<AuthError>)>;
     async fn register_new_user(&self, request: &RegisterUserRequestSchema) -> Result<UserDb>;
     async fn login(&self, request: LoginUserSchema) -> Result<UserDb>;
-    async fn refresh(&self, user_id: i32) -> Result<UserDb, (StatusCode, Json<RefreshError>)>;
+    async fn refresh(&self, user_id: i32) -> Result<UserDb, (StatusCode, Json<AuthError>)>;
 }
 
 #[derive(Clone)]
@@ -72,6 +73,41 @@ impl JwtConfigImpl for AuthService {
 
 #[async_trait]
 impl AuthServiceImpl for AuthService {
+    async fn validate_token(
+        &self,
+        token: &str,
+    ) -> Result<UserDb, (StatusCode, Json<AuthError>)> {
+        // 1) decode JWT
+        let claims = self.token_claim(token).await?;
+
+        // 2) parse sub → user_id
+        let user_id: i32 = claims.sub.parse().map_err(|_| {
+            let err = AuthError::new(
+                "Invalid token subject",
+            );
+            (StatusCode::UNAUTHORIZED, Json(err))
+        })?;
+
+        // 3) lookup user
+        let user = sqlx::query_as!(UserDb, "SELECT * FROM users WHERE id = $1", user_id)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| {
+                let err = AuthError::new(
+                    format!("DB error: {}", e),
+                );
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
+            })?
+            .ok_or_else(|| {
+                let err = AuthError::new(
+                    "User no longer exists",
+                );
+                (StatusCode::UNAUTHORIZED, Json(err))
+            })?;
+
+        Ok(user)
+    }
+
     async fn register_new_user(&self, request: &RegisterUserRequestSchema) -> Result<UserDb> {
         let hashed_password = hash_password(request.password.as_str())
             .await
@@ -98,15 +134,14 @@ impl AuthServiceImpl for AuthService {
     async fn token_claim(
         &self,
         token: &str,
-    ) -> Result<TokenClaims, (StatusCode, Json<RefreshError>)> {
+    ) -> Result<TokenClaims, (StatusCode, Json<AuthError>)> {
         let token_data = decode::<TokenClaims>(
             token,
             &DecodingKey::from_secret(self.settings.jwt_secret.as_ref()),
             &Validation::default(),
         )
         .map_err(|_| {
-            let err = RefreshError {
-                status: "fail".to_string(),
+            let err = AuthError {
                 message: "Invalid token".to_string(),
             };
             (StatusCode::UNAUTHORIZED, Json(err))
@@ -136,20 +171,18 @@ impl AuthServiceImpl for AuthService {
         Ok(user.clone())
     }
 
-    async fn refresh(&self, user_id: i32) -> Result<UserDb, (StatusCode, Json<RefreshError>)> {
+    async fn refresh(&self, user_id: i32) -> Result<UserDb, (StatusCode, Json<AuthError>)> {
         let user = sqlx::query_as!(UserDb, "SELECT * FROM users WHERE id = $1", user_id)
             .fetch_optional(&self.db)
             .await
             .map_err(|e| {
-                let err = RefreshError {
-                    status: "fail".to_string(),
+                let err = AuthError {
                     message: "Database error".to_string(),
                 };
                 (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
             })?
             .ok_or_else(|| {
-                let err = RefreshError {
-                    status: "fail".to_string(),
+                let err = AuthError {
                     message: "User not found".to_string(),
                 };
                 (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
@@ -357,16 +390,14 @@ mod tests {
         // 4) refresh should find the same user
         let refreshed = svc.refresh(user.id.0).await.unwrap();
         assert_eq!(refreshed.id, user.id);
-        
+
         // 5) token_claim should error on invalid JWT
         let err = svc.token_claim("not-a-token").await.unwrap_err();
         assert_eq!(err.0, StatusCode::UNAUTHORIZED);
-        assert_eq!(err.1.0.status, "fail");
-        
+
         // 6) refresh should error on missing user
         let err = svc.refresh(-999).await.unwrap_err();
         assert_eq!(err.0, StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(err.1.0.status, "fail");
     }
 
     #[sqlx::test]

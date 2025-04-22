@@ -1,10 +1,10 @@
-use crate::routes::weather_location::domains::*;
 use crate::shared::models::DatabaseId;
 use anyhow::Result;
 use async_trait::async_trait;
+use crate::routes::weather_location::models::{WeatherLocation, WeatherLocationId};
 
 #[async_trait]
-pub trait WeatherLocationService: Clone + Send + Sync + 'static {
+pub trait WeatherLocationServiceImpl: Clone + Send + Sync + 'static {
     async fn create(&self, location: WeatherLocation) -> Result<WeatherLocation>;
     async fn get_all(&self, user_id: &DatabaseId) -> Result<Vec<WeatherLocation>>;
     async fn get_by_id(
@@ -17,12 +17,12 @@ pub trait WeatherLocationService: Clone + Send + Sync + 'static {
 }
 
 #[derive(Clone)]
-pub struct WeatherLocationAppStateImpl {
+pub struct WeatherLocationService {
     pub db: sqlx::PgPool,
 }
 
 #[async_trait]
-impl WeatherLocationService for WeatherLocationAppStateImpl {
+impl WeatherLocationServiceImpl for WeatherLocationService {
     async fn create(&self, location: WeatherLocation) -> Result<WeatherLocation> {
         let mut tx = self.db.begin().await?;
 

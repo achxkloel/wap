@@ -9,6 +9,11 @@ use axum::{
 };
 use std::sync::Arc;
 use tracing::error;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
+use crate::routes::auth::middlewares::auth;
+use crate::routes::auth::services::AuthService;
+use crate::shared::models::AppState;
 
 #[utoipa::path(
     method(put),
@@ -77,11 +82,30 @@ where
     }
 }
 
+/// Fully‐generic: you supply the `service: S`.
+pub fn router_with_service<S>(app: AppState, service: Arc<S>) -> OpenApiRouter
+where
+    S: SettingsService + Send + Sync + 'static,
+{
+    let auth_service = Arc::new(AuthService { db: app.db.clone(), settings: app.settings.clone(), http: Default::default() });
+    OpenApiRouter::new()
+        .routes(routes!(get_settings))
+        .routes(routes!(put_settings))
+        .layer(axum::middleware::from_fn_with_state(auth_service, auth))
+        .with_state(service)
+}
+
+/// A convenience wrapper that uses the real Postgres implementation.
+pub fn router(app: AppState) -> OpenApiRouter {
+    let settings_service = Arc::new(PgSettingsService::new(app.db.clone(), app.settings.clone()));
+    router_with_service(app.clone(), settings_service)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::routes::settings::models::{Theme, UserSettingsServiceSuccess};
-    use crate::routes::settings::routers;
+    use crate::routes::settings::handlers;
     use crate::routes::settings::services::MockSettingsService;
     use crate::shared::models::DatabaseId;
     use crate::tests::tests::TestApp;
@@ -127,7 +151,7 @@ mod tests {
 
         // let (router, _) = routers::router_with_service(test_app.app.clone(), mock).split_for_parts();
         let arc_mocked_service = Arc::new(mock);
-        let (router, _) = routers::router_with_service(test_app.app.clone(), arc_mocked_service)
+        let (router, _) = router_with_service(test_app.app.clone(), arc_mocked_service)
             .split_for_parts();
         let request = Request::builder()
             .method(Method::GET)
@@ -181,7 +205,7 @@ mod tests {
         // 4) build a router that uses our mock
         let service = Arc::new(mock);
         let (router, _) =
-            routers::router_with_service(test_app.app.clone(), service).split_for_parts();
+            router_with_service(test_app.app.clone(), service).split_for_parts();
 
         // 5) serialize payload and assemble the PUT request
         let body = serde_json::to_string(&payload).unwrap();
@@ -202,3 +226,4 @@ mod tests {
         assert_eq!(&txt[..], b"Settings saved successfully");
     }
 }
+

@@ -49,14 +49,12 @@ pub(crate) struct JwtToken(pub(crate) String);
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub(crate) struct LoginSuccess {
-    pub(crate) status: String,
     pub(crate) access_token: String,
     pub(crate) refresh_token: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub(crate) struct LoginError {
-    pub(crate) status: String,
     pub(crate) message: String,
 }
 
@@ -103,7 +101,6 @@ pub(crate) struct UserRegisterResponse {
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub(crate) struct RegisterSuccess {
     pub(crate) data: UserRegisterResponse,
-    pub(crate) status: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
@@ -116,13 +113,11 @@ pub(crate) struct LogoutError {
 
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub(crate) struct RegisterError {
-    pub(crate) status: String,
     pub(crate) message: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, sqlx::FromRow, Clone, ToSchema)]
 pub(crate) struct LoginResponse {
-    pub(crate) status: Option<String>,
     pub(crate) access_token: String,
     pub(crate) refresh_token: String,
 }
@@ -148,22 +143,19 @@ pub(crate) struct TokenClaims {
 //     // kind: AuthResponseKind,
 // }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub(crate) struct AuthError {
-    /// A textual status (e.g. "Unauthorized", "BadRequest")
-    pub(crate) status: String,
     /// A human‑readable message
     pub(crate) message: String,
 }
 
 impl AuthError {
     /// Create a new AuthError with the given HTTP status code and message.
-    pub(crate) fn new<S1, S2>(status: StatusCode, message: S2) -> Self
+    pub(crate) fn new<S>(message: S) -> Self
     where
-        S2: Into<String>,
+        S: Into<String>,
     {
         Self {
-            status: status.canonical_reason().unwrap_or("Error").to_string(),
             message: message.into(),
         }
     }
@@ -182,37 +174,15 @@ impl AuthError {
 // So you can do `?` on any AuthError
 impl fmt::Display for AuthError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.status, self.message)
+        write!(f, "{}", self.message)
     }
 }
 
 impl Error for AuthError {}
 
-// Allows returning AuthError from handlers directly
-impl IntoResponse for AuthError {
-    fn into_response(self) -> Response {
-        let code = match self.status.as_str() {
-            "Unauthorized" => StatusCode::UNAUTHORIZED,
-            "BadRequest" => StatusCode::BAD_REQUEST,
-            "Forbidden" => StatusCode::FORBIDDEN,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-
-        let body = Json(self);
-        (code, body).into_response()
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub(crate) struct RefreshSuccess {
-    pub(crate) status: String,
     pub(crate) access_token: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
-pub(crate) struct RefreshError {
-    pub(crate) status: String,
-    pub(crate) message: String,
 }
 
 //-------------------------

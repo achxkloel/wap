@@ -27,11 +27,7 @@ use crate::shared::models::{AppState, DatabaseId};
 
 // use axum::{Json, response::IntoResponse};
 use crate::routes::auth::middlewares::auth;
-use crate::routes::auth::models::{
-    LoginError, LoginSuccess, LoginUser, LoginUserSchema, OAuthParams, QueryCode, RefreshError,
-    RefreshSuccess, RegisterError, RegisterSuccess, RegisterUserRequestSchema, TokenClaims, UserDb,
-    UserRegisterResponse,
-};
+use crate::routes::auth::models::{AuthError, LoginError, LoginSuccess, LoginUser, LoginUserSchema, OAuthParams, QueryCode, RefreshSuccess, RegisterError, RegisterSuccess, RegisterUserRequestSchema, TokenClaims, UserDb, UserRegisterResponse};
 use crate::routes::auth::services::{
     AuthService, AuthServiceImpl, GoogleAuthService, JwtConfigImpl,
 };
@@ -67,7 +63,6 @@ where
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(RegisterError {
-                status: "fail".to_string(),
                 message: e.to_string(),
             }),
         )
@@ -76,7 +71,6 @@ where
     Ok((
         StatusCode::CREATED,
         Json(RegisterSuccess {
-            status: "success".to_string(),
             data: UserRegisterResponse {
                 id: user.id,
                 email: user.email.to_owned(),
@@ -120,7 +114,6 @@ where
         .await;
 
     LoginSuccess {
-        status: "success".into(),
         access_token,
         refresh_token,
     }
@@ -146,7 +139,6 @@ where
         (
             StatusCode::BAD_REQUEST,
             Json(LoginError {
-                status: "fail".to_string(),
                 message: e.to_string(),
             }),
         )
@@ -163,13 +155,13 @@ where
     path = "/auth/refresh",
     responses(
         (status = axum::http::StatusCode::OK, body=RefreshSuccess, description = "Success", content_type = "text/plain"),
-        (status = axum::http::StatusCode::BAD_REQUEST, body=RefreshError, description = "Error", content_type = "text/plain")
+        (status = axum::http::StatusCode::BAD_REQUEST, body=AuthError, description = "Error", content_type = "text/plain")
     )
 )]
 pub async fn refresh<S>(
     State(state): State<Arc<S>>,
     header: HeaderMap,
-) -> Result<impl IntoResponse, (StatusCode, Json<RefreshError>)>
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthError>)>
 where
     S: AuthServiceImpl,
 {
@@ -184,8 +176,7 @@ where
             }
         })
         .ok_or_else(|| {
-            let error_response = RefreshError {
-                status: "fail".to_string(),
+            let error_response = AuthError {
                 message: "You are not logged in, please provide token".to_string(),
             };
             (StatusCode::UNAUTHORIZED, Json(error_response))
@@ -194,8 +185,7 @@ where
     let claims = state.token_claim(&token).await?;
 
     let user_id: i32 = claims.sub.parse().map_err(|_| {
-        let error_response = RefreshError {
-            status: "fail".to_string(),
+        let error_response = AuthError {
             message: "Invalid token subject format".to_string(),
         };
         (StatusCode::UNAUTHORIZED, Json(error_response))
@@ -213,7 +203,6 @@ where
 
     let mut response = Response::new(
         json!(RefreshSuccess {
-            status: "success".to_string(),
             access_token: new_access_token
         })
         .to_string(),
@@ -231,20 +220,19 @@ where
     path = "/auth/google",
     responses(
         (status = axum::http::StatusCode::OK, body=RefreshSuccess, description = "Success", content_type = "text/plain"),
-        (status = axum::http::StatusCode::BAD_REQUEST, body=RefreshError, description = "Error", content_type = "text/plain")
+        (status = axum::http::StatusCode::BAD_REQUEST, body=AuthError, description = "Error", content_type = "text/plain")
     )
 )]
 pub async fn google_oauth_handler<S>(
     State(service): State<Arc<S>>,
     Query(params): Query<OAuthParams>,
-) -> Result<impl IntoResponse, (StatusCode, Json<RefreshError>)>
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthError>)>
 where
     S: GoogleAuthService,
 {
     // 1) missing code → 400
     if params.code.trim().is_empty() {
-        let err = RefreshError {
-            status: "fail".into(),
+        let err = AuthError {
             message: "Authorization code not provided!".into(),
         };
         return Err((StatusCode::BAD_REQUEST, Json(err)));
@@ -257,8 +245,7 @@ where
         .map_err(|e| {
             let msg = e.to_string();
             tracing::error!("request_token error: {}", msg);
-            let err = RefreshError {
-                status: "fail".into(),
+            let err = AuthError {
                 message: msg,
             };
             (StatusCode::BAD_GATEWAY, Json(err))
@@ -271,8 +258,7 @@ where
         .map_err(|e| {
             let msg = e.to_string();
             tracing::error!("get_google_user error: {}", msg);
-            let err = RefreshError {
-                status: "fail".into(),
+            let err = AuthError {
                 message: msg,
             };
             (StatusCode::BAD_GATEWAY, Json(err))
@@ -285,8 +271,7 @@ where
         .map_err(|e| {
             let msg = e.to_string();
             tracing::error!("upsert_google_user error: {}", msg);
-            let err = RefreshError {
-                status: "error".into(),
+            let err = AuthError {
                 message: msg,
             };
             (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
@@ -305,16 +290,12 @@ pub fn router_with_service<S>(app: AppState, normal_service: Arc<S>) -> OpenApiR
 where
     S: AuthServiceImpl + GoogleAuthService,
 {
-    let register = register::<S>;
-    let login = login::<S>;
-    let refresh = refresh::<S>;
-    let google_oauth_handler = google_oauth_handler::<S>;
-
+    let auth_service = Arc::new(AuthService { db: app.db.clone(), settings: app.settings.clone(), http: Default::default() });
     let router = utoipa_axum::router::OpenApiRouter::new()
         .routes(routes!(register))
         .routes(routes!(login))
         .routes(routes!(refresh).layer(axum::middleware::from_fn_with_state(
-            app.clone(),
+            auth_service,
             middlewares::auth,
         )))
         .routes(routes!(google_oauth_handler))

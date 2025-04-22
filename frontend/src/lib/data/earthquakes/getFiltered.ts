@@ -29,6 +29,7 @@ export const getFiltered = (filters: FilterFormValues) => {
         minmagnitude: filters.minMagnitude || undefined,
         producttype: filters.productType,
         limit: filters.limit || undefined,
+        orderby: filters.orderDirection === 'asc' ? `${filters.orderBy}-asc` : filters.orderBy,
     };
 
     return get(params);

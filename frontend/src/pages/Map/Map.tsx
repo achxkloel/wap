@@ -32,6 +32,7 @@ const defaultFilters: FilterFormValues = {
     latitude: undefined,
     longitude: undefined,
     maxRadiusKm: undefined,
+    limit: 20000,
 };
 
 function Map() {

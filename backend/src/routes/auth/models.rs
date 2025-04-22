@@ -288,3 +288,13 @@ impl Display for AuthErrorKind {
         }
     }
 }
+
+
+/// Request body for changing a user's password
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct ChangePasswordRequest {
+    /// The user's current password
+    pub current_password: String,
+    /// The new password to set
+    pub new_password: String,
+}

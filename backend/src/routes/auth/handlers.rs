@@ -23,7 +23,7 @@ use crate::shared::models::{AppState, DatabaseId};
 
 // use axum::{Json, response::IntoResponse};
 use crate::routes::auth::middlewares::auth;
-use crate::routes::auth::models::{AuthError, LoginError, LoginSuccess, LoginUser, LoginUserSchema, OAuthParams, QueryCode, RefreshSuccess, RegisterError, RegisterSuccess, RegisterUserRequestSchema, TokenClaims, UserData, UserDb, UserRegisterResponse};
+use crate::routes::auth::models::{AuthError, ChangePasswordRequest, LoginError, LoginSuccess, LoginUser, LoginUserSchema, OAuthParams, QueryCode, RefreshSuccess, RegisterError, RegisterSuccess, RegisterUserRequestSchema, TokenClaims, UserData, UserDb, UserRegisterResponse};
 use crate::routes::auth::services::{create_login_response, AuthService, AuthServiceImpl, GoogleAuthService, JwtConfigImpl};
 use crate::routes::auth::{middlewares, services};
 use crate::routes::settings::handlers::{get_settings, put_settings};
@@ -271,6 +271,33 @@ where
     Ok((StatusCode::OK, Json(me)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/change-password",
+    request_body(content = ChangePasswordRequest, content_type = "application/json"),
+    responses(
+        (status = 204, description = "Password changed successfully"),
+        (status = 400, description = "Bad request", body = AuthError, content_type = "application/json"),
+        (status = 401, description = "Unauthorized", body = AuthError, content_type = "application/json"),
+        (status = 500, description = "Internal error", body = AuthError, content_type = "application/json")
+    )
+)]
+pub async fn change_password<S>(
+    State(service): State<Arc<S>>,
+    Extension(user): Extension<UserDb>,
+    Json(body): Json<ChangePasswordRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthError>)>
+where
+    S: AuthServiceImpl,
+{
+    service
+        .change_password(user.id, &body.current_password, &body.new_password)
+        .await
+        .map_err(|(code, err)| (code, Json(err))).unwrap();
+
+    Ok((StatusCode::NO_CONTENT, "Password changed successfully"))
+}
+
 /// Fully‐generic: you supply the `service: S`.
 pub fn router_with_service<S>(app: AppState, normal_service: Arc<S>) -> OpenApiRouter
 where
@@ -286,6 +313,10 @@ where
         )))
         .routes(routes!(google_oauth_handler))
         .routes(routes!(user_info).layer(axum::middleware::from_fn_with_state(
+            auth_service.clone(),
+            middlewares::auth,
+        )))
+        .routes(routes!(change_password).layer(axum::middleware::from_fn_with_state(
             auth_service.clone(),
             middlewares::auth,
         )))

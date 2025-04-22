@@ -61,6 +61,12 @@ pub trait AuthServiceImpl: Send + Sync + 'static + JwtConfigImpl {
         user_id: &Option<DatabaseId>,
         email: &Option<String>,
     ) -> Result<UserDb, (StatusCode, Json<AuthError>)>;
+    async fn change_password(
+        &self,
+        user_id: DatabaseId,
+        current: &str,
+        new: &str,
+    ) -> Result<(), (StatusCode, Json<AuthError>)>;
 }
 
 #[derive(Clone)]
@@ -277,6 +283,55 @@ impl AuthServiceImpl for AuthService {
             })?;
 
         Ok(user)
+    }
+
+    async fn change_password(
+        &self,
+        user_id: DatabaseId,
+        current: &str,
+        new: &str,
+    ) -> Result<(), (StatusCode, Json<AuthError>)> {
+        // 1) Verify current password
+        let user = sqlx::query_as!(UserDb, "SELECT * FROM users WHERE id = $1", user_id.0)
+            .fetch_one(&self.db)
+            .await
+            .map_err(|e| {
+                let err = AuthError::new(format!("DB error: {}", e));
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
+            })?;
+
+        let matches = match PasswordHash::new(&user.password_hash) {
+            Ok(hash) => Argon2::default().verify_password(current.as_bytes(), &hash).is_ok(),
+            Err(_) => false,
+        };
+
+        if !matches {
+            let err = AuthError::new("Current password is incorrect");
+            return Err((StatusCode::BAD_REQUEST, Json(err)));
+        }
+
+        // 2) Hash new password
+        let new_hash = hash_password(new)
+            .await
+            .map_err(|e| {
+                let err = AuthError::new(format!("Hashing error: {}", e));
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
+            })?;
+
+        // 3) Update in DB
+        sqlx::query!(
+            "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2",
+            new_hash.to_string(),
+            user_id.0
+        )
+            .execute(&self.db)
+            .await
+            .map_err(|e| {
+                let err = AuthError::new(format!("DB error: {}", e));
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
+            })?;
+
+        Ok(())
     }
 }
 
@@ -519,4 +574,81 @@ mod tests {
         let u2 = svc.upsert_google_user(&gu).await.unwrap();
         assert_eq!(u2.id, u1.id);
     }
+
+    #[sqlx::test]
+    async fn test_change_password_success(pool: PgPool) {
+        let test_app = TestApp::new(pool).await;
+        let svc = AuthService::new(test_app.app.db.clone(), &test_app.app.settings);
+
+        // Clean slate
+        sqlx::query!("DELETE FROM settings").execute(&test_app.app.db).await.unwrap();
+        sqlx::query!("DELETE FROM users").execute(&test_app.app.db).await.unwrap();
+
+        // 1) register
+        let req = RegisterUserRequestSchema { email: "c@c.com".into(), password: "oldpass".into() };
+        let user = svc.register_new_user(&req).await.unwrap();
+
+        // 2) ensure login with old password works
+        assert!(svc.login(&LoginUserSchema { email: req.email.clone(), password: req.password.clone() }).await.is_ok());
+
+        // 3) perform password change
+        svc.change_password(user.id, "oldpass", "newpass").await.unwrap();
+
+        // 4) old password no longer works, new one does
+        assert!(svc.login(&LoginUserSchema { email: req.email.clone(), password: "oldpass".into() }).await.is_err());
+        assert!(svc.login(&LoginUserSchema { email: req.email.clone(), password: "newpass".into() }).await.is_ok());
+    }
+
+    #[sqlx::test]
+    async fn test_change_password_wrong_current(pool: PgPool) {
+        let test_app = TestApp::new(pool).await;
+        let svc = AuthService::new(test_app.app.db.clone(), &test_app.app.settings);
+
+        // Clean slate
+        sqlx::query!("DELETE FROM settings").execute(&test_app.app.db).await.unwrap();
+        sqlx::query!("DELETE FROM users").execute(&test_app.app.db).await.unwrap();
+
+        // register
+        let req = RegisterUserRequestSchema { email: "d@d.com".into(), password: "pass1".into() };
+        let user = svc.register_new_user(&req).await.unwrap();
+
+        // attempt with incorrect current password
+        let err = svc.change_password(user.id, "wrongpass", "whatever").await.unwrap_err();
+        assert_eq!(err.0, StatusCode::BAD_REQUEST);
+    }
+
+    #[sqlx::test]
+    async fn test_validate_and_get_user(pool: PgPool) {
+        let test_app = TestApp::new(pool).await;
+        let svc = AuthService::new(test_app.app.db.clone(), &test_app.app.settings);
+
+        // Clean slate
+        sqlx::query!("DELETE FROM settings").execute(&test_app.app.db).await.unwrap();
+        sqlx::query!("DELETE FROM users").execute(&test_app.app.db).await.unwrap();
+
+        // register
+        let req = RegisterUserRequestSchema { email: "e@e.com".into(), password: "pw".into() };
+        let user = svc.register_new_user(&req).await.unwrap();
+
+        // mint a short‑lived JWT
+        let exp = (chrono::Utc::now() + chrono::Duration::minutes(1)).timestamp() as usize;
+        let token = svc.create_jwt_token(&user.id.0.to_string(), exp).await;
+
+        // validate_token should return the same user
+        let validated = svc.validate_token(&token).await.unwrap();
+        assert_eq!(validated.id, user.id);
+
+        // get_user_by_id_or_email → by ID
+        let by_id = svc.get_user_by_id_or_email(&Some(user.id), &None).await.unwrap();
+        assert_eq!(by_id.id, user.id);
+
+        // get_user_by_id_or_email → by email
+        let by_email = svc.get_user_by_id_or_email(&None, &Some(req.email.clone())).await.unwrap();
+        assert_eq!(by_email.id, user.id);
+
+        // neither ID nor email → BAD_REQUEST
+        let bad = svc.get_user_by_id_or_email(&None, &None).await.unwrap_err();
+        assert_eq!(bad.0, StatusCode::BAD_REQUEST);
+    }
+
 }

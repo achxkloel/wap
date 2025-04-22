@@ -80,13 +80,14 @@ async fn app_router(app: AppState) -> OpenApiRouter {
         backend::routes::natural_phenomenon_locations::handlers::router(app.clone());
     let weather_location_router = backend::routes::weather_locations::handlers::router(app.clone());
 
-    let router = OpenApiRouter::new().layer(prepare_cors());
+    let router = OpenApiRouter::new();
 
     router
         .merge(setting_router)
         .merge(auth_router)
         .merge(weather_location_router)
         .merge(natural_phenomenon_location_router)
+        .layer(prepare_cors())
 }
 
 async fn interrupt_signal<FT>(ft: FT)

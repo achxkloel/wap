@@ -8,7 +8,7 @@ WORKDIR $WORKDIR
 
 COPY frontend/package.json frontend/package-lock.json $WORKDIR/
 RUN <<EOF
-    apt-get update -y && apt-get install -y fish vim tree
+    apt-get update -y && apt-get install -y fish vim tree cloc;
     npm install
 EOF
 
@@ -18,13 +18,21 @@ EOF
 FROM rust:1.85 AS backend
 
 ENV WORKDIR /opt/backend
+ENV HOMEDIR /root
 WORKDIR $WORKDIR
 
-COPY backend/Cargo.toml backend/Cargo.lock $WORKDIR/
+COPY backend/.cargo $HOMEDIR/.cargo
+
+# Install development packages
 RUN <<EOF
-    apt-get update -y && apt-get install -y fish vim postgresql postgresql-contrib
-    cargo install cargo-watch
-    cargo install sqlx-cli --no-default-features --features postgres
+    apt-get update -y && apt-get install -y fish vim git;
+    cargo install cargo-watch;
+EOF
+
+# Install production packages
+RUN <<EOF
+    apt-get update -y && apt-get install -y postgresql postgresql-contrib cloc mold clang;
+    cargo install sqlx-cli --no-default-features --features postgres;
 EOF
 
 #----------------------------------------------------------------------
@@ -36,6 +44,6 @@ ENV WORKDIR /opt/db
 WORKDIR $WORKDIR
 
 RUN <<EOF
-    apt-get update -y && apt-get install -y fish vim
+    apt-get update -y && apt-get install -y fish vim;
 EOF
 

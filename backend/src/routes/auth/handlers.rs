@@ -1,27 +1,20 @@
 // use std::sync::Arc;
-use argon2::{password_hash::SaltString, Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use axum::{
-    extract::{Json, State},
-    http::{header, Response, StatusCode, HeaderMap},
-    response::IntoResponse,
-    routing::post,
-};
+use argon2::{PasswordHasher, PasswordVerifier};
+use axum::extract::Query;
+use axum::http::{header, HeaderValue};
+use axum::{extract::{Json, State}, http::{HeaderMap, Response, StatusCode}, response::IntoResponse, Extension};
+use chrono::Utc;
+use serde::Serialize;
 use serde_json::json;
-
-use axum_extra::extract::cookie::{Cookie, SameSite, CookieJar};
-use bcrypt::{hash, verify, DEFAULT_COST};
-use rand_core::OsRng;
-use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
-
-use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, decode, EncodingKey, Header, Validation, DecodingKey};
-use sqlx::postgres::PgPoolOptions;
-use std::env;
 use std::sync::Arc;
-use utoipa_axum::{router::OpenApiRouter, routes, PathItemExt};
 
-use crate::model::{Theme, RegisterUserRequestSchema, AppState, CreateUser, LoginUser, LoginUserSchema, TokenClaims, User, LoginResponse, RegisterResponse, UserRegisterResponse};
+use jsonwebtoken::{decode, DecodingKey, Validation};
+
+use crate::shared::models::{AppState, DatabaseId};
+
+// TODO: add to response also user dat
+// TODO: add endpoint to change user passwords
+// TODO: add endpoint to authenticate google auth just google id check for user + googleId field to user
 
 // -------------------------------------------------------------------------------------------------
 // Routes
@@ -29,327 +22,486 @@ use crate::model::{Theme, RegisterUserRequestSchema, AppState, CreateUser, Login
 // SIGNUP handler
 
 // use axum::{Json, response::IntoResponse};
+use crate::routes::auth::middlewares::auth;
+use crate::routes::auth::models::{AuthError, LoginError, LoginSuccess, LoginUser, LoginUserSchema, OAuthParams, QueryCode, RefreshSuccess, RegisterError, RegisterSuccess, RegisterUserRequestSchema, TokenClaims, UserData, UserDb, UserRegisterResponse};
+use crate::routes::auth::services::{
+    AuthService, AuthServiceImpl, GoogleAuthService, JwtConfigImpl,
+};
+use crate::routes::auth::{middlewares, services};
+use crate::routes::settings::handlers::{get_settings, put_settings};
+use crate::routes::settings::services::SettingsServiceImpl;
 use utoipa::ToSchema;
+use utoipa_axum::router::{OpenApiRouter, UtoipaMethodRouterExt};
+use utoipa_axum::routes;
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SignupResponse {
     pub message: String,
 }
 
-fn create_token(user_id: &str, exp: usize, secret: &str) -> String {
-    let now = chrono::Utc::now();
-    let iat = now.timestamp() as usize;
-    let claims: TokenClaims = TokenClaims {
-        sub: user_id.to_string(),
-        exp,
-        iat,
-    };
-
-    encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(secret.as_ref()),
-    )
-    .unwrap()
-}
-
 #[utoipa::path(
-    method(post),
+    post,
     path = "/auth/register",
     request_body(content = RegisterUserRequestSchema, content_type = "application/json"),
     responses(
-        (status = axum::http::StatusCode::OK, description = "Success", body = RegisterResponse, content_type = "text/plain"),
-        (status = axum::http::StatusCode::BAD_REQUEST, description = "Error", content_type = "text/plain")
+        (status = axum::http::StatusCode::OK, description = "Success", body = RegisterSuccess, content_type = "application/json"),
+        (status = axum::http::StatusCode::BAD_REQUEST, body = RegisterError, description = "Error", content_type = "application/json")
     )
 )]
-pub async fn register(
-    State(state): State<Arc<AppState>>,
+pub async fn register<S>(
+    State(service): State<Arc<S>>,
     Json(body): Json<RegisterUserRequestSchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let salt = SaltString::generate(&mut OsRng);
-    let hashed_password = Argon2::default()
-        .hash_password(body.password.as_bytes(), &salt)
-        .map_err(|e| {
-            let error_response = serde_json::json!({
-                "status": "fail",
-                "message": format!("Error while hashing password: {}", e),
-            });
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-        })
-        .map(|hash| hash.to_string())?;
-
-    let user = sqlx::query_as!(
-        User,
-        "INSERT INTO users (email,password) VALUES ($1, $2) RETURNING id, email, password, created_at, updated_at",
-        body.email.to_string().to_ascii_lowercase(),
-        hashed_password
-    )
-    .fetch_one(&state.db)
-    .await
-    .map_err(|e| {
-        let error_response = serde_json::json!({
-            "status": "fail",
-            "message": format!("Database error: {}", e),
-        });
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
+) -> Result<(StatusCode, Json<RegisterSuccess>), (StatusCode, Json<RegisterError>)>
+where
+    S: AuthServiceImpl,
+{
+    let user = service.register_new_user(&body).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(RegisterError {
+                message: e.to_string(),
+            }),
+        )
     })?;
 
-    let user_response = serde_json::json!({"status": "success","data": serde_json::json!({
-        "user": filter_user_record(&user)
-    })});
-
-    // Insert new settings
-    sqlx::query!(
-        "INSERT INTO settings (user_id) VALUES ($1)",
-        user.id,
-    )
-    .execute(&state.db)
-    .await
-    .map_err(|e| {
-        let error_response = serde_json::json!({
-            "status": "fail",
-            "message": format!("Error inserting settings: {}", e),
-        });
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-    })?;
-
-    Ok(Json(user_response))
+    Ok((
+        StatusCode::CREATED,
+        Json(RegisterSuccess {
+            data: UserRegisterResponse {
+                id: user.id,
+                email: user.email.to_owned(),
+                created_at: user.created_at,
+                updated_at: user.updated_at,
+            },
+        }),
+    ))
 }
 
-fn filter_user_record(user: &User) -> UserRegisterResponse {
+fn filter_user_record(user: &UserDb) -> UserRegisterResponse {
     UserRegisterResponse {
-        id: user.id,
+        id: user.id.clone(),
         email: user.email.to_owned(),
         created_at: user.created_at,
         updated_at: user.updated_at,
     }
 }
 
+/// Pull all of your JWT logic into a single async helper.
+async fn create_login_response<S>(user: UserDb, state: &S) -> LoginSuccess
+where
+    S: JwtConfigImpl, // now jwt_secret is async
+{
+    // 1) grab the secret and expiries asynchronously
+    let secret = state.jwt_secret().await;
+    let access_minutes = state.access_expires_minutes().await;
+    let refresh_days = state.refresh_expires_days().await;
+
+    // 2) compute timestamps
+    let now = chrono::Utc::now();
+    let access_exp = (now + chrono::Duration::minutes(access_minutes)).timestamp() as usize;
+    let refresh_exp = (now + chrono::Duration::days(refresh_days)).timestamp() as usize;
+
+    // 3) sign tokens
+    let access_token = state
+        .create_jwt_token(&user.id.0.to_string(), access_exp)
+        .await;
+    let refresh_token = state
+        .create_jwt_token(&user.id.0.to_string(), refresh_exp)
+        .await;
+
+    LoginSuccess {
+        access_token,
+        refresh_token,
+    }
+}
+
 #[utoipa::path(
-    method(post),
+    post,
     path = "/auth/login",
     request_body(content = LoginUser, content_type = "application/json"),
     responses(
-        (status = axum::http::StatusCode::OK, description = "Success", content_type = "text/plain"),
-        (status = axum::http::StatusCode::BAD_REQUEST, description = "Error", content_type = "text/plain")
+        (status = axum::http::StatusCode::OK, body=LoginSuccess, description = "Success", content_type = "application/json"),
+        (status = axum::http::StatusCode::BAD_REQUEST, body=LoginError, description = "Error", content_type = "application/json")
     )
 )]
-pub async fn login(
-    State(data): State<Arc<AppState>>,
+pub async fn login<S>(
+    State(service): State<Arc<S>>,
     Json(body): Json<LoginUserSchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let email = body.email.to_ascii_lowercase();
-    println!("email: {}", email);
-    let user = sqlx::query_as!(User, "SELECT * FROM users WHERE email = $1", email)
-        .fetch_optional(&data.db)
-        .await
-        .map_err(|e| {
-            let error_response = serde_json::json!({
-                "status": "error",
-                "message": format!("Database error: {}", e),
-            });
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-        })?
-        .ok_or_else(|| {
-            let error_response = serde_json::json!({
-                "status": "fail",
-                "message": "Invalid email or password",
-            });
-            println!("Something goes wrong");
-            (StatusCode::BAD_REQUEST, Json(error_response))
-        })?;
+) -> Result<impl IntoResponse, (StatusCode, Json<LoginError>)>
+where
+    S: AuthServiceImpl,
+{
+    let user = service.login(body).await.map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(LoginError {
+                message: e.to_string(),
+            }),
+        )
+    })?;
 
-    let is_valid = match PasswordHash::new(&user.password) {
-        Ok(parsed_hash) => Argon2::default()
-            .verify_password(body.password.as_bytes(), &parsed_hash)
-            .map_or(false, |_| true),
-        Err(_) => false,
-    };
-    println!("user: {:?}", user);
-
-    if !is_valid {
-        let error_response = serde_json::json!({
-            "status": "fail",
-            "message": "Invalid email or password"
-        });
-        return Err((StatusCode::BAD_REQUEST, Json(error_response)));
-    }
-
-    let now = chrono::Utc::now();
-
-    let access_token = create_token(
-        &user.id.to_string(),
-        (now + chrono::Duration::minutes(60)).timestamp() as usize,
-        data.env.jwt_secret.as_ref(),
-    );
-
-    let refresh_token = create_token(
-        &user.id.to_string(),
-        (now + chrono::Duration::days(30)).timestamp() as usize,
-        data.env.jwt_secret.as_ref(),
-    );
-
-    let access_cookie = Cookie::build(("access_token", access_token.to_owned()))
-        .path("/")
-        .max_age(time::Duration::minutes(60))
-        .same_site(SameSite::Lax)
-        .http_only(true)
-        .finish();
-
-    let refresh_cookie = Cookie::build(("refresh_token", refresh_token.to_owned()))
-        .path("/")
-        .max_age(time::Duration::days(30))
-        .same_site(SameSite::Lax)
-        .http_only(true)
-        .finish();
-
-    let mut response = Response::new(json!({"status": "success", "access_token": access_token, "refresh_token": refresh_token}).to_string());
-    response
-        .headers_mut()
-        .append(header::SET_COOKIE, access_cookie.to_string().parse().unwrap());
-    response
-        .headers_mut()
-        .append(header::SET_COOKIE, refresh_cookie.to_string().parse().unwrap());
-    println!("response: {:?}", &response);
+    let data = create_login_response(user.clone(), &*service).await;
+    let mut response = Response::new(json!(data).to_string());
+    *response.status_mut() = StatusCode::CREATED;
     Ok(response)
 }
 
 #[utoipa::path(
-    method(post),
+    post,
     path = "/auth/refresh",
     responses(
-        (status = axum::http::StatusCode::OK, description = "Success", content_type = "text/plain"),
-        (status = axum::http::StatusCode::BAD_REQUEST, description = "Error", content_type = "text/plain")
+        (status = axum::http::StatusCode::OK, body=RefreshSuccess, description = "Success", content_type = "application/json"),
+        (status = axum::http::StatusCode::BAD_REQUEST, body=AuthError, description = "Error", content_type = "application/json")
     )
 )]
-pub async fn refresh(
-    State(data): State<Arc<AppState>>,
-    cookie_jar: CookieJar,
-    header: HeaderMap,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let token = cookie_jar
-        .get("refresh_token")
-        .map(|cookie| {
-            println!("token cookie");
-            cookie.value().to_string()
-        })
-        .or_else(|| {
-            println!("token header");
-            header
-                .get("Authorization")
-                .and_then(|auth_header| auth_header.to_str().ok())
-                .and_then(|auth_value| {
-                    if auth_value.starts_with("Bearer ") {
-                        Some(auth_value[7..].to_owned())
-                    } else {
-                        None
-                    }
-                })
-        });
-
-    println!("token: {:?}", token);
-    let token = token.ok_or_else(|| {
-        let error_response = serde_json::json!({
-            "status": "fail",
-            "message": "You are not logged in, please provide token",
-        });
-        (StatusCode::UNAUTHORIZED, Json(error_response))
-    })?;
-
-    println!("token ok: {:?}", token);
-    let claims = decode::<TokenClaims>(
-        &token,
-        &DecodingKey::from_secret(data.env.jwt_secret.as_ref()),
-        &Validation::default(),
-    )
-    .map_err(|_| {
-        let error_response = serde_json::json!({
-            "status": "fail",
-            "message": "Invalid token",
-        });
-        (StatusCode::UNAUTHORIZED, Json(error_response))
-    })?
-    .claims;
-
-    // Assuming `users.id` is i32:
-    let user_id: i32 = claims.sub.parse().map_err(|_| {
-        let error_response = serde_json::json!({
-            "status": "fail",
-            "message": "Invalid token subject format",
-        });
-        (StatusCode::UNAUTHORIZED, Json(error_response))
-    })?;
-
-    let user = sqlx::query_as!(User, "SELECT * FROM users WHERE id = $1", user_id)
-        .fetch_optional(&data.db)
-        .await
-        .map_err(|e| {
-            let error_response = serde_json::json!({
-                "status": "fail",
-                "message": format!("Error fetching user from database: {}", e),
-            });
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-        })?;
-
-    let user = user.ok_or_else(|| {
-        let error_response = serde_json::json!({
-            "status": "fail",
-            "message": "The user belonging to this token no longer exists",
-        });
-        (StatusCode::UNAUTHORIZED, Json(error_response))
-    })?;
+pub async fn refresh<S>(
+    State(state): State<Arc<S>>,
+    Extension(user): Extension<UserDb>,
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthError>)>
+where
+    S: AuthServiceImpl,
+{
+    let user = state.refresh(user.id).await?;
 
     let now = chrono::Utc::now();
-    let new_access_token = create_token(
-        &user.id.to_string(),
-        (now + chrono::Duration::minutes(60)).timestamp() as usize,
-        data.env.jwt_secret.as_ref(),
+    let new_access_token = state
+        .create_jwt_token(
+            &user.id.0.to_string(),
+            (now + chrono::Duration::minutes(60)).timestamp() as usize,
+        )
+        .await;
+
+    let mut response = Response::new(
+        json!(RefreshSuccess {
+            access_token: new_access_token
+        })
+            .to_string(),
     );
 
-    let new_access_cookie = Cookie::build(("access_token", new_access_token.to_owned()))
-        .path("/")
-        .max_age(time::Duration::minutes(60))
-        .same_site(SameSite::Lax)
-        .http_only(true)
-        .finish();
+    let (mut parts, body) = response.into_parts();
+    parts.status = StatusCode::CREATED;
+    response = Response::from_parts(parts, body);
 
-    let mut response = Response::new(json!({"status": "success", "access_token": new_access_token}).to_string());
-    response
-        .headers_mut()
-        .insert(header::SET_COOKIE, new_access_cookie.to_string().parse().unwrap());
-    println!("response: {:?}", &response);
     Ok(response)
 }
 
 #[utoipa::path(
-    method(post),
-    path = "/auth/logout",
+    post,
+    path = "/auth/google",
     responses(
-        (status = axum::http::StatusCode::OK, description = "Success", content_type = "text/plain"),
-        (status = axum::http::StatusCode::BAD_REQUEST, description = "Error", content_type = "text/plain")
+        (status = axum::http::StatusCode::OK, body=RefreshSuccess, description = "Success", content_type = "application/json"),
+        (status = axum::http::StatusCode::BAD_REQUEST, body=AuthError, description = "Error", content_type = "application/json")
     )
 )]
-pub async fn logout() -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let cookie = Cookie::build("access_token")
-        .path("/")
-        .max_age(time::Duration::days(-360))
-        .same_site(SameSite::Lax)
-        .http_only(true)
-        .finish();
+pub async fn google_oauth_handler<S>(
+    State(service): State<Arc<S>>,
+    Query(params): Query<OAuthParams>,
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthError>)>
+where
+    S: GoogleAuthService,
+{
+    // 1) missing code → 400
+    if params.code.trim().is_empty() {
+        let err = AuthError {
+            message: "Authorization code not provided!".into(),
+        };
+        return Err((StatusCode::BAD_REQUEST, Json(err)));
+    }
 
-    let cookie = Cookie::build("refresh_token")
-        .path("/")
-        .max_age(time::Duration::days(-360))
-        .same_site(SameSite::Lax)
-        .http_only(true)
-        .finish();
+    // 2) exchange code → token_response or 502
+    let token_resp = service
+        .request_token(&params.code, &params.state)
+        .await
+        .map_err(|e| {
+            let msg = e.to_string();
+            tracing::error!("request_token error: {}", msg);
+            let err = AuthError {
+                message: msg,
+            };
+            (StatusCode::BAD_GATEWAY, Json(err))
+        })?;
 
-    let mut response = Response::new(json!({"status": "success"}).to_string());
-    response
-        .headers_mut()
-        .insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
-    response
-        .headers_mut()
-        .insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
+    // 3) fetch Google user → or 502
+    let google_user = service
+        .get_google_user(&token_resp.access_token, &token_resp.id_token)
+        .await
+        .map_err(|e| {
+            let msg = e.to_string();
+            tracing::error!("get_google_user error: {}", msg);
+            let err = AuthError {
+                message: msg,
+            };
+            (StatusCode::BAD_GATEWAY, Json(err))
+        })?;
+
+    // 4) upsert into your DB & get back a user_id or 500
+    let user: UserDb = service
+        .upsert_google_user(&google_user)
+        .await
+        .map_err(|e| {
+            let msg = e.to_string();
+            tracing::error!("upsert_google_user error: {}", msg);
+            let err = AuthError {
+                message: msg,
+            };
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
+        })?;
+
+    // TODO use already the setup form login to creat access and refrsshh tokens
+
+    let data = create_login_response(user.clone(), &*service).await;
+    let mut response = Response::new(json!(data).to_string());
+    *response.status_mut() = StatusCode::CREATED;
     Ok(response)
 }
+
+
+#[utoipa::path(
+    post,
+    path = "/auth/me",
+    responses(
+        (status = 200, body = UserData, description = "Current user info", content_type = "application/json"),
+        (status = 401, body = AuthError, description = "Unauthorized", content_type = "application/json"),
+        (status = 500, body = AuthError, description = "Internal error", content_type = "application/json")
+    )
+)]
+pub async fn user_info<S>(
+    State(svc): State<Arc<S>>,
+    Extension(user): Extension<UserDb>,
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthError>)>
+where
+    S: AuthServiceImpl,
+{
+    // 4) Load the user
+    let user: UserDb = svc
+        .refresh(user.id)
+        .await
+        .map_err(|(code, err)| (code, Json(AuthError::new(err.0.message.clone()))))?;
+
+    // 5) Map to your public DTO
+    let me = UserData {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        image_url: user.image_url,
+        provider: user.provider,
+        google_id: user.google_id,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+    };
+
+    // 6) Return 200 + JSON
+    Ok((StatusCode::OK, Json(me)))
+}
+
+/// Fully‐generic: you supply the `service: S`.
+pub fn router_with_service<S>(app: AppState, normal_service: Arc<S>) -> OpenApiRouter
+where
+    S: AuthServiceImpl + GoogleAuthService,
+{
+    let auth_service = Arc::new(AuthService { db: app.db.clone(), settings: app.settings.clone(), http: Default::default() });
+    let router = utoipa_axum::router::OpenApiRouter::new()
+        .routes(routes!(register))
+        .routes(routes!(login))
+        .routes(routes!(refresh).layer(axum::middleware::from_fn_with_state(
+            auth_service.clone(),
+            middlewares::auth,
+        )))
+        .routes(routes!(google_oauth_handler))
+        .routes(routes!(user_info).layer(axum::middleware::from_fn_with_state(
+            auth_service.clone(),
+            middlewares::auth,
+        )))
+        .with_state(normal_service);
+
+    router
+}
+
+/// A convenience wrapper that uses the real Postgres implementation.
+pub fn router(app: AppState) -> OpenApiRouter {
+    let auth_service = services::AuthService::new(app.db.clone(), &app.settings.clone());
+    let arc_service = Arc::new(auth_service);
+    router_with_service(app.clone(), arc_service.clone())
+}
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use crate::shared::models::DatabaseId;
+//     use axum::body::Body;
+//     use axum::http;
+//     use axum::http::Request;
+//     use http_body_util::BodyExt;
+//     use tower::ServiceExt;
+//
+//     #[sqlx::test]
+//     async fn test_register_and_login(pool: sqlx::PgPool) {
+//         // Test the login function here
+//         let app = crate::tests::tests::init_app_state(pool.clone()).await;
+//
+//         // Prepare router
+//         let (router, _) = crate::routes::auth::handlers(app.clone()).split_for_parts();
+//
+//         // Register user
+//         let register_request = RegisterUserRequestSchema {
+//             email: "a@a.com".to_string(),
+//             password: "123456".to_string(),
+//         };
+//         let register_response = router
+//             .clone()
+//             .oneshot(
+//                 Request::builder()
+//                     .method(http::Method::POST)
+//                     .uri("/auth/register")
+//                     .header("Content-Type", "application/json")
+//                     .body(Body::from(serde_json::to_vec(&register_request).unwrap()))
+//                     .unwrap(),
+//             )
+//             .await
+//             .unwrap();
+//
+//         assert_eq!(register_response.status(), StatusCode::CREATED);
+//         let body = register_response
+//             .into_body()
+//             .collect()
+//             .await
+//             .unwrap()
+//             .to_bytes();
+//         let register_body: RegisterSuccess = serde_json::from_slice(&body).expect("error");
+//
+//         println!("register_body: {:?}", register_body);
+//
+//         // Login user
+//         let login_request = LoginUser {
+//             email: "a@a.com".to_string(),
+//             password: "123456".to_string(),
+//         };
+//         let login_response = router
+//             .clone()
+//             .oneshot(
+//                 Request::builder()
+//                     .method(http::Method::POST)
+//                     .uri("/auth/login")
+//                     .header("Content-Type", "application/json")
+//                     .body(Body::from(serde_json::to_vec(&login_request).unwrap()))
+//                     .unwrap(),
+//             )
+//             .await
+//             .unwrap();
+//
+//         assert_eq!(login_response.status(), StatusCode::CREATED);
+//         let body = login_response
+//             .into_body()
+//             .collect()
+//             .await
+//             .unwrap()
+//             .to_bytes();
+//         let login_body: LoginSuccess = serde_json::from_slice(&body).expect("error");
+//
+//         // deserialize access token
+//         // let decodeing_key = DecodingKey::from_secret(&app.env.jwt_secret);
+//         // let access_token = decode(&login_body.access_token, &app.env.jwt_secret).unwrap();
+//         let claims = decode::<TokenClaims>(
+//             &login_body.access_token,
+//             &DecodingKey::from_secret(app.clone().settings.jwt_secret.as_ref()),
+//             &Validation::default(),
+//         )
+//         .map_err(|_| {
+//             let error_response = serde_json::json!({
+//                 "status": "fail",
+//                 "message": "Invalid token",
+//             });
+//             (StatusCode::UNAUTHORIZED, Json(error_response))
+//         })
+//         .unwrap();
+//
+//         println!("claims: {:?}", claims);
+//         assert_eq!(
+//             register_body.data.id,
+//             claims.claims.sub.parse::<DatabaseId>().unwrap()
+//         );
+//
+//         // Logout user - try failed - authorization header is missing
+//         // let logout_response = router
+//         //     .clone()
+//         //     .oneshot(
+//         //         Request::builder()
+//         //             .method(http::Method::POST)
+//         //             .uri("/auth/logout")
+//         //             .header("Content-Type", "application/json")
+//         //             .body(Body::empty())
+//         //             .unwrap(),
+//         //     )
+//         //     .await
+//         //     .unwrap();
+//         //
+//         // assert_eq!(logout_response.status(), StatusCode::UNAUTHORIZED);
+//
+//         // let logout_response = router
+//         //     .clone()
+//         //     .oneshot(
+//         //         Request::builder()
+//         //             .method(http::Method::POST)
+//         //             .uri("/auth/logout")
+//         //             .header("Content-Type", "application/json")
+//         //             .header(
+//         //                 "Authorization",
+//         //                 format!("Bearer {}", login_body.access_token),
+//         //             )
+//         //             .body(Body::empty())
+//         //             .unwrap(),
+//         //     )
+//         //     .await
+//         //     .unwrap();
+//         //
+//         // assert_eq!(logout_response.status(), StatusCode::OK);
+//         // println!("logout_response: {:?}", &logout_response);
+//
+//         // Refresh
+//         let refresh_response = router
+//             .clone()
+//             .oneshot(
+//                 Request::builder()
+//                     .method(http::Method::POST)
+//                     .uri("/auth/refresh")
+//                     .header("Content-Type", "application/json")
+//                     .header(
+//                         "Authorization",
+//                         format!("Bearer {}", login_body.refresh_token),
+//                     )
+//                     // .header("Authorization", format!("Bearer {}", login_body.access_token))
+//                     .body(Body::empty())
+//                     .unwrap(),
+//             )
+//             .await
+//             .unwrap();
+//
+//         assert_eq!(refresh_response.status(), StatusCode::CREATED);
+//
+//         // tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+//
+//         let body = refresh_response
+//             .into_body()
+//             .collect()
+//             .await
+//             .unwrap()
+//             .to_bytes();
+//         let refresh_body: RefreshSuccess = serde_json::from_slice(&body).expect("error");
+//
+//         // assert_ne!(
+//         //     refresh_body.access_token,
+//         //     login_body.access_token
+//         // );
+//
+//         // TODO: how can I mock now.timestamp so the access token will be different for each request
+//
+//         // Logout
+//     }
+//
+//     #[sqlx::test]
+//     #[ignore = "wip: oauth2 register/login not implemented yet"]
+//     async fn test_google_oath2_register_and_login(pool: sqlx::PgPool) {
+//         assert!(false);
+//     }
+// }

@@ -28,6 +28,8 @@ test-watch-ignore:
 test-watch-all:
 	cargo watch --exec "test -- --nocapture"
 
-test-current:
-	cargo test -- --exact routes::settings::services::tests::test_create_settings
+#test-watch-current:
+#	cargo watch --exec "test -- --exact routes::auth::services::tests"
 
+test-watch-current:
+	cargo watch --exec "test routes::auth::services -- --nocapture"

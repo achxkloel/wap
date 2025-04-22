@@ -15,6 +15,7 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::{postgres::PgPool, Row};
+use tracing::error;
 
 #[async_trait]
 pub trait AuthServiceImpl: Send + Sync + 'static + JwtConfigImpl {
@@ -22,7 +23,7 @@ pub trait AuthServiceImpl: Send + Sync + 'static + JwtConfigImpl {
         &self,
         token: &str,
     ) -> Result<TokenClaims, (StatusCode, Json<RefreshError>)>;
-    async fn register(&self, request: &RegisterUserRequestSchema) -> Result<UserDb>;
+    async fn register_new_user(&self, request: &RegisterUserRequestSchema) -> Result<UserDb>;
     async fn login(&self, request: LoginUserSchema) -> Result<UserDb>;
     async fn refresh(&self, user_id: i32) -> Result<UserDb, (StatusCode, Json<RefreshError>)>;
 }
@@ -71,7 +72,7 @@ impl JwtConfigImpl for AuthService {
 
 #[async_trait]
 impl AuthServiceImpl for AuthService {
-    async fn register(&self, request: &RegisterUserRequestSchema) -> Result<UserDb> {
+    async fn register_new_user(&self, request: &RegisterUserRequestSchema) -> Result<UserDb> {
         let hashed_password = hash_password(request.password.as_str())
             .await
             .map_err(|e| anyhow::anyhow!("Error while hashing password: {}", e))?
@@ -142,11 +143,17 @@ impl AuthServiceImpl for AuthService {
             .map_err(|e| {
                 let err = RefreshError {
                     status: "fail".to_string(),
-                    message: "Invalid token".to_string(),
+                    message: "Database error".to_string(),
                 };
                 (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
             })?
-            .unwrap();
+            .ok_or_else(|| {
+                let err = RefreshError {
+                    status: "fail".to_string(),
+                    message: "User not found".to_string(),
+                };
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
+            })?;
 
         Ok(user)
     }
@@ -255,6 +262,7 @@ mod tests {
     use crate::routes::auth::models::{LoginUserSchema, RegisterUserRequestSchema};
     use crate::routes::auth::services::AuthService;
     use sqlx::PgPool;
+    use crate::tests::tests::TestApp;
 
     /// A fake verifier to drive GoogleAuthService tests
     #[derive(Clone)]
@@ -276,10 +284,6 @@ mod tests {
     // }
     //
     // Helper to get a test DB pool; set DATABASE_URL=test url in env
-    async fn get_pool() -> PgPool {
-        let url = std::env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL must be set");
-        PgPool::connect(&url).await.unwrap()
-    }
 
     #[sqlx::test]
     async fn test_register_and_login_pg(pool: PgPool) {
@@ -301,7 +305,7 @@ mod tests {
             email: "Test@Example.Com".into(),
             password: "secret".into(),
         };
-        let user = svc.register(&req).await.unwrap();
+        let user = svc.register_new_user(&req).await.unwrap();
         assert_eq!(user.email, "test@example.com");
 
         // 2) login success
@@ -326,26 +330,69 @@ mod tests {
         assert_eq!(r.id, user.id);
     }
 
-    // #[tokio::test]
-    // async fn test_google_auth_service() {
-    //     let pool = get_pool().await;
-    //     let settings = WapSettings::init();
-    //     let good_verifier = FakeVerifier { ok: true, email: "gg@example.com".into() };
-    //     let svc = GoogleAuthService::new(pool.clone(), settings.clone(), good_verifier.clone());
-    //
-    //     // Clean slate
-    //     sqlx::query!("DELETE FROM settings").execute(&pool).await.unwrap();
-    //     sqlx::query!("DELETE FROM users").execute(&pool).await.unwrap();
-    //
-    //     // login (which also registers)
-    //     let auth_req = LoginUserSchema { email: "fake-token".into(), password: String::new() };
-    //     let user = svc.login(&auth_req).await.unwrap();
-    //     assert_eq!(user.email, "gg@example.com");
-    //
-    //     // invalid token
-    //     let bad_verifier = FakeVerifier { ok: false, email: String::new() };
-    //     let bad_svc = GoogleAuthService::new(pool.clone(), settings.clone(), bad_verifier);
-    //     let res = bad_svc.login(auth_req).await;
-    //     assert!(res.is_err());
-    // }
+    #[sqlx::test]
+    async fn test_token_claim_and_refresh(db: PgPool) {
+        let test_app = TestApp::new(db).await;
+        let svc = AuthService::new(test_app.app.db.clone(), &test_app.app.settings);
+
+        // Clean slate
+        sqlx::query!("DELETE FROM settings").execute(&test_app.app.db).await.unwrap();
+        sqlx::query!("DELETE FROM users").execute(&test_app.app.db).await.unwrap();
+
+        // 1) register a user
+        let req = RegisterUserRequestSchema {
+            email: "foo@bar.com".into(),
+            password: "hunter2".into(),
+        };
+        let user = svc.register_new_user(&req).await.unwrap();
+
+        // 2) issue a JWT for that user
+        let exp = (chrono::Utc::now() + chrono::Duration::minutes(5)).timestamp() as usize;
+        let jwt = svc.create_jwt_token(&user.id.0.to_string(), exp).await;
+
+        // 3) token_claim should succeed and round‑trip the 'sub'
+        let claims = svc.token_claim(&jwt).await.unwrap();
+        assert_eq!(claims.sub, user.id.0.to_string());
+
+        // 4) refresh should find the same user
+        let refreshed = svc.refresh(user.id.0).await.unwrap();
+        assert_eq!(refreshed.id, user.id);
+        
+        // 5) token_claim should error on invalid JWT
+        let err = svc.token_claim("not-a-token").await.unwrap_err();
+        assert_eq!(err.0, StatusCode::UNAUTHORIZED);
+        assert_eq!(err.1.0.status, "fail");
+        
+        // 6) refresh should error on missing user
+        let err = svc.refresh(-999).await.unwrap_err();
+        assert_eq!(err.0, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(err.1.0.status, "fail");
+    }
+
+    #[sqlx::test]
+    async fn test_google_upsert_roundtrip(pool: PgPool) {
+        // for this test we just exercise upsert_google_user on the AuthService
+        //   (it uses real HTTP, so we only test that the method exists;
+        //    in real code you'd inject a fake HTTP client)
+        let test_app = TestApp::new(pool).await;
+        let svc = AuthService::new(test_app.app.db.clone(), &test_app.app.settings);
+
+        // emulate a Google profile
+        let gu = GoogleUser {
+            id: "G123".into(),
+            email: "z@z.com".into(),
+            verified_email: true,
+            name: "Test Z".into(),
+            picture: "http://pic".into(),
+        };
+
+        // first insert
+        let u1 = svc.upsert_google_user(&gu).await.unwrap();
+        assert_eq!(u1.email, "z@z.com");
+
+        // update on same google_id should not error
+        let u2 = svc.upsert_google_user(&gu).await.unwrap();
+        assert_eq!(u2.id, u1.id);
+    }
+
 }

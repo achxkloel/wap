@@ -63,7 +63,7 @@ pub async fn register<S>(
 where
     S: AuthServiceImpl,
 {
-    let user = service.register(&body).await.map_err(|e| {
+    let user = service.register_new_user(&body).await.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(RegisterError {

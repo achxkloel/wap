@@ -1,4 +1,4 @@
 pub mod auth;
-pub mod natural_phenomenon_location;
+pub mod natural_phenomenon_locations;
 pub mod settings;
-pub mod weather_location;
+pub mod weather_locations;

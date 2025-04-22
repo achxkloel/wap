@@ -1,7 +1,7 @@
 use crate::routes::auth::middlewares::auth;
 use crate::routes::auth::services::AuthService;
-use crate::routes::weather_location::models::{WeatherLocation, WeatherLocationId};
-use crate::routes::weather_location::services::{WeatherLocationService, WeatherLocationServiceImpl};
+use crate::routes::weather_locations::models::{WeatherLocation, WeatherLocationId};
+use crate::routes::weather_locations::services::{WeatherLocationService, WeatherLocationServiceImpl};
 use crate::shared::models::{AppState, DatabaseId};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;

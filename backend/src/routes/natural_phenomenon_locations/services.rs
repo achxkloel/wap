@@ -1,4 +1,4 @@
-use crate::routes::natural_phenomenon_location::models::{
+use crate::routes::natural_phenomenon_locations::models::{
     CreateNaturalPhenomenonLocationRequest, ServiceCreateAndUpdateResponseSuccess,
     UpdateNaturalPhenomenonLocationRequestWithIds,
 };
@@ -176,11 +176,11 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::routes::natural_phenomenon_location::models::{
+    use crate::routes::natural_phenomenon_locations::models::{
         CreateNaturalPhenomenonLocationRequest, ServiceCreateAndUpdateResponseSuccess,
         UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds,
     };
-    use crate::routes::natural_phenomenon_location::services::PgNaturalPhenomenonLocationService;
+    use crate::routes::natural_phenomenon_locations::services::PgNaturalPhenomenonLocationService;
     use crate::shared::models::DatabaseId;
     use crate::tests::tests::TestApp;
     use sqlx::PgPool;

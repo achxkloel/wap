@@ -3,10 +3,16 @@ use axum::{
     http::{HeaderValue, Method},
     Router,
 };
+use futures_util::{future, StreamExt};
 use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
+use std::future::Future;
 use std::future::IntoFuture;
+use std::process::exit;
+use tokio_util::sync::CancellationToken;
+use tracing::log::LevelFilter;
+use tracing::Level;
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use backend::config::WapSettings;
@@ -69,8 +75,8 @@ async fn app_router(app: AppState) -> OpenApiRouter {
     let setting_router = backend::routes::settings::handlers::router(app.clone());
     let auth_router = backend::routes::auth::handlers::router(app.clone());
     let natural_phenomenon_location_router =
-        backend::routes::natural_phenomenon_location::handlers::router(app.clone());
-    let weather_location_router = backend::routes::weather_location::handlers::router(app.clone());
+        backend::routes::natural_phenomenon_locations::handlers::router(app.clone());
+    let weather_location_router = backend::routes::weather_locations::handlers::router(app.clone());
 
     let router = OpenApiRouter::new().layer(prepare_cors());
 
@@ -80,25 +86,6 @@ async fn app_router(app: AppState) -> OpenApiRouter {
         .merge(weather_location_router)
         .merge(natural_phenomenon_location_router)
 }
-
-#[derive(Debug, Deserialize)]
-struct CreateUser {
-    username: String,
-    password: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct Login {
-    username: String,
-    password: String,
-}
-
-use futures_util::{future, StreamExt};
-use std::future::Future;
-use std::process::exit;
-use tokio_util::sync::CancellationToken;
-use tracing::log::LevelFilter;
-use tracing::Level;
 
 async fn interrupt_signal<FT>(ft: FT)
 where

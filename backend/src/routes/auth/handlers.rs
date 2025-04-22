@@ -33,7 +33,7 @@ use crate::routes::auth::services::{
 };
 use crate::routes::auth::{middlewares, services};
 use crate::routes::settings::handlers::{get_settings, put_settings};
-use crate::routes::settings::services::SettingsService;
+use crate::routes::settings::services::SettingsServiceImpl;
 use utoipa::ToSchema;
 use utoipa_axum::router::{OpenApiRouter, UtoipaMethodRouterExt};
 use utoipa_axum::routes;

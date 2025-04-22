@@ -1,11 +1,11 @@
 use serde::Serialize;
 use std::sync::Arc;
 
-use crate::routes::natural_phenomenon_location::models::{
+use crate::routes::natural_phenomenon_locations::models::{
     CreateNaturalPhenomenonLocationRequest, ServiceCreateAndUpdateResponseSuccess,
     UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds,
 };
-use crate::routes::natural_phenomenon_location::services::{NaturalPhenomenonLocationService, PgNaturalPhenomenonLocationService};
+use crate::routes::natural_phenomenon_locations::services::{NaturalPhenomenonLocationService, PgNaturalPhenomenonLocationService};
 use crate::shared::models::{AppState, DatabaseId};
 use anyhow::Result;
 use axum::extract::{Extension, Json, Path, State};
@@ -196,7 +196,7 @@ pub fn router(app: AppState) -> OpenApiRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::routes::natural_phenomenon_location::services::PgNaturalPhenomenonLocationService;
+    use crate::routes::natural_phenomenon_locations::services::PgNaturalPhenomenonLocationService;
     use crate::shared::models::DatabaseId;
     use crate::tests::tests::TestApp;
     use sqlx::PgPool;

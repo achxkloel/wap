@@ -34,11 +34,11 @@ test-watch-all:
 test-watch-auth-service:
 	cargo watch --exec "test routes::auth::services -- --nocapture"
 
-test-watch-natural-phenomenon-location-service:
-	cargo watch --exec "test routes::natural_phenomenon_location::services -- --nocapture"
+test-watch-natural-phenomenon-locations-service:
+	cargo watch --exec "test routes::natural_phenomenon_locations::services -- --nocapture"
 
 test-watch-settings-service:
 	cargo watch --exec "test routes::settings::services -- --nocapture"
 
 test-watch-weather-locations-service:
-	cargo watch --exec "test routes::auth::weather_locations -- --nocapture"
+	cargo watch --exec "test routes::weather_locations::services -- --nocapture"

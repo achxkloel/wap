@@ -1,6 +1,6 @@
 use crate::config::WapSettings;
 use crate::routes::settings::models::{
-    Theme, UserSettings, UserSettingsCreate, UserSettingsServiceSuccess, UserSettingsUpdateRequest,
+    Theme, UserSettingsDb, UserSettingsCreate, UserSettingsServiceSuccess, UserSettingsUpdateRequest,
 };
 use crate::shared::models::DatabaseId;
 use anyhow::Result;
@@ -10,7 +10,7 @@ use sqlx::PgPool;
 
 #[async_trait]
 #[cfg_attr(test, automock)]
-pub trait SettingsService: Send + Sync + 'static {
+pub trait SettingsServiceImpl: Send + Sync + 'static {
     async fn get_settings(
         &self,
         user_id: &DatabaseId,
@@ -20,24 +20,24 @@ pub trait SettingsService: Send + Sync + 'static {
         user_id: &DatabaseId,
         settings: &UserSettingsUpdateRequest,
     ) -> Result<()>;
-    async fn create_settings(&self, setting: &UserSettingsCreate) -> Result<UserSettings>;
+    async fn create_settings(&self, setting: &UserSettingsCreate) -> Result<UserSettingsDb>;
     async fn delete_settings(&self, user_id: &DatabaseId) -> Result<()>;
 }
 
 #[derive(Clone)]
-pub struct PgSettingsService {
+pub struct SettingsService {
     pub db: PgPool,
     pub settings: WapSettings,
 }
 
-impl PgSettingsService {
+impl SettingsService {
     pub fn new(db: PgPool, settings: WapSettings) -> Self {
         Self { db, settings }
     }
 }
 
 #[async_trait]
-impl SettingsService for PgSettingsService {
+impl SettingsServiceImpl for SettingsService {
     async fn get_settings(
         &self,
         user_id: &DatabaseId,
@@ -79,7 +79,7 @@ impl SettingsService for PgSettingsService {
         Ok(())
     }
 
-    async fn create_settings(&self, setting: &UserSettingsCreate) -> Result<UserSettings> {
+    async fn create_settings(&self, setting: &UserSettingsCreate) -> Result<UserSettingsDb> {
         // supply defaults here in Rust:
         let theme = setting
             .theme
@@ -103,7 +103,7 @@ impl SettingsService for PgSettingsService {
         // )
         // .fetch_one(&self.db)
         // .await?;
-        let settings = sqlx::query_as::<_, UserSettings>(
+        let settings = sqlx::query_as::<_, UserSettingsDb>(
             r#"
         INSERT INTO settings (user_id, theme, notifications_enabled, radius)
         VALUES ($1, $2, $3, $4)
@@ -139,7 +139,7 @@ mod tests {
     #[sqlx::test]
     async fn test_create_settings(pool: PgPool) {
         let test_app = TestApp::new(pool.clone()).await;
-        let service = PgSettingsService::new(pool.clone(), test_app.app.settings);
+        let service = SettingsService::new(pool.clone(), test_app.app.settings);
 
         // Test getting settings for non-existent user
         let result = service.get_settings(&DatabaseId { 0: 999 }).await;
@@ -174,7 +174,7 @@ mod tests {
     #[sqlx::test]
     async fn test_update_settings(pool: PgPool) {
         let test_app = TestApp::new(pool.clone()).await;
-        let service = PgSettingsService::new(pool.clone(), test_app.app.settings);
+        let service = SettingsService::new(pool.clone(), test_app.app.settings);
 
         let user_id = &test_app.users[0].user.id.clone();
         service
@@ -213,7 +213,7 @@ mod tests {
     #[sqlx::test]
     async fn test_delete_settings(pool: PgPool) {
         let test_app = TestApp::new(pool.clone()).await;
-        let service = PgSettingsService::new(pool.clone(), test_app.app.settings);
+        let service = SettingsService::new(pool.clone(), test_app.app.settings);
 
         let user_id = &test_app.users[0].user.id;
 

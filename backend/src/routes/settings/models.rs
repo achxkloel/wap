@@ -18,7 +18,7 @@ pub struct UserSettingsUpdateRequest {
 }
 
 #[derive(Deserialize, Serialize, ToSchema, sqlx::FromRow)]
-pub struct UserSettings {
+pub struct UserSettingsDb {
     pub id: DatabaseId,
     pub user_id: DatabaseId,
     pub theme: Theme,

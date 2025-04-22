@@ -6,7 +6,7 @@ use utoipa::ToSchema;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSchema, Serialize, Deserialize)]
 pub struct WeatherLocationId(pub i32);
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct WeatherLocation {
     pub id: Option<WeatherLocationId>,
     pub user_id: DatabaseId,

@@ -1,6 +1,8 @@
 use serde::Serialize;
 use std::sync::Arc;
 
+use crate::routes::auth::middlewares::auth;
+use crate::routes::auth::services::AuthService;
 use crate::routes::natural_phenomenon_locations::models::{
     CreateNaturalPhenomenonLocationRequest, ServiceCreateAndUpdateResponseSuccess,
     UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds,
@@ -14,8 +16,6 @@ use axum::response::IntoResponse;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
-use crate::routes::auth::middlewares::auth;
-use crate::routes::auth::services::AuthService;
 
 #[derive(Debug, Serialize)]
 struct ErrorResponse {

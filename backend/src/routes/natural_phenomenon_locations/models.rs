@@ -52,6 +52,6 @@ pub struct CreateNaturalPhenomenonLocationRequest {
 impl std::fmt::Display for CreateNaturalPhenomenonLocationRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "CreateNaturalPhenomenonLocationRequest {{ user_id: {:?}, name: {}, latitude: {}, longitude: {}, description: {} }}",
-            self.user_id, self.name, self.latitude, self.longitude, self.description.as_deref().unwrap_or("None"))
+               self.user_id, self.name, self.latitude, self.longitude, self.description.as_deref().unwrap_or("None"))
     }
 }

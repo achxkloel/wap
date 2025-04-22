@@ -65,7 +65,7 @@ fn prepare_cors() -> CorsLayer {
                 Method::OPTIONS,
                 Method::HEAD,
             ]
-            .to_vec(),
+                .to_vec(),
         )
         .allow_credentials(true)
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE])

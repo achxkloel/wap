@@ -205,7 +205,7 @@ where
         json!(RefreshSuccess {
             access_token: new_access_token
         })
-        .to_string(),
+            .to_string(),
     );
 
     let (mut parts, body) = response.into_parts();

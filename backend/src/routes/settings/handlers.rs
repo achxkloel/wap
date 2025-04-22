@@ -1,6 +1,9 @@
+use crate::routes::auth::middlewares::auth;
 use crate::routes::auth::models::UserDb;
+use crate::routes::auth::services::AuthService;
 use crate::routes::settings::models::{UserSettingsServiceSuccess, UserSettingsUpdateRequest};
 use crate::routes::settings::services::{SettingsService, SettingsServiceImpl};
+use crate::shared::models::AppState;
 use axum::{
     extract::{Json, State},
     http::StatusCode,
@@ -11,9 +14,6 @@ use std::sync::Arc;
 use tracing::error;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
-use crate::routes::auth::middlewares::auth;
-use crate::routes::auth::services::AuthService;
-use crate::shared::models::AppState;
 
 #[utoipa::path(
     method(put),

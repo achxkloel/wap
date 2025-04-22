@@ -1,6 +1,6 @@
 use crate::config::WapSettings;
 use crate::routes::settings::models::{
-    Theme, UserSettingsDb, UserSettingsCreate, UserSettingsServiceSuccess, UserSettingsUpdateRequest,
+    Theme, UserSettingsCreate, UserSettingsDb, UserSettingsServiceSuccess, UserSettingsUpdateRequest,
 };
 use crate::shared::models::DatabaseId;
 use anyhow::Result;
@@ -50,13 +50,13 @@ impl SettingsServiceImpl for SettingsService {
             WHERE user_id = $1
             "#,
         )
-        .bind(user_id.0)
-        .fetch_optional(&self.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("Error fetching settings: {:?}", e);
-            anyhow::anyhow!("Error fetching settings")
-        })?;
+            .bind(user_id.0)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| {
+                tracing::error!("Error fetching settings: {:?}", e);
+                anyhow::anyhow!("Error fetching settings")
+            })?;
 
         Ok(settings)
     }
@@ -73,8 +73,8 @@ impl SettingsServiceImpl for SettingsService {
             settings.radius,
             user_id.0
         )
-        .execute(&self.db)
-        .await?;
+            .execute(&self.db)
+            .await?;
 
         Ok(())
     }
@@ -110,12 +110,12 @@ impl SettingsServiceImpl for SettingsService {
         RETURNING id, theme, notifications_enabled, radius, user_id, created_at, updated_at
         "#,
         )
-        .bind(setting.user_id.0) // DatabaseId is transparent newtype over i32
-        .bind(theme) // Theme implements sqlx::Type + Encode
-        .bind(notifications_enabled) // bool is Copy + Encode
-        .bind(radius) // i32 is Copy + Encode
-        .fetch_one(&self.db)
-        .await?;
+            .bind(setting.user_id.0) // DatabaseId is transparent newtype over i32
+            .bind(theme) // Theme implements sqlx::Type + Encode
+            .bind(notifications_enabled) // bool is Copy + Encode
+            .bind(radius) // i32 is Copy + Encode
+            .fetch_one(&self.db)
+            .await?;
 
         Ok(settings)
     }

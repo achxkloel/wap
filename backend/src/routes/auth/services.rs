@@ -1,6 +1,6 @@
 use crate::config::WapSettings;
 use crate::routes::auth::models;
-use crate::routes::auth::models::{GoogleUser, LoginUserSchema, AuthError, RegisterUserRequestSchema, TokenClaims, TokenResponse, UserDb};
+use crate::routes::auth::models::{AuthError, GoogleUser, LoginUserSchema, RegisterUserRequestSchema, TokenClaims, TokenResponse, UserDb};
 use crate::routes::auth::utils::hash_password;
 use anyhow::Result;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
@@ -12,7 +12,6 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::{postgres::PgPool, Row};
-use tracing::error;
 
 #[async_trait]
 pub trait AuthServiceImpl: Send + Sync + 'static + JwtConfigImpl {
@@ -67,7 +66,7 @@ impl JwtConfigImpl for AuthService {
             &claims,
             &EncodingKey::from_secret(secret),
         )
-        .unwrap()
+            .unwrap()
     }
 }
 
@@ -120,8 +119,8 @@ impl AuthServiceImpl for AuthService {
             request.email.to_ascii_lowercase(),
             hashed_password
         )
-        .fetch_one(&self.db)
-        .await?;
+            .fetch_one(&self.db)
+            .await?;
 
         // Insert new settings
         sqlx::query!("INSERT INTO settings (user_id) VALUES ($1)", user.id.0)
@@ -140,12 +139,12 @@ impl AuthServiceImpl for AuthService {
             &DecodingKey::from_secret(self.settings.jwt_secret.as_ref()),
             &Validation::default(),
         )
-        .map_err(|_| {
-            let err = AuthError {
-                message: "Invalid token".to_string(),
-            };
-            (StatusCode::UNAUTHORIZED, Json(err))
-        })?;
+            .map_err(|_| {
+                let err = AuthError {
+                    message: "Invalid token".to_string(),
+                };
+                (StatusCode::UNAUTHORIZED, Json(err))
+            })?;
 
         Ok(token_data.claims)
     }
@@ -294,8 +293,8 @@ mod tests {
     use crate::config::WapSettings;
     use crate::routes::auth::models::{LoginUserSchema, RegisterUserRequestSchema};
     use crate::routes::auth::services::AuthService;
-    use sqlx::PgPool;
     use crate::tests::tests::TestApp;
+    use sqlx::PgPool;
 
     /// A fake verifier to drive GoogleAuthService tests
     #[derive(Clone)]
@@ -425,5 +424,4 @@ mod tests {
         let u2 = svc.upsert_google_user(&gu).await.unwrap();
         assert_eq!(u2.id, u1.id);
     }
-
 }

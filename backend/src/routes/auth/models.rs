@@ -1,7 +1,4 @@
 use crate::shared::models::DatabaseId;
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::error::Error;

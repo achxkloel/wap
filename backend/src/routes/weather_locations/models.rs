@@ -1,4 +1,3 @@
-
 use crate::shared::models::DatabaseId;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;

@@ -83,18 +83,18 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
                 "#,
             user_id.0
         )
-        .fetch_all(&self.db)
-        .await?
-        .into_iter()
-        .map(|rec| ServiceCreateAndUpdateResponseSuccess {
-            id: DatabaseId(rec.id),
-            user_id: DatabaseId(rec.user_id),
-            name: rec.name,
-            latitude: rec.latitude,
-            longitude: rec.longitude,
-            description: Option::from(rec.description),
-        })
-        .collect();
+            .fetch_all(&self.db)
+            .await?
+            .into_iter()
+            .map(|rec| ServiceCreateAndUpdateResponseSuccess {
+                id: DatabaseId(rec.id),
+                user_id: DatabaseId(rec.user_id),
+                name: rec.name,
+                latitude: rec.latitude,
+                longitude: rec.longitude,
+                description: Option::from(rec.description),
+            })
+            .collect();
 
         Ok(locations)
     }
@@ -113,8 +113,8 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             id.0,
             user_id.0
         )
-        .fetch_one(&self.db)
-        .await?;
+            .fetch_one(&self.db)
+            .await?;
 
         Ok(ServiceCreateAndUpdateResponseSuccess {
             id: DatabaseId(rec.id),
@@ -144,8 +144,8 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             location.id.0,
             location.user_id.0,
         )
-        .fetch_one(&self.db)
-        .await?;
+            .fetch_one(&self.db)
+            .await?;
 
         Ok(ServiceCreateAndUpdateResponseSuccess {
             id: DatabaseId(record.id),
@@ -166,8 +166,8 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             id.0,
             user_id.0
         )
-        .execute(&self.db)
-        .await?;
+            .execute(&self.db)
+            .await?;
 
         Ok(())
     }

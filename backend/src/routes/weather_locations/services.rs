@@ -31,8 +31,8 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
                 "UPDATE weather_locations SET is_default = false WHERE user_id = $1",
                 location.user_id.0
             )
-            .execute(&mut *tx)
-            .await?;
+                .execute(&mut *tx)
+                .await?;
         }
 
         let rec = sqlx::query!(
@@ -48,8 +48,8 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
             location.is_default,
             location.description,
         )
-        .fetch_one(&mut *tx)
-        .await?;
+            .fetch_one(&mut *tx)
+            .await?;
 
         tx.commit().await?;
         Ok(WeatherLocation {
@@ -67,19 +67,19 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
             "#,
             user_id.0
         )
-        .fetch_all(&self.db)
-        .await?
-        .into_iter()
-        .map(|rec| WeatherLocation {
-            id: Some(WeatherLocationId(rec.id)),
-            user_id: DatabaseId(rec.user_id),
-            name: rec.name,
-            latitude: rec.latitude,
-            longitude: rec.longitude,
-            is_default: rec.is_default,
-            description: rec.description.into(),
-        })
-        .collect();
+            .fetch_all(&self.db)
+            .await?
+            .into_iter()
+            .map(|rec| WeatherLocation {
+                id: Some(WeatherLocationId(rec.id)),
+                user_id: DatabaseId(rec.user_id),
+                name: rec.name,
+                latitude: rec.latitude,
+                longitude: rec.longitude,
+                is_default: rec.is_default,
+                description: rec.description.into(),
+            })
+            .collect();
 
         Ok(locations)
     }
@@ -98,8 +98,8 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
             id.0,
             user_id.0
         )
-        .fetch_one(&self.db)
-        .await?;
+            .fetch_one(&self.db)
+            .await?;
 
         Ok(WeatherLocation {
             id: Some(WeatherLocationId(rec.id)),
@@ -120,8 +120,8 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
                 "UPDATE weather_locations SET is_default = false WHERE user_id = $1",
                 location.user_id.0
             )
-            .execute(&mut *tx)
-            .await?;
+                .execute(&mut *tx)
+                .await?;
         }
 
         let rec = sqlx::query!(
@@ -139,8 +139,8 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
             location.id.unwrap().0,
             location.user_id.0,
         )
-        .fetch_one(&mut *tx)
-        .await?;
+            .fetch_one(&mut *tx)
+            .await?;
 
         tx.commit().await?;
 
@@ -161,8 +161,8 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
             id.0,
             user_id.0
         )
-        .execute(&self.db)
-        .await?;
+            .execute(&self.db)
+            .await?;
 
         Ok(())
     }
@@ -174,13 +174,13 @@ mod tests {
     use crate::routes::weather_locations::models::{WeatherLocation, WeatherLocationId};
     use crate::routes::weather_locations::services::WeatherLocationService;
     use crate::shared::models::DatabaseId;
-    use sqlx::{Executor, PgPool};
     use crate::tests::tests::TestApp;
+    use sqlx::{Executor, PgPool};
 
     #[sqlx::test]
     async fn test_weather_location_service(pool: PgPool) {
         let test_app = TestApp::new(pool.clone()).await;
-        
+
         // Clean slate: weather_locations, settings, users
         test_app.app.db.execute("DELETE FROM weather_locations").await.unwrap();
         test_app.app.db.execute("DELETE FROM settings").await.unwrap();
@@ -192,9 +192,9 @@ mod tests {
             "user@example.com",
             "pass"
         )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         let user_id = DatabaseId(user_rec.id);
 
         let svc = WeatherLocationService { db: test_app.app.db.clone() };

@@ -291,7 +291,7 @@ where
     S: AuthServiceImpl,
 {
     service
-        .change_password(user.id, &body.current_password, &body.new_password)
+        .change_password(user.id, &body.current_password, &body.new_password, false)
         .await
         .map_err(|(code, err)| (code, Json(err))).unwrap();
 

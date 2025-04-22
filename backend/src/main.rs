@@ -1,4 +1,8 @@
-use axum::{http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE}, http::{HeaderValue, Method}, Json, Router};
+use axum::{
+    http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
+    http::{HeaderValue, Method},
+    Json, Router,
+};
 use futures_util::{future, StreamExt};
 use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
@@ -12,7 +16,10 @@ use tracing::{Instrument, Level};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use backend::config::{WapSettings, WapSettingsImpl};
-use backend::routes::auth::models::{AuthErrorKind, LoginResponse, LoginUserSchema, RegisterUserRequestSchema, RegisterUserSchema, UserData};
+use backend::routes::auth::models::{
+    AuthErrorKind, LoginResponse, LoginUserSchema, RegisterUserRequestSchema, RegisterUserSchema,
+    UserData,
+};
 use backend::routes::auth::services::{create_login_response, AuthServiceImpl};
 use backend::shared::models::AppState;
 use tower_http::cors::CorsLayer;
@@ -58,7 +65,7 @@ fn prepare_cors() -> CorsLayer {
                 Method::OPTIONS,
                 Method::HEAD,
             ]
-                .to_vec(),
+            .to_vec(),
         )
         .allow_credentials(true)
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE])
@@ -167,13 +174,13 @@ async fn create_development_user(app: &AppState) {
         }
     };
 
+    let _ = auth_service.change_password(user.id, &"", &register_request.password, true).await;
+
     let login_request = LoginUserSchema {
         email: register_request.email.clone(),
         password: register_request.password.clone(),
     };
-    let auth_result = auth_service
-        .login(&login_request)
-        .await;
+    let auth_result = auth_service.login(&login_request).await;
 
     let auth_result = match auth_result {
         Ok(auth_result) => auth_result,

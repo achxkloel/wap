@@ -277,6 +277,29 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
             const lon = locationList[0].lon;
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,precipitation,relative_humidity_2m,windspeed_10m,winddirection_10m,uv_index,surface_pressure,cloudcover&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Europe%2FPrague`;
 
+            // const api = axios .create({
+            //     baseURL: 'https://api.open-meteo.com/v1',
+            // });
+
+            // function get(lat: number, lon: number) {
+            //      return api.get('/forecast', {
+            //             params: {
+            //                 latitude: lat,
+            //                 longitude: lon,
+            //                 current_weather: true,
+            //                 hourly: 'temperature_2m,precipitation,relative_humidity_2m,windspeed_10m,winddirection_10m,uv_index,surface_pressure,cloudcover',
+            //                 daily: 'temperature_2m_max,temperature_2m_min,precipitation_sum',
+            //                 timezone: 'Europe/Prague',
+            //             },
+            //         }).then((res) => res.data);
+            // }
+
+            // try {
+            //     get()
+            // } catch (error) {
+
+            // }
+
             const res = await fetch(url);
             const data = await res.json();
             setWeatherData(data);

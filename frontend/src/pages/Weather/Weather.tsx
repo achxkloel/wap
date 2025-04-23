@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import api from '@/lib/api';
+import { logger } from '@/lib/logger';
+import { useIsAuthorized } from '@/lib/store/auth';
+import React, { useEffect, useState } from 'react';
 
 const allCities = [
     'London',
@@ -605,6 +608,25 @@ type WeatherDashboardProps = {
 function Weather() {
     const [locations, setLocations] = useState<Location[]>([]);
     const [showDashboard, setShowDashboard] = useState(locations.length > 0);
+    const isAuthorized = useIsAuthorized();
+
+    useEffect(() => {
+        if (!isAuthorized) {
+            return;
+        }
+
+        fetchLocations();
+    }, []);
+
+    const fetchLocations = async () => {
+        try {
+            logger.debug('Fetching locations...');
+            const res = await api.get('/weather_locations');
+            setLocations(res.data);
+        } catch (error) {
+            logger.error('Error fetching locations:', error);
+        }
+    };
 
     // className="bg-gray-900   w-screen   font-sans"
     return (

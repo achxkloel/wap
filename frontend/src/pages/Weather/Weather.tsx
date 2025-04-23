@@ -202,36 +202,34 @@ function WeatherSelect({ nextWindow, locations, setLocations }: WeatherDashboard
     const randomCities = allCities.sort(() => 0.5 - Math.random()).slice(0, 4);
 
     return (
-        <div className="flex justify-center items-center min-h-screen">
-            <div className="grid grid-cols-3 gap-8">
-                {/* 4 rohové karty */}
-                {randomCities.map((city, index) => (
-                    <div
-                        key={index}
-                        className={`col-start-${index % 2 === 0 ? 1 : 3} row-start-${Math.floor(index / 2) + 1} flex justify-center items-center`}
-                    >
-                        <CityCard
-                            name={city}
-                            setLocations={setLocations}
-                            nextWindow={nextWindow}
-                        />
-                    </div>
-                ))}
-
-                {/* Střed */}
-                <div className=" col-start-2 row-start-1  row-span-2 flex flex-col">
-                    {locations.length === 0 ? (
-                        <div className="text-xl font-semibold mb-2 text-gray-800">No location selected</div>
-                    ) : (
-                        <div></div>
-                    )}
-                    <br />
-                    <CitySearch
+        <div className="grid grid-cols-3 gap-8">
+            {/* 4 rohové karty */}
+            {randomCities.map((city, index) => (
+                <div
+                    key={index}
+                    className={`col-start-${index % 2 === 0 ? 1 : 3} row-start-${Math.floor(index / 2) + 1} flex justify-center items-center`}
+                >
+                    <CityCard
+                        name={city}
                         setLocations={setLocations}
-                        locations={locations}
                         nextWindow={nextWindow}
                     />
                 </div>
+            ))}
+
+            {/* Střed */}
+            <div className=" col-start-2 row-start-1  row-span-2 flex flex-col">
+                {locations.length === 0 ? (
+                    <div className="text-xl font-semibold mb-2 text-gray-800">No location selected</div>
+                ) : (
+                    <div></div>
+                )}
+                <br />
+                <CitySearch
+                    setLocations={setLocations}
+                    locations={locations}
+                    nextWindow={nextWindow}
+                />
             </div>
         </div>
     );
@@ -341,7 +339,7 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
     const daily = weatherData.daily;
 
     return (
-        <div className="h-full overflow-y-scroll">
+        <div className="h-full">
             <div className="flex flex-rows gap-8 justify-center items-center">
                 <div className="flex-row-1 p-4">
                     <div className="text-xl font-semibold mb-4">{location}</div>
@@ -653,7 +651,7 @@ function Weather() {
 
     // className="bg-gray-900   w-screen   font-sans"
     return (
-        <div>
+        <div className="h-full w-full flex items-center justify-center overflow-y-scroll">
             {showDashboard ? (
                 <WeatherDashboard
                     nextWindow={() => setShowDashboard(false)}

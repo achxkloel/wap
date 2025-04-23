@@ -19,7 +19,7 @@ create type theme as enum ('dark', 'light');
 create table settings
 (
     id                    serial primary key,
-    user_id               integer not null references users (id) on delete set null,
+    user_id               integer references users (id) on delete set null, -- Can be null when user deletes account
     theme                 theme       default 'light',
     notifications_enabled boolean     default true,
     radius                integer     default 50,

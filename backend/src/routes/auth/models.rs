@@ -5,6 +5,9 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
 use std::str::FromStr;
+use axum::http::StatusCode;
+use axum::Json;
+use axum::response::IntoResponse;
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, PartialEq, Eq, FromRow, Serialize, Deserialize, ToSchema)]
@@ -127,7 +130,7 @@ pub struct UserRegisterResponse {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
-pub struct RegisterSuccess {
+pub struct RegisterResponseSuccess {
     pub data: UserRegisterResponse,
 }
 
@@ -270,12 +273,39 @@ pub struct GoogleUser {
     pub email_verified: bool,
 }
 
+#[derive(Debug, ToSchema, PartialEq, Eq)]
+pub enum AuthSuccessKind<S> {
+    UserCreated(StatusCode, S),
+    Created(StatusCode, S),
+}
+
+
+// replace the old single‐type impl with this generic one:
+impl<S> IntoResponse for AuthSuccessKind<S>
+where
+    S: Serialize,
+{
+    fn into_response(self) -> axum::response::Response {
+        let (status, body) = match self {
+            AuthSuccessKind::UserCreated(s, b) | AuthSuccessKind::Created(s, b) => (s, b),
+        };
+        let json = serde_json::to_string(&body).unwrap();
+        let mut response = axum::response::Response::new(json.into());
+        *response.status_mut() = status;
+        response
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
 pub enum AuthErrorKind {
     UserCreate(String),
     UserAlreadyExists,
     DatabaseError,
     HashingError,
+    SettingsCreate,
+    MissingCode,
+    TokenExchangeError(String),
+    GoogleUserFetchError(String),
 }
 
 impl Display for AuthErrorKind {
@@ -285,6 +315,10 @@ impl Display for AuthErrorKind {
             AuthErrorKind::UserAlreadyExists => write!(f, "User already exists"),
             AuthErrorKind::DatabaseError => write!(f, "Database error"),
             AuthErrorKind::HashingError => write!(f, "Hashing error"),
+            AuthErrorKind::SettingsCreate => write!(f, "Settings error"),
+            AuthErrorKind::MissingCode => write!(f, "Missing code"),
+            AuthErrorKind::TokenExchangeError(msg) => write!(f, "Token exchange error: {}", msg),
+            AuthErrorKind::GoogleUserFetchError(msg) => write!(f, "Google user fetch error: {}", msg),
         }
     }
 }

@@ -1,16 +1,15 @@
-// use std::sync::Arc;
-use argon2::{PasswordHasher, PasswordVerifier};
 use axum::extract::Query;
-use axum::http::{header, HeaderValue};
-use axum::{extract::{Json, State}, http::{HeaderMap, Response, StatusCode}, response::IntoResponse, Extension};
-use chrono::Utc;
+use axum::{
+    extract::{Json, State},
+    http::{Response, StatusCode},
+    response::IntoResponse,
+    Extension,
+};
 use serde::Serialize;
 use serde_json::json;
 use std::sync::Arc;
 
-use jsonwebtoken::{decode, DecodingKey, Validation};
-
-use crate::shared::models::{AppState, DatabaseId};
+use crate::shared::models::AppState;
 
 // TODO: add to response also user dat
 // TODO: add endpoint to change user passwords
@@ -21,12 +20,16 @@ use crate::shared::models::{AppState, DatabaseId};
 // -------------------------------------------------------------------------------------------------
 // SIGNUP handler
 
-// use axum::{Json, response::IntoResponse};
-use crate::routes::auth::middlewares::auth;
-use crate::routes::auth::models::{AuthError, ChangePasswordRequest, LoginError, LoginSuccess, LoginUser, LoginUserSchema, OAuthParams, QueryCode, RefreshSuccess, RegisterError, RegisterSuccess, RegisterUserRequestSchema, TokenClaims, UserData, UserDb, UserRegisterResponse};
-use crate::routes::auth::services::{create_login_response, AuthService, AuthServiceImpl, GoogleAuthService, JwtConfigImpl};
+use crate::routes::auth::models::{
+    AuthError, AuthErrorKind, AuthSuccessKind, ChangePasswordRequest, LoginError, LoginSuccess,
+    LoginUser, LoginUserSchema, OAuthParams, RefreshSuccess, RegisterError,
+    RegisterResponseSuccess, RegisterUserRequestSchema, UserData, UserDb,
+    UserRegisterResponse,
+};
+use crate::routes::auth::services::{
+    create_login_response, AuthService, AuthServiceImpl, GoogleAuthService, JwtConfigImpl,
+};
 use crate::routes::auth::{middlewares, services};
-use crate::routes::settings::handlers::{get_settings, put_settings};
 use crate::routes::settings::services::SettingsServiceImpl;
 use utoipa::ToSchema;
 use utoipa_axum::router::{OpenApiRouter, UtoipaMethodRouterExt};
@@ -42,37 +45,30 @@ pub struct SignupResponse {
     path = "/auth/register",
     request_body(content = RegisterUserRequestSchema, content_type = "application/json"),
     responses(
-        (status = axum::http::StatusCode::OK, description = "Success", body = RegisterSuccess, content_type = "application/json"),
+        (status = axum::http::StatusCode::OK, description = "Success", body = RegisterResponseSuccess, content_type = "application/json"),
         (status = axum::http::StatusCode::BAD_REQUEST, body = RegisterError, description = "Error", content_type = "application/json")
     )
 )]
 pub async fn register<S>(
     State(service): State<Arc<S>>,
     Json(body): Json<RegisterUserRequestSchema>,
-) -> Result<(StatusCode, Json<RegisterSuccess>), (StatusCode, Json<RegisterError>)>
+) -> Result<AuthSuccessKind<RegisterResponseSuccess>, (StatusCode, Json<AuthErrorKind>)>
+// ) -> Result<impl IntoResponse, (StatusCode, Json<AuthErrorKind>)>
 where
     S: AuthServiceImpl,
 {
-    let user = service.register_new_user(&body).await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(RegisterError {
-                message: e.1.to_string(),
-            }),
-        )
-    })?;
+    let user = service.register_new_user(&body).await?;
 
-    Ok((
+    Ok(AuthSuccessKind::Created(
         StatusCode::CREATED,
-        Json(RegisterSuccess {
-            data: UserRegisterResponse {
-                id: user.id,
-                email: user.email.to_owned(),
-                created_at: user.created_at,
-                updated_at: user.updated_at,
-            },
-        }),
-    ))
+        RegisterResponseSuccess {
+        data: UserRegisterResponse {
+            id: user.id,
+            email: user.email.to_owned(),
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+        },
+    }))
 }
 
 fn filter_user_record(user: &UserDb) -> UserRegisterResponse {
@@ -151,7 +147,7 @@ where
             access_token: new_access_token,
             refresh_token: new_refresh_token,
         })
-            .to_string(),
+        .to_string(),
     );
 
     let (mut parts, body) = response.into_parts();
@@ -172,65 +168,42 @@ where
 pub async fn google_oauth_handler<S>(
     State(service): State<Arc<S>>,
     Query(params): Query<OAuthParams>,
-) -> Result<impl IntoResponse, (StatusCode, Json<AuthError>)>
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthErrorKind>)>
 where
     S: GoogleAuthService,
 {
     // 1) missing code → 400
     if params.code.trim().is_empty() {
-        let err = AuthError {
-            message: "Authorization code not provided!".into(),
-        };
-        return Err((StatusCode::BAD_REQUEST, Json(err)));
+        return Err((StatusCode::BAD_REQUEST, Json(AuthErrorKind::MissingCode)));
     }
 
     // 2) exchange code → token_response or 502
-    let token_resp = service
-        .request_token(&params.code)
-        .await
-        .map_err(|e| {
-            let msg = e.to_string();
-            tracing::error!("request_token error: {}", msg);
-            let err = AuthError {
-                message: msg,
-            };
-            (StatusCode::BAD_GATEWAY, Json(err))
-        })?;
+    let token_resp = service.request_token(&params.code).await.map_err(|e| {
+        (
+            StatusCode::BAD_GATEWAY,
+            Json(AuthErrorKind::TokenExchangeError(e.to_string())),
+        )
+    })?;
 
     // 3) fetch Google user → or 502
     let google_user = service
         .get_google_user(&token_resp.access_token, &token_resp.id_token)
         .await
         .map_err(|e| {
-            let msg = e.to_string();
-            tracing::error!("get_google_user error: {}", msg);
-            let err = AuthError {
-                message: msg,
-            };
-            (StatusCode::BAD_GATEWAY, Json(err))
+            (
+                StatusCode::BAD_GATEWAY,
+                Json(AuthErrorKind::GoogleUserFetchError(e.to_string())),
+            )
         })?;
 
     // 4) upsert into your DB & get back a user_id or 500
-    let user: UserDb = service
-        .upsert_google_user(&google_user)
-        .await
-        .map_err(|e| {
-            let msg = e.to_string();
-            tracing::error!("upsert_google_user error: {}", msg);
-            let err = AuthError {
-                message: msg,
-            };
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
-        })?;
-
-    // TODO use already the setup form login to creat access and refrsshh tokens
+    let user: UserDb = service.upsert_google_user(&google_user).await?;
 
     let data = create_login_response(user.clone(), &*service).await;
     let mut response = Response::new(json!(data).to_string());
     *response.status_mut() = StatusCode::CREATED;
     Ok(response)
 }
-
 
 #[utoipa::path(
     post,
@@ -293,7 +266,8 @@ where
     service
         .change_password(user.id, &body.current_password, &body.new_password, false)
         .await
-        .map_err(|(code, err)| (code, Json(err))).unwrap();
+        .map_err(|(code, err)| (code, Json(err)))
+        .unwrap();
 
     Ok((StatusCode::NO_CONTENT, "Password changed successfully"))
 }
@@ -303,7 +277,11 @@ pub fn router_with_service<S>(app: AppState, normal_service: Arc<S>) -> OpenApiR
 where
     S: AuthServiceImpl + GoogleAuthService,
 {
-    let auth_service = Arc::new(AuthService { db: app.db.clone(), settings: app.settings.clone(), http: Default::default() });
+    let auth_service = Arc::new(AuthService {
+        db: app.db.clone(),
+        settings: app.settings.clone(),
+        http: Default::default(),
+    });
     let router = utoipa_axum::router::OpenApiRouter::new()
         .routes(routes!(register))
         .routes(routes!(login))
@@ -312,14 +290,18 @@ where
             middlewares::auth,
         )))
         .routes(routes!(google_oauth_handler))
-        .routes(routes!(user_info).layer(axum::middleware::from_fn_with_state(
-            auth_service.clone(),
-            middlewares::auth,
-        )))
-        .routes(routes!(change_password).layer(axum::middleware::from_fn_with_state(
-            auth_service.clone(),
-            middlewares::auth,
-        )))
+        .routes(
+            routes!(user_info).layer(axum::middleware::from_fn_with_state(
+                auth_service.clone(),
+                middlewares::auth,
+            )),
+        )
+        .routes(
+            routes!(change_password).layer(axum::middleware::from_fn_with_state(
+                auth_service.clone(),
+                middlewares::auth,
+            )),
+        )
         .with_state(normal_service);
 
     router

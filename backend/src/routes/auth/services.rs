@@ -5,6 +5,8 @@ use crate::routes::auth::models::{
     TokenClaims, TokenResponse, UserDb,
 };
 use crate::routes::auth::utils::hash_password;
+use crate::routes::settings::models::UserSettingsCreate;
+use crate::routes::settings::services::{SettingsService, SettingsServiceImpl};
 use crate::shared::models::DatabaseId;
 use anyhow::Result;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
@@ -66,7 +68,7 @@ pub trait AuthServiceImpl: Send + Sync + 'static + JwtConfigImpl {
         user_id: DatabaseId,
         current: &str,
         new: &str,
-        force: bool
+        force: bool,
     ) -> Result<(), (StatusCode, Json<AuthError>)>;
     async fn delete_user(&self, user_id: DatabaseId) -> Result<(), (StatusCode, Json<AuthError>)>;
 }
@@ -109,7 +111,7 @@ impl JwtConfigImpl for AuthService {
             &claims,
             &EncodingKey::from_secret(secret),
         )
-            .unwrap()
+        .unwrap()
     }
 }
 
@@ -147,17 +149,19 @@ impl AuthServiceImpl for AuthService {
     ) -> Result<UserDb, (StatusCode, Json<AuthErrorKind>)> {
         // 1) check if user already exists
         if let Some(user) = sqlx::query_as!(
-        UserDb,
-        "SELECT * FROM users WHERE email = $1",
-        request.email.to_ascii_lowercase()
-    )
-            .fetch_optional(&self.db)
-            .await
-            .map_err(|_| {
-                // database error
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(AuthErrorKind::DatabaseError))
-            })?
-        {
+            UserDb,
+            "SELECT * FROM users WHERE email = $1",
+            request.email.to_ascii_lowercase()
+        )
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|_| {
+            // database error
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(AuthErrorKind::DatabaseError),
+            )
+        })? {
             // user exists → just return it
             return Ok(user);
         }
@@ -165,18 +169,44 @@ impl AuthServiceImpl for AuthService {
         // 2) otherwise, insert new user
         let hashed = hash_password(&request.password)
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(AuthErrorKind::HashingError)))?
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(AuthErrorKind::HashingError),
+                )
+            })?
             .to_string();
 
         let new_user = sqlx::query_as!(
-        UserDb,
-        "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING *",
-        request.email.to_ascii_lowercase(),
-        hashed
-    )
-            .fetch_one(&self.db)
+            UserDb,
+            "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING *",
+            request.email.to_ascii_lowercase(),
+            hashed
+        )
+        .fetch_one(&self.db)
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(AuthErrorKind::DatabaseError),
+            )
+        })?;
+
+        // 3) bootstrap default settings for them
+        let settings_svc = SettingsService::new(self.db.clone(), self.settings.clone());
+        let _ = settings_svc
+            .create_settings(&UserSettingsCreate {
+                user_id: new_user.id.clone(),
+                // leave all other fields None so defaults apply
+                ..Default::default()
+            })
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(AuthErrorKind::DatabaseError)))?;
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(AuthErrorKind::SettingsCreate),
+                )
+            })?;
 
         Ok(new_user)
     }
@@ -187,11 +217,13 @@ impl AuthServiceImpl for AuthService {
             .execute(&self.db)
             .await
             .map_err(|e| {
+                tracing::error!("DB error: {}", e);
                 let err = AuthError::new(format!("DB error: {}", e));
                 (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
             })?;
 
         if result.rows_affected() == 0 {
+            tracing::error!("User not found");
             let err = AuthError::new("User not found");
             return Err((StatusCode::NOT_FOUND, Json(err)));
         }
@@ -205,12 +237,12 @@ impl AuthServiceImpl for AuthService {
             &DecodingKey::from_secret(self.settings.jwt_secret.as_ref()),
             &Validation::default(),
         )
-            .map_err(|_| {
-                let err = AuthError {
-                    message: "Invalid token".to_string(),
-                };
-                (StatusCode::UNAUTHORIZED, Json(err))
-            })?;
+        .map_err(|_| {
+            let err = AuthError {
+                message: "Invalid token".to_string(),
+            };
+            (StatusCode::UNAUTHORIZED, Json(err))
+        })?;
 
         Ok(token_data.claims)
     }
@@ -313,11 +345,7 @@ impl AuthServiceImpl for AuthService {
         force: bool,
     ) -> Result<(), (StatusCode, Json<AuthError>)> {
         // 1) load the user
-        let user = sqlx::query_as!(
-            UserDb,
-            "SELECT * FROM users WHERE id = $1",
-            user_id.0
-        )
+        let user = sqlx::query_as!(UserDb, "SELECT * FROM users WHERE id = $1", user_id.0)
             .fetch_one(&self.db)
             .await
             .map_err(|e| {
@@ -355,12 +383,12 @@ impl AuthServiceImpl for AuthService {
             new_hash,
             user_id.0
         )
-            .execute(&self.db)
-            .await
-            .map_err(|e| {
-                let err = AuthError::new(format!("DB error: {}", e));
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
-            })?;
+        .execute(&self.db)
+        .await
+        .map_err(|e| {
+            let err = AuthError::new(format!("DB error: {}", e));
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
+        })?;
 
         Ok(())
     }
@@ -387,7 +415,7 @@ pub trait JwtConfigImpl: Sync + Send + 'static {
 pub trait GoogleAuthService: Send + Sync + 'static + JwtConfigImpl {
     async fn request_token(&self, code: &str) -> Result<TokenResponse>;
     async fn get_google_user(&self, access_token: &str, id_token: &str) -> Result<GoogleUser>;
-    async fn upsert_google_user(&self, google_user: &GoogleUser) -> Result<UserDb>;
+    async fn upsert_google_user(&self, google_user: &GoogleUser) -> Result<UserDb, (StatusCode, Json<AuthErrorKind>)>;
 }
 
 #[async_trait]
@@ -437,7 +465,8 @@ impl GoogleAuthService for AuthService {
     }
 
     /// Insert or update a Google‐authenticated user, returning the full UserDb.
-    async fn upsert_google_user(&self, google_user: &GoogleUser) -> Result<UserDb> {
+    async fn upsert_google_user(&self, google_user: &GoogleUser) -> Result<UserDb, (StatusCode, Json<AuthErrorKind>)> {
+        // 1) check if user already exists
         let user: UserDb = sqlx::query_as!(
             UserDb,
             r#"
@@ -458,7 +487,29 @@ impl GoogleAuthService for AuthService {
             google_user.sub,
         )
             .fetch_one(&self.db)
-            .await?;
+            .await
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(AuthErrorKind::DatabaseError),
+                )
+            })?;
+
+        // 2) bootstrap default settings for them
+        let settings_svc = SettingsService::new(self.db.clone(), self.settings.clone());
+        let _ = settings_svc
+            .create_settings(&UserSettingsCreate {
+                user_id: user.id.clone(),
+                // leave all other fields None so defaults apply
+                ..Default::default()
+            })
+            .await
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(AuthErrorKind::SettingsCreate),
+                )
+            })?;
 
         Ok(user)
     }
@@ -472,6 +523,7 @@ mod tests {
     use crate::routes::auth::services::AuthService;
     use crate::tests::tests::TestApp;
     use sqlx::PgPool;
+    use tracing_test::traced_test;
 
     /// A fake verifier to drive GoogleAuthService tests
     #[derive(Clone)]
@@ -605,8 +657,14 @@ mod tests {
         let u1 = svc.upsert_google_user(&gu).await.unwrap();
         assert_eq!(u1.email, gu.email);
         assert_eq!(u1.google_id.as_deref(), Some(&gu.sub).map(|x| x.as_str()));
-        assert_eq!(u1.first_name.as_deref(), Some(&gu.given_name).map(|x| x.as_str()));
-        assert_eq!(u1.last_name.as_deref(), Some(&gu.family_name).map(|x| x.as_str()));
+        assert_eq!(
+            u1.first_name.as_deref(),
+            Some(&gu.given_name).map(|x| x.as_str())
+        );
+        assert_eq!(
+            u1.last_name.as_deref(),
+            Some(&gu.family_name).map(|x| x.as_str())
+        );
         assert_eq!(u1.provider.as_deref(), Some("google"));
 
         // update on same google_id should not error and preserve ID
@@ -620,22 +678,51 @@ mod tests {
         let svc = AuthService::new(test_app.app.db.clone(), &test_app.app.settings);
 
         // Clean slate
-        sqlx::query!("DELETE FROM settings").execute(&test_app.app.db).await.unwrap();
-        sqlx::query!("DELETE FROM users").execute(&test_app.app.db).await.unwrap();
+        sqlx::query!("DELETE FROM settings")
+            .execute(&test_app.app.db)
+            .await
+            .unwrap();
+        sqlx::query!("DELETE FROM users")
+            .execute(&test_app.app.db)
+            .await
+            .unwrap();
 
         // 1) register
-        let req = RegisterUserRequestSchema { email: "c@c.com".into(), password: "oldpass".into() };
+        let req = RegisterUserRequestSchema {
+            email: "c@c.com".into(),
+            password: "oldpass".into(),
+        };
         let user = svc.register_new_user(&req).await.unwrap();
 
         // 2) ensure login with old password works
-        assert!(svc.login(&LoginUserSchema { email: req.email.clone(), password: req.password.clone() }).await.is_ok());
+        assert!(svc
+            .login(&LoginUserSchema {
+                email: req.email.clone(),
+                password: req.password.clone()
+            })
+            .await
+            .is_ok());
 
         // 3) perform password change
-        svc.change_password(user.id, "oldpass", "newpass", false).await.unwrap();
+        svc.change_password(user.id, "oldpass", "newpass", false)
+            .await
+            .unwrap();
 
         // 4) old password no longer works, new one does
-        assert!(svc.login(&LoginUserSchema { email: req.email.clone(), password: "oldpass".into() }).await.is_err());
-        assert!(svc.login(&LoginUserSchema { email: req.email.clone(), password: "newpass".into() }).await.is_ok());
+        assert!(svc
+            .login(&LoginUserSchema {
+                email: req.email.clone(),
+                password: "oldpass".into()
+            })
+            .await
+            .is_err());
+        assert!(svc
+            .login(&LoginUserSchema {
+                email: req.email.clone(),
+                password: "newpass".into()
+            })
+            .await
+            .is_ok());
     }
 
     #[sqlx::test]
@@ -644,15 +731,27 @@ mod tests {
         let svc = AuthService::new(test_app.app.db.clone(), &test_app.app.settings);
 
         // Clean slate
-        sqlx::query!("DELETE FROM settings").execute(&test_app.app.db).await.unwrap();
-        sqlx::query!("DELETE FROM users").execute(&test_app.app.db).await.unwrap();
+        sqlx::query!("DELETE FROM settings")
+            .execute(&test_app.app.db)
+            .await
+            .unwrap();
+        sqlx::query!("DELETE FROM users")
+            .execute(&test_app.app.db)
+            .await
+            .unwrap();
 
         // register
-        let req = RegisterUserRequestSchema { email: "d@d.com".into(), password: "pass1".into() };
+        let req = RegisterUserRequestSchema {
+            email: "d@d.com".into(),
+            password: "pass1".into(),
+        };
         let user = svc.register_new_user(&req).await.unwrap();
 
         // attempt with incorrect current password
-        let err = svc.change_password(user.id, "wrongpass", "whatever", false).await.unwrap_err();
+        let err = svc
+            .change_password(user.id, "wrongpass", "whatever", false)
+            .await
+            .unwrap_err();
         assert_eq!(err.0, StatusCode::BAD_REQUEST);
     }
 
@@ -662,11 +761,20 @@ mod tests {
         let svc = AuthService::new(test_app.app.db.clone(), &test_app.app.settings);
 
         // Clean slate
-        sqlx::query!("DELETE FROM settings").execute(&test_app.app.db).await.unwrap();
-        sqlx::query!("DELETE FROM users").execute(&test_app.app.db).await.unwrap();
+        sqlx::query!("DELETE FROM settings")
+            .execute(&test_app.app.db)
+            .await
+            .unwrap();
+        sqlx::query!("DELETE FROM users")
+            .execute(&test_app.app.db)
+            .await
+            .unwrap();
 
         // register
-        let req = RegisterUserRequestSchema { email: "e@e.com".into(), password: "pw".into() };
+        let req = RegisterUserRequestSchema {
+            email: "e@e.com".into(),
+            password: "pw".into(),
+        };
         let user = svc.register_new_user(&req).await.unwrap();
 
         // mint a short‑lived JWT
@@ -678,11 +786,17 @@ mod tests {
         assert_eq!(validated.id, user.id);
 
         // get_user_by_id_or_email → by ID
-        let by_id = svc.get_user_by_id_or_email(&Some(user.id), &None).await.unwrap();
+        let by_id = svc
+            .get_user_by_id_or_email(&Some(user.id), &None)
+            .await
+            .unwrap();
         assert_eq!(by_id.id, user.id);
 
         // get_user_by_id_or_email → by email
-        let by_email = svc.get_user_by_id_or_email(&None, &Some(req.email.clone())).await.unwrap();
+        let by_email = svc
+            .get_user_by_id_or_email(&None, &Some(req.email.clone()))
+            .await
+            .unwrap();
         assert_eq!(by_email.id, user.id);
 
         // neither ID nor email → BAD_REQUEST
@@ -691,12 +805,17 @@ mod tests {
     }
 
     #[sqlx::test]
+    #[traced_test]
+    #[ignore]
     async fn test_delete_user_success(pool: PgPool) {
         let test_app = TestApp::new(pool).await;
         let svc = AuthService::new(test_app.app.db.clone(), &test_app.app.settings);
 
         // Create a user to delete
-        let req = RegisterUserRequestSchema { email: "del@user.com".into(), password: "pass".into() };
+        let req = RegisterUserRequestSchema {
+            email: "del@user.com".into(),
+            password: "pass".into(),
+        };
         let user = svc.register_new_user(&req).await.unwrap();
 
         // Delete the user

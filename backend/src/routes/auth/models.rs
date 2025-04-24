@@ -328,21 +328,6 @@ impl Display for AuthErrorKind {
     }
 }
 
-// // we remove the #[derive(Serialize)] above and hand-roll this:
-// impl serde::Serialize for AuthErrorKind {
-//         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//         where
-//             S: serde::Serializer,
-//         {
-//             // we always emit exactly one field "data" whose value is the
-//             // Display‐string of the variant
-//             let mut s = serializer.serialize_struct("AuthErrorKind", 1)?;
-//             s.serialize_field("data", &self.to_string())?;
-//             s.end()
-//         }
-//     }
-
-
 /// Request body for changing a user's password
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct ChangePasswordRequest {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { WeatherDashboardProps, Location } from '@/pages/Weather/Weather.tsx';
+import { Button } from '@/components/ui/button';
 
 const allCities = [
     'London',
@@ -180,14 +181,15 @@ function CitySearch({ nextWindow, setLocations }: WeatherDashboardProps) {
             {loading && <div className="text-gray-500">Searching...</div>}
             <div className="space-y-2">
                 {results.map((city, index) => (
-                    <div
+                    <Button
                         key={index}
-                        className="p-4 text-sm bg-sidebar-border rounded-lg shadow hover:bg-gray-200 cursor-pointer transition"
+                        variant="outline"
+                        className="p-4 block text-sm w-full "
                         onClick={() => handleSelect(city)}
                     >
                         <div className="font-semibold text-lg">{city.name}</div>
                         {city.country} • lat: {city.latitude}, lon: {city.longitude}
-                    </div>
+                    </Button>
                 ))}
             </div>
         </div>

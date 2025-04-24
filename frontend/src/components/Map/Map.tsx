@@ -11,9 +11,11 @@ interface MapProps {
     location?: L.LatLngExpression;
     locationZoom?: number;
     animate?: boolean;
+    showLayers?: boolean;
+    showLegend?: boolean;
 }
 
-function Map({ location, locationZoom, animate }: MapProps) {
+function Map({ location, locationZoom, animate, showLayers = false, showLegend = false }: MapProps) {
     return (
         <MapContainer
             center={[51.505, -0.09]}
@@ -33,8 +35,8 @@ function Map({ location, locationZoom, animate }: MapProps) {
                 animate={animate}
             />
             <Draw />
-            <MapLayers />
-            <Legend />
+            {showLayers && <MapLayers />}
+            {showLegend && <Legend />}
         </MapContainer>
     );
 }

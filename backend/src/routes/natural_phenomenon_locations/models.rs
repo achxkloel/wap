@@ -1,6 +1,20 @@
 use crate::shared::models::DatabaseId;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use utoipa::ToSchema;
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema, Clone, PartialEq)]
+pub struct NaturalPhenomenonLocationDb {
+    pub id: DatabaseId,
+    pub user_id: DatabaseId,
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub image_path: String,
+    pub description: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
 
 #[derive(Debug, Deserialize, ToSchema, Clone, Serialize, PartialEq)]
 pub struct UpdateNaturalPhenomenonLocationRequest {
@@ -17,27 +31,64 @@ pub struct UpdateNaturalPhenomenonLocationRequestWithIds {
     pub payload: UpdateNaturalPhenomenonLocationRequest,
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema, Clone)]
-pub struct NaturalPhenomenonLocationDb {
-    pub id: i32,
-    pub user_id: DatabaseId,
-    pub name: String,
-    pub latitude: f64,
-    pub longitude: f64,
-    pub description: std::option::Option<String>,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
-}
+// pub struct NaturalPhenomenonLocationDb {
+//     pub id: i32,
+//     pub user_id: DatabaseId,
+//     pub name: String,
+//     pub latitude: f64,
+//     pub longitude: f64,
+//     pub description: std::option::Option<String>,
+//     pub created_at: chrono::DateTime<chrono::Utc>,
+//     pub updated_at: chrono::DateTime<chrono::Utc>,
+// }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
-pub struct ServiceCreateAndUpdateResponseSuccess {
+pub struct CreateAndUpdateResponseSuccess {
     pub id: DatabaseId, // None for new entities
     pub user_id: DatabaseId,
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
     pub description: String,
+    pub image_path: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
 }
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
+pub struct GetAllNaturalPhenomenonLocationResponseSuccess {
+    pub id: DatabaseId, // None for new entities
+    pub user_id: DatabaseId,
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub description: String,
+    pub image_path: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
+pub struct GetByIdNaturalPhenomenonLocationResponseSuccess {
+    pub id: DatabaseId, // None for new entities
+    pub user_id: DatabaseId,
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub description: String,
+    pub image_path: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
+pub struct UpdateNaturalPhenomenonLocationResponseSuccess {
+    pub id: DatabaseId, // None for new entities
+    pub user_id: DatabaseId,
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub description: String,
+    pub image_path: String,
+}
+
+
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateNaturalPhenomenonLocationRequest {
@@ -59,4 +110,47 @@ impl std::fmt::Display for CreateNaturalPhenomenonLocationRequest {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct NaturalPhenomenonResponseSuccess {
     pub message: String,
+}
+
+/// include the raw bytes + original filename
+#[derive(Debug, ToSchema, Deserialize, Serialize)]
+pub struct CreateNaturalPhenomenonLocationWithImage {
+    pub user_id: DatabaseId,
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub description: String,
+    #[schema(format = Binary, content_media_type = "application/octet-stream")]
+    pub image_bytes: Vec<u8>,
+    pub image_filename: String,
+}
+
+#[derive(Debug, ToSchema, Deserialize, Serialize)]
+pub struct CreateNaturalPhenomenonLocationInnerWithImage {
+    pub user_id: DatabaseId,
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub description: String,
+    pub image_bytes: Vec<u8>,
+    pub image_filename: String,
+}
+
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", content = "data")]
+pub enum NaturalPhenomenonLocationErrorKind {
+    NotFound,
+    AlreadyExists,
+    DatabaseError,
+}
+
+impl Display for NaturalPhenomenonLocationErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NaturalPhenomenonLocationErrorKind::NotFound => write!(f, "Not Found"),
+            NaturalPhenomenonLocationErrorKind::AlreadyExists => write!(f, "Already Exists"),
+            NaturalPhenomenonLocationErrorKind::DatabaseError => write!(f, "Database Error"),
+        }
+    }
 }

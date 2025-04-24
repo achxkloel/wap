@@ -46,3 +46,7 @@ pub enum AppStage {
     Production,
     Testing,
 }
+
+pub enum GlobalError {
+    ServerError(String),
+}

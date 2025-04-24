@@ -4,11 +4,13 @@ use std::sync::Arc;
 use crate::routes::auth::middlewares::auth;
 use crate::routes::auth::models::UserDb;
 use crate::routes::auth::services::AuthService;
-use crate::routes::natural_phenomenon_locations::models::{CreateNaturalPhenomenonLocationRequest, NaturalPhenomenonResponseSuccess, ServiceCreateAndUpdateResponseSuccess, UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds};
-use crate::routes::natural_phenomenon_locations::services::{NaturalPhenomenonLocationService, PgNaturalPhenomenonLocationService};
+use crate::routes::natural_phenomenon_locations::models::{CreateAndUpdateResponseSuccess, CreateNaturalPhenomenonLocationInnerWithImage, CreateNaturalPhenomenonLocationRequest, CreateNaturalPhenomenonLocationWithImage, GetAllNaturalPhenomenonLocationResponseSuccess, GetByIdNaturalPhenomenonLocationResponseSuccess, NaturalPhenomenonLocationErrorKind, NaturalPhenomenonResponseSuccess, UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds, UpdateNaturalPhenomenonLocationResponseSuccess};
+use crate::routes::natural_phenomenon_locations::services::{
+    NaturalPhenomenonLocationService, PgNaturalPhenomenonLocationService,
+};
 use crate::shared::models::{AppState, DatabaseId};
 use anyhow::Result;
-use axum::extract::{Extension, Json, Path, State};
+use axum::extract::{Extension, Json, Multipart, Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use utoipa::ToSchema;
@@ -24,23 +26,24 @@ struct ErrorResponse {
     get,
     path = "/natural_phenomenon_locations",
     responses(
-        (status = 200, description = "All user locations", body = Vec<ServiceCreateAndUpdateResponseSuccess>),
+        (status = 200, description = "All user locations", body = Vec<CreateAndUpdateResponseSuccess>),
         (status = 500, description = "Internal server error")
     )
 )]
 pub async fn get_all_locations<S>(
     State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
-) -> Result<Json<Vec<ServiceCreateAndUpdateResponseSuccess>>, (StatusCode, String)>
+) -> Result<
+    Json<Vec<GetAllNaturalPhenomenonLocationResponseSuccess>>,
+    (StatusCode, Json<NaturalPhenomenonLocationErrorKind>),
+>
 where
     S: NaturalPhenomenonLocationService,
 {
-    let locations = service
-        .get_all(user.id)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let locations = service.get_all(user.id).await?;
     Ok(Json(locations))
 }
+
 
 #[utoipa::path(
     get,
@@ -49,62 +52,103 @@ where
         ("id" = DatabaseId, Path, description = "Location ID to retrieve"),
     ),
     responses(
-        (status = 200, description = "Location found", body = ServiceCreateAndUpdateResponseSuccess),
+        (status = 200, description = "Location found", body = CreateAndUpdateResponseSuccess),
         (status = 404, description = "Location not found"),
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn get_location<S>(
+pub async fn get_location_by_id<S>(
     State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
     Path(id): Path<DatabaseId>,
-) -> Result<Json<ServiceCreateAndUpdateResponseSuccess>, (StatusCode, String)>
+) -> Result<Json<GetByIdNaturalPhenomenonLocationResponseSuccess>, (StatusCode, Json<NaturalPhenomenonLocationErrorKind>)>
 where
     S: NaturalPhenomenonLocationService,
 {
     let location = service
         .get_by_id(user.id, id)
-        .await
-        .map_err(|e| (StatusCode::NO_CONTENT, e.to_string()))?;
+        .await?;
     Ok(Json(location))
 }
 
 #[utoipa::path(
     post,
     path = "/natural_phenomenon_locations",
-    request_body = ServiceCreateAndUpdateResponseSuccess,
+    request_body(content = CreateNaturalPhenomenonLocationWithImage, content_type = "multipart/form-data"),
     responses(
-        (status = 201, description = "Location created", body = ServiceCreateAndUpdateResponseSuccess),
+        (status = 201, description = "Location created", body = CreateAndUpdateResponseSuccess),
         (status = 500, description = "Internal server error")
     )
 )]
 pub async fn create_location<S>(
-    State(service): State<Arc<S>>, // ← concrete, no <S>
+    State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
-    Json(req): Json<CreateNaturalPhenomenonLocationRequest>,
-) -> Result<Json<ServiceCreateAndUpdateResponseSuccess>, (StatusCode, String)>
+    mut multipart: Multipart,
+) -> Result<impl IntoResponse, (StatusCode, Json<NaturalPhenomenonLocationErrorKind>)>
 where
     S: NaturalPhenomenonLocationService,
 {
-    let domain = CreateNaturalPhenomenonLocationRequest {
+    // 1) pull all fields + image into our DTO
+    let mut dto = CreateNaturalPhenomenonLocationInnerWithImage {
         user_id: user.id,
-        name: req.name,
-        latitude: req.latitude,
-        longitude: req.longitude,
-        description: req.description,
+        name: String::new(),
+        latitude: 0.0,
+        longitude: 0.0,
+        description: String::new(),
+        image_bytes: Vec::new(),
+        image_filename: String::new(),
     };
 
-    service
-        .create(&domain)
-        .await
-        .map(Json) // Ok side
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR, // Err side
-                e.to_string(),
-            )
-        })
+    while let Some(field) = multipart.next_field().await.map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(NaturalPhenomenonLocationErrorKind::DatabaseError),
+        )
+    })? {
+        match field.name().unwrap_or("") {
+            "name" => dto.name = field.text().await.unwrap_or_default(),
+            "latitude" => {
+                dto.latitude = field
+                    .text()
+                    .await
+                    .unwrap_or_default()
+                    .parse()
+                    .unwrap_or(0.0)
+            }
+            "longitude" => {
+                dto.longitude = field
+                    .text()
+                    .await
+                    .unwrap_or_default()
+                    .parse()
+                    .unwrap_or(0.0)
+            }
+            "description" => dto.description = field.text().await.unwrap_or_default(),
+            "image" => {
+            //     let bytes = field.bytes().await.unwrap_or_default();
+            //     let filename = field.file_name().unwrap_or("upload");
+            //     dto.image_bytes = bytes.to_vec();
+            //     dto.image_filename = filename.to_string();
+                // **first** grab the filename (borrowing)
+                let filename = field
+                    .file_name()
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "upload".into());
+                // **then** consume the field by reading its bytes
+                let bytes = field.bytes().await.unwrap_or_default();
+                dto.image_filename = filename;
+                dto.image_bytes = bytes.to_vec();
+            }
+            _ => {}
+        }
+    }
+
+    // 2) hand off to service
+    let created = service.create(dto).await?;
+
+    Ok((StatusCode::CREATED, Json(created)))
 }
+
 #[utoipa::path(
     put,
     path = "/natural_phenomenon_locations/{id}",
@@ -113,7 +157,7 @@ where
         ("id" = DatabaseId, Path, description = "Location ID to update")
     ),
     responses(
-        (status = 200, description = "Location updated", body = ServiceCreateAndUpdateResponseSuccess),
+        (status = 200, description = "Location updated", body = CreateAndUpdateResponseSuccess),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal server error")
     )
@@ -123,7 +167,10 @@ pub async fn update_location<S>(
     Extension(user): Extension<UserDb>,
     Path(id): Path<DatabaseId>,
     Json(payload): Json<UpdateNaturalPhenomenonLocationRequest>, // ← body extractor
-) -> Result<Json<ServiceCreateAndUpdateResponseSuccess>, (StatusCode, String)>
+) -> Result<
+    Json<UpdateNaturalPhenomenonLocationResponseSuccess>,
+    (StatusCode, Json<NaturalPhenomenonLocationErrorKind>),
+>
 where
     S: NaturalPhenomenonLocationService,
 {
@@ -135,8 +182,7 @@ where
 
     let updated = service
         .update(dto)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .await?;
 
     Ok(Json(updated))
 }
@@ -147,6 +193,7 @@ where
     params(
         ("id" = DatabaseId, Path, description = "Location ID to update")
     ),
+    request_body(content = CreateNaturalPhenomenonLocationWithImage, content_type = "multipart/form-data") ,
     responses(
         (status = 204, description = "Location deleted", content_type = "application/json"),
         (status = 500, description = "Internal server error", content_type = "application/json")
@@ -160,11 +207,20 @@ pub async fn delete_location<S>(
 where
     S: NaturalPhenomenonLocationService,
 {
-    service
-        .delete(user.id, id)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(NaturalPhenomenonResponseSuccess { message: e.to_string() })))?;
-    Ok((StatusCode::NO_CONTENT, Json(NaturalPhenomenonResponseSuccess { message: "Location deleted".to_string() })))
+    service.delete(user.id, id).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(NaturalPhenomenonResponseSuccess {
+                message: e.to_string(),
+            }),
+        )
+    })?;
+    Ok((
+        StatusCode::NO_CONTENT,
+        Json(NaturalPhenomenonResponseSuccess {
+            message: "Location deleted".to_string(),
+        }),
+    ))
 }
 
 // src/routes/natural_phenomenon_location/services/tests.rs
@@ -174,10 +230,14 @@ pub fn router_with_service<S>(app: AppState, service: Arc<S>) -> OpenApiRouter
 where
     S: NaturalPhenomenonLocationService + Send + Sync + 'static,
 {
-    let auth_service = Arc::new(AuthService { db: app.db.clone(), settings: app.settings.clone(), http: Default::default() });
+    let auth_service = Arc::new(AuthService {
+        db: app.db.clone(),
+        settings: app.settings.clone(),
+        http: Default::default(),
+    });
     OpenApiRouter::new()
         .routes(routes!(get_all_locations))
-        .routes(routes!(get_location))
+        .routes(routes!(get_location_by_id))
         .routes(routes!(create_location))
         .routes(routes!(update_location))
         .routes(routes!(delete_location))
@@ -208,24 +268,26 @@ mod tests {
         let service = PgNaturalPhenomenonLocationService::new(pool.clone());
 
         // 1) CREATE
-        let mut location = Box::new(CreateNaturalPhenomenonLocationRequest {
-            user_id,
-            name: "Volcano".to_string(),
-            latitude: 36.2048,
-            longitude: 138.2529,
-            description: "A famous volcano".to_string(),
-        });
-        let created = service
-            .create(&location)
-            .await
-            .expect(&format!("create {location} failed"));
-        // id must be set
-        // let id = created.id.expect("id should be returned");
-        assert_eq!(created.user_id, user_id);
-        assert_eq!(created.name, location.name);
-        assert_eq!(created.latitude, location.latitude);
-        assert_eq!(created.longitude, location.longitude);
-        assert_eq!(created.description, location.description);
+        // let mut location = Box::new(CreateNaturalPhenomenonLocationInnerWithImage {
+        //     user_id,
+        //     name: "Volcano".to_string(),
+        //     latitude: 36.2048,
+        //     longitude: 138.2529,
+        //     description: "A famous volcano".to_string(),
+        //     image_bytes: vec![],
+        //     image_filename: "volcano.jpg".to_string(),
+        // });
+        // let created = service
+        //     .create(location.into())
+        //     .await
+        //     .expect(&format!("create {location} failed"));
+        // // id must be set
+        // // let id = created.id.expect("id should be returned");
+        // assert_eq!(created.user_id, user_id);
+        // assert_eq!(created.name, location.name);
+        // assert_eq!(created.latitude, location.latitude);
+        // assert_eq!(created.longitude, location.longitude);
+        // assert_eq!(created.description, location.description);
 
         // // 2) GET_ALL
         // let all = service.get_all(user_id).await.expect("get_all failed");

@@ -72,12 +72,7 @@ function DrawCircle({ coordinates, maxRadius, onChange }: DrawCircleProps) {
                 const from = L.latLng(center);
                 const to = e.latlng;
                 const distance = from.distanceTo(to);
-
-                if (maxRadius && distance > maxRadius) {
-                    return;
-                }
-
-                setRadius(distance);
+                setRadius(maxRadius ? Math.min(distance, maxRadius || distance) : distance);
             }
         },
     });

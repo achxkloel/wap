@@ -23,14 +23,12 @@ use crate::shared::models::AppState;
 use crate::routes::auth::models::{
     AuthError, AuthErrorKind, AuthSuccessKind, ChangePasswordRequest, LoginError, LoginSuccess,
     LoginUser, LoginUserSchema, OAuthParams, RefreshSuccess, RegisterError,
-    RegisterResponseSuccess, RegisterUserRequestSchema, UserData, UserDb,
-    UserRegisterResponse,
+    RegisterResponseSuccess, RegisterUserRequestSchema, UserData, UserDb, UserRegisterResponse,
 };
 use crate::routes::auth::services::{
     create_login_response, AuthService, AuthServiceImpl, GoogleAuthService, JwtConfigImpl,
 };
 use crate::routes::auth::{middlewares, services};
-use crate::routes::settings::services::SettingsServiceImpl;
 use utoipa::ToSchema;
 use utoipa_axum::router::{OpenApiRouter, UtoipaMethodRouterExt};
 use utoipa_axum::routes;
@@ -62,13 +60,14 @@ where
     Ok(AuthSuccessKind::Created(
         StatusCode::CREATED,
         RegisterResponseSuccess {
-        data: UserRegisterResponse {
-            id: user.id,
-            email: user.email.to_owned(),
-            created_at: user.created_at,
-            updated_at: user.updated_at,
+            data: UserRegisterResponse {
+                id: user.id,
+                email: user.email.to_owned(),
+                created_at: user.created_at,
+                updated_at: user.updated_at,
+            },
         },
-    }))
+    ))
 }
 
 fn filter_user_record(user: &UserDb) -> UserRegisterResponse {
@@ -259,15 +258,13 @@ pub async fn change_password<S>(
     State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
     Json(body): Json<ChangePasswordRequest>,
-) -> Result<impl IntoResponse, (StatusCode, Json<AuthError>)>
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthErrorKind>)>
 where
     S: AuthServiceImpl,
 {
     service
         .change_password(user.id, &body.current_password, &body.new_password, false)
-        .await
-        .map_err(|(code, err)| (code, Json(err)))
-        .unwrap();
+        .await?;
 
     Ok((StatusCode::NO_CONTENT, "Password changed successfully"))
 }

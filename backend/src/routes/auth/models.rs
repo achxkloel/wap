@@ -3,11 +3,12 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::error::Error;
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Display, Pointer};
 use std::str::FromStr;
 use axum::http::StatusCode;
 use axum::Json;
 use axum::response::IntoResponse;
+use mockall::Any;
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, PartialEq, Eq, FromRow, Serialize, Deserialize, ToSchema)]
@@ -289,7 +290,10 @@ where
         let (status, body) = match self {
             AuthSuccessKind::UserCreated(s, b) | AuthSuccessKind::Created(s, b) => (s, b),
         };
-        let json = serde_json::to_string(&body).unwrap();
+        let json = serde_json::to_string(&body).unwrap_or_else(|_| {;
+            // if we can't serialize the body, just return a generic error
+            serde_json::to_string(&AuthError::new("Internal server error - Can not create body")).unwrap()
+        });
         let mut response = axum::response::Response::new(json.into());
         *response.status_mut() = status;
         response
@@ -297,6 +301,7 @@ where
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[serde(tag = "type", content = "data")]
 pub enum AuthErrorKind {
     UserCreate(String),
     UserAlreadyExists,
@@ -322,6 +327,20 @@ impl Display for AuthErrorKind {
         }
     }
 }
+
+// // we remove the #[derive(Serialize)] above and hand-roll this:
+// impl serde::Serialize for AuthErrorKind {
+//         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//         where
+//             S: serde::Serializer,
+//         {
+//             // we always emit exactly one field "data" whose value is the
+//             // Display‐string of the variant
+//             let mut s = serializer.serialize_struct("AuthErrorKind", 1)?;
+//             s.serialize_field("data", &self.to_string())?;
+//             s.end()
+//         }
+//     }
 
 
 /// Request body for changing a user's password

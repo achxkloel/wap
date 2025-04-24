@@ -69,7 +69,7 @@ pub trait AuthServiceImpl: Send + Sync + 'static + JwtConfigImpl {
         current: &str,
         new: &str,
         force: bool,
-    ) -> Result<(), (StatusCode, Json<AuthError>)>;
+    ) -> Result<(), (StatusCode, Json<AuthErrorKind>)>;
     async fn delete_user(&self, user_id: DatabaseId) -> Result<(), (StatusCode, Json<AuthError>)>;
 }
 
@@ -343,14 +343,13 @@ impl AuthServiceImpl for AuthService {
         current: &str,
         new: &str,
         force: bool,
-    ) -> Result<(), (StatusCode, Json<AuthError>)> {
+    ) -> Result<(), (StatusCode, Json<AuthErrorKind>)> {
         // 1) load the user
         let user = sqlx::query_as!(UserDb, "SELECT * FROM users WHERE id = $1", user_id.0)
             .fetch_one(&self.db)
             .await
             .map_err(|e| {
-                let err = AuthError::new(format!("DB error: {}", e));
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(AuthErrorKind::DatabaseError))
             })?;
 
         // 2) if not forced, verify current password
@@ -363,8 +362,9 @@ impl AuthServiceImpl for AuthService {
             };
 
             if !matches {
-                let err = AuthError::new("Current password is incorrect");
-                return Err((StatusCode::BAD_REQUEST, Json(err)));
+                return Err((StatusCode::BAD_REQUEST, Json(AuthErrorKind::UserCreate(
+                    "Invalid current password".to_string(),
+                ))));
             }
         }
 
@@ -372,8 +372,7 @@ impl AuthServiceImpl for AuthService {
         let new_hash = hash_password(new)
             .await
             .map_err(|e| {
-                let err = AuthError::new(format!("Hashing error: {}", e));
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(AuthErrorKind::HashingError))
             })?
             .to_string();
 
@@ -386,8 +385,7 @@ impl AuthServiceImpl for AuthService {
         .execute(&self.db)
         .await
         .map_err(|e| {
-            let err = AuthError::new(format!("DB error: {}", e));
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(err))
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(AuthErrorKind::DatabaseError))
         })?;
 
         Ok(())

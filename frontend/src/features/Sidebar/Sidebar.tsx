@@ -1,4 +1,5 @@
 import {
+    Sidebar as SidebarUI,
     SidebarContent,
     SidebarFooter,
     SidebarGroup,
@@ -7,7 +8,6 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
-    Sidebar as SidebarUI,
 } from '@/components/ui/sidebar';
 import { useIsAuthorized } from '@/lib/store/auth';
 import { CloudSunIcon, LucideIcon, MapIcon, MapPinIcon, SettingsIcon } from 'lucide-react';

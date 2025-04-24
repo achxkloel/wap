@@ -7,9 +7,9 @@ interface ButtonProps {
     style?: React.CSSProperties;
     disabled?: boolean;
     children?: React.ReactNode;
-    variant?: 'default' | 'light' | 'dark'| 'add';
-    type?: "button" | "submit" | "reset";
-    icon?: any; 
+    variant?: 'default' | 'light' | 'dark' | 'add';
+    type?: 'button' | 'submit' | 'reset';
+    icon?: any;
 }
 
 function Button({ className, onClick, style, disabled, children, variant = 'default', icon }: ButtonProps) {

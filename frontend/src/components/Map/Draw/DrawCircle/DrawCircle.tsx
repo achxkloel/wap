@@ -5,10 +5,11 @@ import { Circle, useMap, useMapEvents } from 'react-leaflet';
 
 interface DrawCircleProps {
     coordinates?: CircleCoordinates | null;
+    maxRadius?: number | null;
     onChange: (coordinates: CircleCoordinates | null) => void;
 }
 
-function DrawCircle({ coordinates, onChange }: DrawCircleProps) {
+function DrawCircle({ coordinates, maxRadius, onChange }: DrawCircleProps) {
     const map = useMap();
     const [center, setCenter] = useState<LatLngTuple | null>(null);
     const [radius, setRadius] = useState<number | null>(null);
@@ -71,6 +72,11 @@ function DrawCircle({ coordinates, onChange }: DrawCircleProps) {
                 const from = L.latLng(center);
                 const to = e.latlng;
                 const distance = from.distanceTo(to);
+
+                if (maxRadius && distance > maxRadius) {
+                    return;
+                }
+
                 setRadius(distance);
             }
         },

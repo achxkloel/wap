@@ -43,6 +43,13 @@ function Map() {
     const [searchValue, setSearchValue] = useState<string>('');
     const [searchValueSubmitted, setSearchValueSubmitted] = useState<string>('');
     const setEarthquakes = useData((state) => state.setEarthquake);
+    const clearEarthquakes = useData((state) => state.clearEarthquake);
+
+    useEffect(() => {
+        return () => {
+            clearEarthquakes();
+        };
+    });
 
     useEffect(() => {
         fetchData();

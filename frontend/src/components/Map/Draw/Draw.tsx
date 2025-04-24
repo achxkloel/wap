@@ -11,6 +11,7 @@ function Draw() {
     const stopDraw = useMapStore((state) => state.stopDraw);
     const predefinedCoordinates = useMapStore((state) => state.coordinates);
     const [coordinates, setCoordinates] = useState<RectangleCoordinates | CircleCoordinates | null>(null);
+    const maxRadius = useMapStore((state) => state.maxRadius);
 
     useEffect(() => {
         return () => {
@@ -80,6 +81,7 @@ function Draw() {
                 return (
                     <DrawCircle
                         coordinates={predefinedCoordinates as CircleCoordinates}
+                        maxRadius={maxRadius}
                         onChange={handleCoordinatesChange}
                     />
                 );

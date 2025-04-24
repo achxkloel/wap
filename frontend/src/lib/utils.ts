@@ -11,3 +11,16 @@ export const getErrorMessage = (err: unknown, fallback: string) => {
     const maybe = err as any;
     return maybe?.response?.data?.data || maybe?.message || fallback;
 };
+
+export const numberPreprocess = (val: unknown) => {
+    if (typeof val === 'string' && val.trim() === '') {
+        return null;
+    }
+
+    const parsed = Number(val);
+    if (isNaN(parsed)) {
+        return val;
+    }
+
+    return parsed;
+};

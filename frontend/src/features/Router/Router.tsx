@@ -1,6 +1,6 @@
 import Layout from '@/features/Layout';
 import { checkToken } from '@/lib/api';
-import FavoritesPage from '@/pages/favorites';
+import FavoritesPage from '@/pages/Locations';
 import Map from '@/pages/Map';
 import Settings from '@/pages/Settings';
 import React, { useEffect } from 'react';

@@ -49,7 +49,7 @@ function Map() {
         return () => {
             clearEarthquakes();
         };
-    });
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -87,6 +87,7 @@ function Map() {
             <MapComponent
                 showLayers={true}
                 showLegend={true}
+                showDraw={true}
             />
             <div className="flex flex-col w-[400px] gap-2 bg-sidebar">
                 {filterOpen ? (

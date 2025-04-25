@@ -1,142 +1,257 @@
-import locationImage from '@/assets/location.png';
-import AddButton from '@/components/AddButton/AddButton';
-import LocationCard from '@/components/LocationCard/LocationCard';
-import getEarthquakes from '@/lib/data/getEarthquakes';
-import useFavoritesStore from '@/lib/favorites';
-import { useEffect, useState } from 'react';
+import DeleteModal from '@/components/DeleteModal/DeleteModal';
+import Map from '@/components/Map';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import api from '@/lib/api';
+import useAuthStore from '@/lib/store/auth';
+import useLocationStore from '@/lib/store/location';
+import { LayoutGrid, LayoutPanelLeftIcon, PlusIcon } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import LocationCard from './LocationCard';
+import LocationList from './LocationList';
 import LocationModal from './LocationModal';
+import { LocationFormValues } from './LocationModal/LocationModal';
 
-export default function FavoritesPage() {
-    const favorites = useFavoritesStore((s) => s.favorites);
-    const addFavorite = useFavoritesStore((s) => s.addFavorite);
-    const updateFavorite = useFavoritesStore((s) => s.updateFavorite);
-    const removeFavorite = useFavoritesStore((s) => s.removeFavorite);
+const defaultValues: LocationFormValues = {
+    name: '',
+    description: '',
+    photo: undefined,
+    latitude: 51.477928,
+    longitude: -0.001545,
+    radius: 25,
+};
+
+function Locations() {
+    const locations = useLocationStore((state) => state.locations);
+    const setLocations = useLocationStore((state) => state.setLocations);
+    const user = useAuthStore((state) => state.user);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [locationData, setLocationData] = useState<LocationFormValues>(defaultValues);
+    const [selectedTab, setSelectedTab] = useState('card');
     const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
-    const [earthquakeData, setEarthquakeData] = useState<any[]>([]);
+    const [selectedListLocation, setSelectedListLocation] = useState<any | null>(null);
 
     useEffect(() => {
-        const fetchEarthquakesForLocations = async () => {
-            for (const location of favorites) {
-                const params = {
-                    latitude: location.lat,
-                    longitude: location.lng,
-                    maxradius: location.radius,
-                    limit: 1,
-                };
+        fetchLocations();
+    }, []);
 
-                try {
-                    const data = await getEarthquakes(params);
+    const fetchLocations = async () => {
+        setLocations([
+            {
+                id: 1,
+                name: 'Mount Everest',
+                description: 'The highest mountain in the world.',
+                latitude: 27.9881,
+                longitude: 86.925,
+                radius: 50,
+                photo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTZHJIaBb3hzk9G_HwvHqlKhboXwi9BocaUjQ&s',
+            },
+        ]);
+        return;
 
-                    if (data.features && data.features.length > 0) {
-                        const maxMagEarthquake = data.features.reduce((max: any, current: any) =>
-                            current.properties.mag > max.properties.mag ? current : max,
-                        );
-                        setEarthquakeData((prevData) => [
-                            ...prevData,
-                            { locationId: location.id, earthquake: maxMagEarthquake },
-                        ]);
-                    } else {
-                        setEarthquakeData((prevData) => [...prevData, { locationId: location.id, earthquake: null }]);
-                    }
-                } catch (error) {
-                    console.error('Error fetching earthquakes:', error);
-                }
-            }
-        };
-
-        fetchEarthquakesForLocations();
-    }, [favorites]);
-
-    const handleSaveLocation = (locationData: any) => {
-        if (selectedLocation) {
-            updateFavorite(selectedLocation.id, locationData);
-        } else {
-            addFavorite({
-                id: Date.now().toString(),
-                name: locationData.locationName,
-                lat: 0,
-                lng: 0,
-                disaster: 'Flood',
-                dangerLevel: 'low',
-                photo: locationData.photo || locationImage,
-                radius: locationData.radius,
-            });
+        try {
+            const res = await api.get('/natural_phenomenon_locations');
+            const data = res.data;
+            setLocations(data);
+        } catch (e) {
+            console.error('Error fetching locations:', e);
         }
-        setIsModalOpen(false);
     };
 
-    const handleEditLocation = (fav: any) => {
-        setSelectedLocation(fav);
+    const createLocation = async (location: LocationFormValues) => {
+        if (!user) {
+            return;
+        }
+
+        try {
+            await api.post('/natural_phenomenon_locations', {
+                user_id: user.id,
+                name: location.name,
+                description: location.description,
+                latitude: location.latitude,
+                longitude: location.longitude,
+            });
+            fetchLocations();
+        } catch (e) {
+            console.error('Error creating location:', e);
+        }
+    };
+
+    const editLocation = async (location: LocationFormValues) => {
+        if (!selectedLocation) {
+            return;
+        }
+
+        try {
+            await api.put(`/natural_phenomenon_locations/${selectedLocation.id}`, {
+                name: location.name,
+                description: location.description,
+                latitude: location.latitude,
+                longitude: location.longitude,
+            });
+            fetchLocations();
+        } catch (e) {
+            console.error('Error editing location:', e);
+        } finally {
+            setSelectedLocation(null);
+        }
+    };
+
+    const deleteLocation = async () => {
+        if (!selectedLocation) {
+            return;
+        }
+
+        try {
+            await api.delete(`/natural_phenomenon_locations/${selectedLocation.id}`);
+            fetchLocations();
+        } catch (e) {
+            console.error('Error deleting location:', e);
+        } finally {
+            setSelectedLocation(null);
+        }
+    };
+
+    const handleSaveClick = async (location: LocationFormValues) => {
+        setIsModalOpen(false);
+
+        if (selectedLocation) {
+            await editLocation(location);
+        } else {
+            await createLocation(location);
+        }
+    };
+
+    const handleCreateClick = () => {
+        setLocationData(defaultValues);
+        setSelectedLocation(null);
         setIsModalOpen(true);
     };
 
-    const handleDeleteLocation = (id: string) => {
-        removeFavorite(id);
+    const handleEditClick = (location: any) => {
+        setSelectedLocation(location);
+        setLocationData({
+            name: location.name,
+            description: location.description,
+            photo: undefined,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            radius: location.radius,
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleDeleteClick = (location: any) => {
+        setSelectedLocation(location);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleTabChange = (value: string) => {
+        if (value === 'card') {
+            setSelectedListLocation(null);
+        } else {
+            if (locations && locations.length > 0) {
+                setSelectedListLocation(locations[0]);
+            }
+        }
+
+        setSelectedTab(value);
     };
 
     return (
         <div className="h-full w-full flex flex-col">
-            <div className="flex justify-center items-center mb-4 w-full sticky top-0 bg-white z-10 shadow-md py-4">
-                <h1 className="text-2xl font-bold text-center mt-2">Favorite Locations</h1>
+            <div className="border-b p-2 flex justify-between items-center bg-sidebar">
+                <Button
+                    variant="outline"
+                    onClick={handleCreateClick}
+                >
+                    New location <PlusIcon />
+                </Button>
+                <Tabs
+                    defaultValue="card"
+                    value={selectedTab}
+                    onValueChange={handleTabChange}
+                >
+                    <TabsList>
+                        <TabsTrigger value="card">
+                            <LayoutGrid />
+                        </TabsTrigger>
+                        <TabsTrigger value="map">
+                            <LayoutPanelLeftIcon />
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
             </div>
+            {selectedTab === 'card' ? (
+                <React.Fragment>
+                    {!locations || locations.length <= 0 ? (
+                        <div className="h-full mx-auto flex flex-col items-center justify-center">
+                            <h1 className="text-lg font-semibold text-gray-500 dark:text-gray-50">
+                                No locations found
+                            </h1>
+                        </div>
+                    ) : (
+                        <div className="h-full overflow-y-scroll">
+                            <div className="container mx-auto grid-cols-1 xl:grid-cols-2 grid gap-4 p-4">
+                                {locations.map((location: any, index: number) => (
+                                    <LocationCard
+                                        key={index}
+                                        location={location}
+                                        onEdit={handleEditClick}
+                                        onDelete={handleDeleteClick}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </React.Fragment>
+            ) : (
+                <div className="h-full w-full flex">
+                    <Map
+                        location={
+                            selectedListLocation
+                                ? [selectedListLocation.latitude, selectedListLocation.longitude]
+                                : undefined
+                        }
+                        locationRadius={selectedListLocation ? selectedListLocation.radius : undefined}
+                        locationZoom={7}
+                    />
+                    <div className="flex flex-col w-[600px] gap-2 bg-sidebar">
+                        <LocationList
+                            selected={selectedListLocation}
+                            onChange={(location) => {
+                                if (selectedListLocation && selectedListLocation.id === location.id) {
+                                    setSelectedListLocation(null);
+                                    return;
+                                }
 
-            <div className="flex justify-center mb-4 w-full sticky top-0 bg-white z-10 shadow-md py-4">
-                <AddButton onClick={() => setIsModalOpen(true)} />
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 w-full">
-                {favorites.length === 0 ? (
-                    <p className="text-gray-500 text-center">You haven’t added any favorite locations yet.</p>
-                ) : (
-                    <ul className="w-full space-y-4">
-                        {favorites.map((fav) => {
-                            const earthquake = earthquakeData.find((data) => data.locationId === fav.id);
-                            return (
-                                <LocationCard
-                                    key={fav.id}
-                                    locationName={fav.name}
-                                    weather="Sunny"
-                                    temperature="20°C"
-                                    disaster={fav.disaster}
-                                    riskLevel={`Risk: ${fav.dangerLevel}`}
-                                    photo={fav.photo}
-                                    earthquake={earthquake ? earthquake.earthquake : null}
-                                    onEdit={() => handleEditLocation(fav)}
-                                    onDelete={() => handleDeleteLocation(fav.id)}
-                                    lat={fav.lat}
-                                    lng={fav.lng}
-                                    radius={fav.radius}
-                                />
-                            );
-                        })}
-                    </ul>
-                )}
-            </div>
+                                setSelectedListLocation(location);
+                            }}
+                            onEdit={handleEditClick}
+                            onDelete={handleDeleteClick}
+                        />
+                    </div>
+                </div>
+            )}
 
             <LocationModal
                 open={isModalOpen}
                 onOpenChange={setIsModalOpen}
-                defaultValues={{
-                    name: '',
-                    photo: undefined,
-                    latitude: 51.477928,
-                    longitude: -0.001545,
-                    radius: 25,
-                }}
-                onSubmit={(data) => {
-                    console.log('Location data:', data);
-                    setIsModalOpen(false);
-                }}
+                defaultValues={defaultValues}
+                values={locationData}
+                onSubmit={handleSaveClick}
             />
-
-            {/* <Modal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSave={handleSaveLocation}
-                existingLocation={selectedLocation}
-            /> */}
+            <DeleteModal
+                title={selectedLocation ? `Delete "${selectedLocation.name}"` : ''}
+                description="Are you sure you want to delete this location?"
+                open={isDeleteModalOpen}
+                onOpenChange={setIsDeleteModalOpen}
+                onDelete={deleteLocation}
+            />
         </div>
     );
 }
+
+export default Locations;

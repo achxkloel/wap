@@ -134,6 +134,10 @@ function Filters(props: FiltersProps) {
 
     useEffect(() => {
         fetchEnums();
+
+        // return () => {
+        //     form.reset();
+        // };
     }, []);
 
     useEffect(() => {

@@ -24,3 +24,13 @@ export const numberPreprocess = (val: unknown) => {
 
     return parsed;
 };
+
+export const getCurrentLocation = () => {
+    return new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!('geolocation' in navigator)) {
+            return reject(new Error('Geolocation is not supported by this browser.'));
+        }
+
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+    });
+};

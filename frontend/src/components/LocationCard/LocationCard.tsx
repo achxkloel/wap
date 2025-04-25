@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { faTrashAlt, faPenToSquare } from '@fortawesome/free-solid-svg-icons';
+import locationImage from '@/assets/location.png';
 import Button from '@/components/Button/Button';
 import styles from '@/components/LocationCard/LocationCard.module.scss';
-import locationImage from '@/assets/location.png';
-import { EarthquakeData, EarthquakeProperties } from '@/lib/data/getEarthquakes';
-import getEarthquakes from '@/lib/data/getEarthquakes';
+import getEarthquakes, { EarthquakeData, EarthquakeProperties } from '@/lib/data/getEarthquakes';
+import { faPenToSquare, faTrashAlt } from '@fortawesome/free-solid-svg-icons';
+import React, { useEffect, useState } from 'react';
 
 interface LocationCardProps {
     locationName: string;
@@ -14,8 +13,8 @@ interface LocationCardProps {
     riskLevel: string;
     photo: string | null | undefined;
     earthquake: any;
-    onEdit: () => void;
-    onDelete: () => void;
+    onEdit?: () => void;
+    onDelete?: () => void;
     lat: number;
     lng: number;
     radius: number;

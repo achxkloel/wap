@@ -5,15 +5,18 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import useMapStore, { CircleCoordinates } from '@/lib/store/map';
-import { numberPreprocess } from '@/lib/utils';
+import { getCurrentLocation, numberPreprocess } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2Icon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 const formSchema = z.object({
     name: z.string().min(1, 'Name is required'),
+    description: z.string().optional(),
     photo: z
         .instanceof(File)
         .refine((file) => file.size < 5000000, {
@@ -36,6 +39,7 @@ interface LocationModalProps {
 }
 
 function LocationModal(props: LocationModalProps) {
+    const [locationLoading, setLocationLoading] = useState(false);
     const [selectedTab, setSelectedTab] = useState<string>('information');
     const drawEnabled = useMapStore((state) => state.draw);
     const drawCoordinates = useMapStore((state) => state.coordinates);
@@ -52,13 +56,20 @@ function LocationModal(props: LocationModalProps) {
     const radius = form.watch('radius');
 
     useEffect(() => {
+        if (!props.open) {
+            form.reset();
+            setSelectedTab('information');
+        }
+    }, [props.open]);
+
+    useEffect(() => {
         if (!drawEnabled) {
             setSelectedTab('information');
         }
     }, [drawEnabled]);
 
     useEffect(() => {
-        if (drawCoordinates) {
+        if (props.open && drawCoordinates) {
             const coords = drawCoordinates as CircleCoordinates;
             form.setValue('latitude', coords.center[0]);
             form.setValue('longitude', coords.center[1]);
@@ -95,6 +106,21 @@ function LocationModal(props: LocationModalProps) {
                 maxRadius: 100 * 1000,
             });
         }, 1);
+    };
+
+    const useCurrentLocation = () => {
+        setLocationLoading(true);
+
+        getCurrentLocation()
+            .then((position) => {
+                const { latitude, longitude } = position.coords;
+                form.setValue('latitude', latitude);
+                form.setValue('longitude', longitude);
+                form.trigger(['latitude', 'longitude']);
+            })
+            .finally(() => {
+                setLocationLoading(false);
+            });
     };
 
     return (
@@ -141,6 +167,22 @@ function LocationModal(props: LocationModalProps) {
                                     />
                                     <FormField
                                         control={form.control}
+                                        name="description"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Description</FormLabel>
+                                                <FormControl>
+                                                    <Textarea
+                                                        className="resize-none"
+                                                        {...field}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
                                         name="photo"
                                         render={({ field: { value, onChange, ...fieldProps } }) => (
                                             <FormItem>
@@ -166,6 +208,7 @@ function LocationModal(props: LocationModalProps) {
                                         <FormField
                                             control={form.control}
                                             name="latitude"
+                                            disabled={locationLoading}
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormControl>
@@ -182,6 +225,7 @@ function LocationModal(props: LocationModalProps) {
                                         <FormField
                                             control={form.control}
                                             name="longitude"
+                                            disabled={locationLoading}
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormControl>
@@ -206,6 +250,16 @@ function LocationModal(props: LocationModalProps) {
                                         }}
                                     >
                                         Select on map
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full"
+                                        type="button"
+                                        onClick={useCurrentLocation}
+                                        disabled={locationLoading}
+                                    >
+                                        {locationLoading && <Loader2Icon className="animate-spin" />}
+                                        Use current position
                                     </Button>
                                     <FormField
                                         control={form.control}
@@ -233,7 +287,7 @@ function LocationModal(props: LocationModalProps) {
                             </TabsContent>
                             <TabsContent value="map">
                                 <div className="h-[500px] w-[600px]">
-                                    <Map />
+                                    <Map showDraw={true} />
                                 </div>
                             </TabsContent>
                         </Tabs>

@@ -10,16 +10,26 @@ import MapLocation from './MapLocation';
 interface MapProps {
     location?: L.LatLngExpression;
     locationZoom?: number;
+    locationRadius?: number;
     animate?: boolean;
     showLayers?: boolean;
     showLegend?: boolean;
+    showDraw?: boolean;
 }
 
-function Map({ location, locationZoom, animate, showLayers = false, showLegend = false }: MapProps) {
+function Map({
+    location,
+    locationZoom,
+    locationRadius,
+    animate,
+    showLayers = false,
+    showLegend = false,
+    showDraw = false,
+}: MapProps) {
     return (
         <MapContainer
-            center={[51.505, -0.09]}
-            zoom={13}
+            center={[0, 0]}
+            zoom={3}
             className="h-full w-full"
             preferCanvas={true}
         >
@@ -33,8 +43,9 @@ function Map({ location, locationZoom, animate, showLayers = false, showLegend =
                 location={location}
                 zoom={locationZoom}
                 animate={animate}
+                radius={locationRadius}
             />
-            <Draw />
+            {showDraw && <Draw />}
             {showLayers && <MapLayers />}
             {showLegend && <Legend />}
         </MapContainer>

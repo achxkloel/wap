@@ -26,7 +26,7 @@ interface MenuItem {
 
 const items: MenuItem[] = [
     { label: 'Weather', url: '/', icon: CloudSunIcon },
-    { label: 'Locations', url: '/locations', icon: MapPinIcon },
+    { label: 'Locations', url: '/locations', icon: MapPinIcon, protected: true },
     { label: 'Map', url: '/map', icon: MapIcon },
     { label: 'Settings', url: '/settings', icon: SettingsIcon, protected: true },
 ];

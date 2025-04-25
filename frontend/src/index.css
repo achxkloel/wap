@@ -92,10 +92,18 @@ body {
 
 /* Map base */
 
-.leaflet-control-zoom-in,
+/* .leaflet-control-zoom-in,
 .leaflet-control-zoom-out {
-    border: 2px solid rgba(0, 0, 0, 0.2);
-    background-clip: padding-box;
+  border: 1px solid rgba(0,0,0,0.2);
+  background-clip: padding-box;
+} */
+
+.leaflet-control-zoom {
+  border-color: rgba(0,0,0,0.2) !important;
+}
+
+html.dark .leaflet-control-zoom {
+  border-color: rgba(255,255,255,0.2) !important;
 }
 
 /* Map dark theme */

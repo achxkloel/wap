@@ -100,6 +100,7 @@ async fn app_router(app: AppState) -> OpenApiRouter {
     let natural_phenomenon_location_router =
         backend::routes::natural_phenomenon_locations::handlers::router(app.clone());
     let weather_location_router = backend::routes::weather_locations::handlers::router(app.clone());
+    let uploads_router = backend::routes::uploads::handlers::router(app.clone());
 
     let router = OpenApiRouter::with_openapi(ApiDoc::openapi());
 
@@ -108,6 +109,7 @@ async fn app_router(app: AppState) -> OpenApiRouter {
         .merge(auth_router)
         .merge(weather_location_router)
         .merge(natural_phenomenon_location_router)
+        .merge(uploads_router)
         .layer(prepare_cors())
 }
 
@@ -202,7 +204,9 @@ async fn main() {
         .with_default_directive(Level::DEBUG.into())
         .from_env()
         .unwrap()
-        .add_directive("backend=debug".parse().unwrap());
+        .add_directive("backend=debug".parse().unwrap())
+        .add_directive("sqlx=info".parse().unwrap());
+
 
     let _r = tracing_subscriber::fmt::fmt()
         .without_time()

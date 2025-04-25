@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::routes::auth::middlewares::auth;
 use crate::routes::auth::models::UserDb;
 use crate::routes::auth::services::AuthService;
-use crate::routes::natural_phenomenon_locations::models::{CreateAndUpdateResponseSuccess, CreateNaturalPhenomenonLocationInnerWithImage, CreateNaturalPhenomenonLocationRequest, CreateNaturalPhenomenonLocationWithImage, GetAllNaturalPhenomenonLocationResponseSuccess, GetByIdNaturalPhenomenonLocationResponseSuccess, NaturalPhenomenonLocationErrorKind, NaturalPhenomenonResponseSuccess, UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds, UpdateNaturalPhenomenonLocationResponseSuccess};
+use crate::routes::natural_phenomenon_locations::models::{CreateAndUpdateResponseSuccess, CreateNaturalPhenomenonLocationInnerWithImage, CreateNaturalPhenomenonLocationRequest, CreateNaturalPhenomenonLocationWithImage, CreateNaturalPhenomenonLocationWithImage2, GetAllNaturalPhenomenonLocationResponseSuccess, GetByIdNaturalPhenomenonLocationResponseSuccess, NaturalPhenomenonLocationErrorKind, NaturalPhenomenonResponseSuccess, UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds, UpdateNaturalPhenomenonLocationResponseSuccess};
 use crate::routes::natural_phenomenon_locations::services::{
     NaturalPhenomenonLocationService, PgNaturalPhenomenonLocationService,
 };
@@ -74,7 +74,7 @@ where
 #[utoipa::path(
     post,
     path = "/natural_phenomenon_locations",
-    request_body(content = CreateNaturalPhenomenonLocationWithImage, content_type = "multipart/form-data"),
+    request_body(content = CreateNaturalPhenomenonLocationWithImage2, content_type = "multipart/form-data"),
     responses(
         (status = 201, description = "Location created", body = CreateAndUpdateResponseSuccess),
         (status = 500, description = "Internal server error")
@@ -89,59 +89,67 @@ where
     S: NaturalPhenomenonLocationService,
 {
     // 1) pull all fields + image into our DTO
-    let mut dto = CreateNaturalPhenomenonLocationInnerWithImage {
+    let mut dto = CreateNaturalPhenomenonLocationWithImage {
         user_id: user.id,
         name: String::new(),
         latitude: 0.0,
         longitude: 0.0,
         description: String::new(),
-        image_bytes: Vec::new(),
+        image_bytes: vec![],
         image_filename: String::new(),
     };
+    println!("{:?}", dto);
 
-    while let Some(field) = multipart.next_field().await.map_err(|_| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(NaturalPhenomenonLocationErrorKind::DatabaseError),
-        )
-    })? {
-        match field.name().unwrap_or("") {
-            "name" => dto.name = field.text().await.unwrap_or_default(),
+    while let Some(mut field) = multipart
+        .next_field()
+        .await
+        .map_err(|_| {
+            (StatusCode::BAD_REQUEST, Json(NaturalPhenomenonLocationErrorKind::DatabaseError))
+        })?
+    {
+        let name = field.name().unwrap_or_default();
+        println!("name: {}", name);
+        match name {
+            "name" => {
+                dto.name = field.text().await.unwrap_or_default();
+            }
             "latitude" => {
                 dto.latitude = field
                     .text()
                     .await
                     .unwrap_or_default()
-                    .parse()
-                    .unwrap_or(0.0)
+                    .parse::<f64>()
+                    .unwrap_or_default();
             }
             "longitude" => {
                 dto.longitude = field
                     .text()
                     .await
                     .unwrap_or_default()
-                    .parse()
-                    .unwrap_or(0.0)
+                    .parse::<f64>()
+                    .unwrap_or_default();
             }
-            "description" => dto.description = field.text().await.unwrap_or_default(),
+            "description" => {
+                dto.description = field.text().await.unwrap_or_default();
+            }
+            // this branch pulls _both_ the bytes and the filename
             "image" => {
-            //     let bytes = field.bytes().await.unwrap_or_default();
-            //     let filename = field.file_name().unwrap_or("upload");
-            //     dto.image_bytes = bytes.to_vec();
-            //     dto.image_filename = filename.to_string();
-                // **first** grab the filename (borrowing)
-                let filename = field
-                    .file_name()
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| "upload".into());
-                // **then** consume the field by reading its bytes
-                let bytes = field.bytes().await.unwrap_or_default();
-                dto.image_filename = filename;
-                dto.image_bytes = bytes.to_vec();
+                if let Some(filename) = field.file_name() {
+                    dto.image_filename = filename.to_string();
+                }
+                dto.image_bytes = field.bytes().await
+                    .map_err(|_| {
+                        (StatusCode::BAD_REQUEST, Json(NaturalPhenomenonLocationErrorKind::DatabaseError))
+                    })?
+                    .to_vec();
             }
-            _ => {}
+            _ => {
+                // ignore any unexpected fields
+            }
         }
     }
+
+    println!("{:?}", dto);
 
     // 2) hand off to service
     let created = service.create(dto).await?;

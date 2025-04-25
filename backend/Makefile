@@ -8,7 +8,7 @@ run:
 	cargo run
 
 watch-run:
-	cargo watch -x run
+	cargo watch --watch src --watch migrations/ --watch Cargo.toml --exec "run"
 
 migrate:
 	sqlx migrate run

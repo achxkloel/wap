@@ -13,7 +13,7 @@ use uuid::Uuid;
 pub trait NaturalPhenomenonLocationService: Send + Sync + 'static {
     async fn create(
         &self,
-        req: CreateNaturalPhenomenonLocationInnerWithImage
+        req: CreateNaturalPhenomenonLocationWithImage
     ) -> Result<
         CreateAndUpdateResponseSuccess,
         (StatusCode, Json<NaturalPhenomenonLocationErrorKind>),
@@ -55,7 +55,7 @@ impl PgNaturalPhenomenonLocationService {
 impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
     async fn create(
         &self,
-        req: CreateNaturalPhenomenonLocationInnerWithImage,
+        req: CreateNaturalPhenomenonLocationWithImage,
     ) -> Result<
         CreateAndUpdateResponseSuccess,
         (StatusCode, Json<NaturalPhenomenonLocationErrorKind>),

@@ -120,9 +120,27 @@ pub struct CreateNaturalPhenomenonLocationWithImage {
     pub latitude: f64,
     pub longitude: f64,
     pub description: String,
+
     #[schema(format = Binary, content_media_type = "application/octet-stream")]
+    #[serde(with = "serde_bytes")]
     pub image_bytes: Vec<u8>,
+
+    #[schema(example = "photo.jpg")]
     pub image_filename: String,
+}
+
+/// include the raw bytes + original filename
+#[derive(Debug, ToSchema, Deserialize, Serialize)]
+pub struct CreateNaturalPhenomenonLocationWithImage2 {
+    pub user_id: DatabaseId,
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub description: String,
+
+    #[schema(format = Binary, content_media_type = "application/octet-stream")]
+    #[serde(with = "serde_bytes")]
+    pub image: Vec<u8>,
 }
 
 #[derive(Debug, ToSchema, Deserialize, Serialize)]

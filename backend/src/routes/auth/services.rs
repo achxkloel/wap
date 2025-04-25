@@ -1,9 +1,6 @@
 use crate::config::WapSettings;
 use crate::routes::auth::models;
-use crate::routes::auth::models::{
-    AuthError, AuthErrorKind, GoogleUser, LoginSuccess, LoginUserSchema, RegisterUserRequestSchema,
-    TokenClaims, TokenResponse, UserDb,
-};
+use crate::routes::auth::models::{AuthError, AuthErrorKind, GoogleUser, LoginSuccess, LoginUserSchema, RegisterUserRequestSchema, TokenClaims, TokenResponse, UpdateUserInfoRequest, UserDb};
 use crate::routes::auth::utils::hash_password;
 use crate::routes::settings::models::UserSettingsCreate;
 use crate::routes::settings::services::{SettingsService, SettingsServiceImpl};
@@ -71,6 +68,11 @@ pub trait AuthServiceImpl: Send + Sync + 'static + JwtConfigImpl {
         force: bool,
     ) -> Result<(), (StatusCode, Json<AuthErrorKind>)>;
     async fn delete_user(&self, user_id: DatabaseId) -> Result<(), (StatusCode, Json<AuthError>)>;
+    async fn update_user_info(
+        &self,
+        user_id: DatabaseId,
+        req: UpdateUserInfoRequest,
+    ) -> Result<UserDb, (StatusCode, Json<AuthErrorKind>)>;
 }
 
 #[derive(Clone)]
@@ -111,7 +113,7 @@ impl JwtConfigImpl for AuthService {
             &claims,
             &EncodingKey::from_secret(secret),
         )
-        .unwrap()
+            .unwrap()
     }
 }
 
@@ -153,15 +155,15 @@ impl AuthServiceImpl for AuthService {
             "SELECT * FROM users WHERE email = $1",
             request.email.to_ascii_lowercase()
         )
-        .fetch_optional(&self.db)
-        .await
-        .map_err(|_| {
-            // database error
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(AuthErrorKind::DatabaseError),
-            )
-        })? {
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|_| {
+                // database error
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(AuthErrorKind::DatabaseError),
+                )
+            })? {
             // user exists → just return it
             return Ok(user);
         }
@@ -183,14 +185,14 @@ impl AuthServiceImpl for AuthService {
             request.email.to_ascii_lowercase(),
             hashed
         )
-        .fetch_one(&self.db)
-        .await
-        .map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(AuthErrorKind::DatabaseError),
-            )
-        })?;
+            .fetch_one(&self.db)
+            .await
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(AuthErrorKind::DatabaseError),
+                )
+            })?;
 
         // 3) bootstrap default settings for them
         let settings_svc = SettingsService::new(self.db.clone(), self.settings.clone());
@@ -237,12 +239,12 @@ impl AuthServiceImpl for AuthService {
             &DecodingKey::from_secret(self.settings.jwt_secret.as_ref()),
             &Validation::default(),
         )
-        .map_err(|_| {
-            let err = AuthError {
-                message: "Invalid token".to_string(),
-            };
-            (StatusCode::UNAUTHORIZED, Json(err))
-        })?;
+            .map_err(|_| {
+                let err = AuthError {
+                    message: "Invalid token".to_string(),
+                };
+                (StatusCode::UNAUTHORIZED, Json(err))
+            })?;
 
         Ok(token_data.claims)
     }
@@ -337,6 +339,33 @@ impl AuthServiceImpl for AuthService {
         Ok(user)
     }
 
+    async fn update_user_info(
+        &self,
+        user_id: DatabaseId,
+        req: UpdateUserInfoRequest,
+    ) -> Result<UserDb, (StatusCode, Json<AuthErrorKind>)> {
+        let rec = sqlx::query_as!(
+            UserDb,
+            r#"
+            UPDATE users
+            SET
+                first_name  = COALESCE($1, first_name),
+                last_name   = COALESCE($2, last_name),
+                updated_at  = NOW()
+            WHERE id = $3
+            RETURNING *
+            "#,
+            req.first_name,
+            req.last_name,
+            user_id.0,
+        )
+            .fetch_one(&self.db)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(AuthErrorKind::DatabaseError)))?;
+
+        Ok(rec)
+    }
+
     async fn change_password(
         &self,
         user_id: DatabaseId,
@@ -382,11 +411,11 @@ impl AuthServiceImpl for AuthService {
             new_hash,
             user_id.0
         )
-        .execute(&self.db)
-        .await
-        .map_err(|e| {
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(AuthErrorKind::DatabaseError))
-        })?;
+            .execute(&self.db)
+            .await
+            .map_err(|e| {
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(AuthErrorKind::DatabaseError))
+            })?;
 
         Ok(())
     }

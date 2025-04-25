@@ -1,14 +1,12 @@
 use crate::shared::models::DatabaseId;
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::error::Error;
 use std::fmt;
 use std::fmt::{Display, Pointer};
 use std::str::FromStr;
-use axum::http::StatusCode;
-use axum::Json;
-use axum::response::IntoResponse;
-use mockall::Any;
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, PartialEq, Eq, FromRow, Serialize, Deserialize, ToSchema)]
@@ -65,7 +63,7 @@ pub struct UserData {
     pub provider: Option<String>,
 
     /// Optional Google OAuth ID
-    pub google_id: Option<String>,
+    // pub google_id: Option<String>,
 
     /// When the row was created
     pub created_at: chrono::DateTime<chrono::Utc>,
@@ -290,7 +288,8 @@ where
         let (status, body) = match self {
             AuthSuccessKind::UserCreated(s, b) | AuthSuccessKind::Created(s, b) => (s, b),
         };
-        let json = serde_json::to_string(&body).unwrap_or_else(|_| {;
+        let json = serde_json::to_string(&body).unwrap_or_else(|_| {
+            ;
             // if we can't serialize the body, just return a generic error
             serde_json::to_string(&AuthError::new("Internal server error - Can not create body")).unwrap()
         });
@@ -335,4 +334,16 @@ pub struct ChangePasswordRequest {
     pub current_password: String,
     /// The new password to set
     pub new_password: String,
+}
+
+
+/// Payload for updating a user's profile.
+/// All fields are optional; any `None` will leave the existing value unchanged.
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct UpdateUserInfoRequest {
+    /// Optional first name
+    pub first_name: Option<String>,
+
+    /// Optional last name
+    pub last_name: Option<String>,
 }

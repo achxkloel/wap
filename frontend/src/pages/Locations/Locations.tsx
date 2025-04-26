@@ -38,22 +38,24 @@ function Locations() {
     }, []);
 
     const fetchLocations = async () => {
-        setLocations([
-            {
-                id: 1,
-                name: 'Mount Everest',
-                description: 'The highest mountain in the world.',
-                latitude: 27.9881,
-                longitude: 86.925,
-                radius: 50,
-                photo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTZHJIaBb3hzk9G_HwvHqlKhboXwi9BocaUjQ&s',
-            },
-        ]);
-        return;
-
         try {
             const res = await api.get('/natural_phenomenon_locations');
             const data = res.data;
+
+            for (let i = 0; i < data.length; i++) {
+                if (data[i].image_path) {
+                    const image_path = `${api.defaults.baseURL}/${data[i].image_path}`;
+
+                    const response = await api.get(image_path, {
+                        responseType: 'blob',
+                    });
+
+                    const imageBlob = response.data;
+                    const imageObjectURL = URL.createObjectURL(imageBlob);
+                    data[i].image = imageObjectURL;
+                }
+            }
+
             setLocations(data);
         } catch (e) {
             console.error('Error fetching locations:', e);
@@ -65,14 +67,24 @@ function Locations() {
             return;
         }
 
+        const formData = new FormData();
+        formData.append('user_id', user.id.toString());
+        formData.append('name', location.name);
+        formData.append('description', location.description);
+        formData.append('latitude', location.latitude.toString());
+        formData.append('longitude', location.longitude.toString());
+
+        if (location.photo) {
+            formData.append('image', location.photo);
+        }
+
         try {
-            await api.post('/natural_phenomenon_locations', {
-                user_id: user.id,
-                name: location.name,
-                description: location.description,
-                latitude: location.latitude,
-                longitude: location.longitude,
+            await api.post('/natural_phenomenon_locations', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
             });
+
             fetchLocations();
         } catch (e) {
             console.error('Error creating location:', e);
@@ -96,6 +108,7 @@ function Locations() {
             console.error('Error editing location:', e);
         } finally {
             setSelectedLocation(null);
+            setSelectedListLocation(null);
         }
     };
 
@@ -111,6 +124,8 @@ function Locations() {
             console.error('Error deleting location:', e);
         } finally {
             setSelectedLocation(null);
+            setSelectedListLocation(null);
+            setIsDeleteModalOpen(false);
         }
     };
 
@@ -138,7 +153,7 @@ function Locations() {
             photo: undefined,
             latitude: location.latitude,
             longitude: location.longitude,
-            radius: location.radius,
+            radius: 25,
         });
         setIsModalOpen(true);
     };
@@ -242,6 +257,7 @@ function Locations() {
                 defaultValues={defaultValues}
                 values={locationData}
                 onSubmit={handleSaveClick}
+                edit={!!selectedLocation}
             />
             <DeleteModal
                 title={selectedLocation ? `Delete "${selectedLocation.name}"` : ''}

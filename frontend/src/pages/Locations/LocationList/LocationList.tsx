@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import useLocationStore from '@/lib/store/location';
 import { cn } from '@/lib/utils';
 import { PencilIcon, Trash2Icon } from 'lucide-react';
+import { useState } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 
 interface LocationListProps {
@@ -12,6 +13,7 @@ interface LocationListProps {
 }
 
 function LocationList({ selected, onChange, onEdit, onDelete }: LocationListProps) {
+    const [hover, setHover] = useState<number | null>(null);
     const locations = useLocationStore((state) => state.locations);
 
     if (!locations || locations.length <= 0) {
@@ -37,10 +39,12 @@ function LocationList({ selected, onChange, onEdit, onDelete }: LocationListProp
                                 ? 'bg-blue-100 dark:bg-sidebar-primary'
                                 : 'hover:bg-muted',
                         )}
+                        onMouseEnter={() => setHover(location.id)}
+                        onMouseLeave={() => setHover(null)}
                     >
                         <div className="flex-shrink-0">
                             <img
-                                src={location.photo ?? undefined}
+                                src={location.image || undefined}
                                 alt={location.name}
                                 className="w-16 h-16 rounded-md object-cover"
                             />
@@ -50,36 +54,38 @@ function LocationList({ selected, onChange, onEdit, onDelete }: LocationListProp
                                 <h2 className="text-md font-semibold text-ellipsis overflow-hidden whitespace-nowrap">
                                     {location.name}
                                 </h2>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="p-2 dark:hover:bg-black"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
+                                {hover == location.id && (
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="p-2 dark:hover:bg-black"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
 
-                                            if (onEdit) {
-                                                onEdit(location);
-                                            }
-                                        }}
-                                    >
-                                        <PencilIcon className="size-4" />
-                                    </Button>
-                                    <Button
-                                        variant="destructive"
-                                        size="icon"
-                                        className="p-2"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
+                                                if (onEdit) {
+                                                    onEdit(location);
+                                                }
+                                            }}
+                                        >
+                                            <PencilIcon className="size-4" />
+                                        </Button>
+                                        <Button
+                                            variant="destructive"
+                                            size="icon"
+                                            className="p-2"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
 
-                                            if (onDelete) {
-                                                onDelete(location);
-                                            }
-                                        }}
-                                    >
-                                        <Trash2Icon className="size-4" />
-                                    </Button>
-                                </div>
+                                                if (onDelete) {
+                                                    onDelete(location);
+                                                }
+                                            }}
+                                        >
+                                            <Trash2Icon className="size-4" />
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
                             <p className="text-sm text-gray-500 dark:text-gray-50 text-ellipsis overflow-hidden whitespace-nowrap">
                                 {location.description}

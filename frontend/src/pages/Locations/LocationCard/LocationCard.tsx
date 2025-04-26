@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { PencilIcon, Trash2Icon } from 'lucide-react';
-import { useState } from 'react';
+import { ClipboardIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface LocationCardProps {
     location: any;
@@ -10,6 +10,14 @@ interface LocationCardProps {
 
 function LocationCard({ location, onEdit, onDelete }: LocationCardProps) {
     const [hover, setHover] = useState(false);
+    const [copySuccess, setCopySuccess] = useState(false);
+    let copyTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    useEffect(() => {
+        return () => {
+            if (copyTimeout) clearTimeout(copyTimeout);
+        };
+    }, []);
 
     return (
         <div
@@ -19,7 +27,7 @@ function LocationCard({ location, onEdit, onDelete }: LocationCardProps) {
         >
             <div className="flex-shrink-0">
                 <img
-                    src={location.photo ?? undefined}
+                    src={location.image || undefined}
                     alt={location.name}
                     className="w-[200px] h-[200px] rounded-md object-cover"
                 />
@@ -68,8 +76,23 @@ function LocationCard({ location, onEdit, onDelete }: LocationCardProps) {
                     </div>
 
                     <div>
-                        <div>
-                            {location.latitude}, {location.longitude}
+                        <div className="flex items-center gap-2">
+                            {location.latitude.toFixed(2)}, {location.longitude.toFixed(2)}{' '}
+                            <ClipboardIcon
+                                className="w-6 h-6 hover:bg-muted cursor-pointer p-1 rounded"
+                                onClick={() => {
+                                    if (!('clipboard' in navigator)) {
+                                        return;
+                                    }
+
+                                    if (copyTimeout) clearTimeout(copyTimeout);
+                                    setCopySuccess(true);
+                                    copyTimeout = setTimeout(() => setCopySuccess(false), 1000);
+
+                                    navigator.clipboard.writeText(`${location.latitude}, ${location.longitude}`);
+                                }}
+                            />
+                            {copySuccess && <span className="text-gray-500 dark:text-gray-50 text-sm">Copied!</span>}
                         </div>
                         <div>{location.radius} km</div>
                         <div></div>

@@ -16,7 +16,7 @@ import { z } from 'zod';
 
 const formSchema = z.object({
     name: z.string().min(1, 'Name is required'),
-    description: z.string().optional(),
+    description: z.string(),
     photo: z
         .instanceof(File)
         .refine((file) => file.size < 5000000, {
@@ -36,6 +36,7 @@ interface LocationModalProps {
     values?: LocationFormValues;
     defaultValues: LocationFormValues;
     onSubmit?: (location: LocationFormValues) => void;
+    edit?: boolean;
 }
 
 function LocationModal(props: LocationModalProps) {
@@ -181,28 +182,29 @@ function LocationModal(props: LocationModalProps) {
                                             </FormItem>
                                         )}
                                     />
-                                    <FormField
-                                        control={form.control}
-                                        name="photo"
-                                        render={({ field: { value, onChange, ...fieldProps } }) => (
-                                            <FormItem>
-                                                <FormLabel>Photo</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        {...fieldProps}
-                                                        placeholder="Choose a file"
-                                                        type="file"
-                                                        accept="image/*"
-                                                        onChange={(event) =>
-                                                            onChange(event.target.files && event.target.files[0])
-                                                        }
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-
+                                    {!props.edit && (
+                                        <FormField
+                                            control={form.control}
+                                            name="photo"
+                                            render={({ field: { value, onChange, ...fieldProps } }) => (
+                                                <FormItem>
+                                                    <FormLabel>Photo</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            {...fieldProps}
+                                                            placeholder="Choose a file"
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={(event) =>
+                                                                onChange(event.target.files && event.target.files[0])
+                                                            }
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    )}
                                     <FormItem>
                                         <FormLabel>Cooridnates</FormLabel>
                                         <FormField

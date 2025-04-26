@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
 import api from '@/lib/api';
 import { logger } from '@/lib/logger';
 import useAuthStore from '@/lib/store/auth';
@@ -28,6 +29,7 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
     const [confirm, setConfirm] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const { toast } = useToast();
 
     useEffect(() => {
         if (open) {
@@ -81,6 +83,11 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
     const handleSubmit = async () => {
         setError('');
 
+        if (mode === 'register' && password.length < 8) {
+            setError('Password must be at least 8 characters long');
+            return;
+        }
+
         if (mode === 'register' && password !== confirm) {
             setError('Passwords do not match');
             return;
@@ -98,10 +105,14 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
             if (mode === 'login') {
                 await login(data.access_token, data.refresh_token);
             } else {
-                setMode('login');
-                setEmail('');
-                setPassword('');
-                setConfirm('');
+                toast({
+                    title: 'Registration successful',
+                    description: 'You can now log in with your credentials.',
+                });
+
+                if (onOpenChange) {
+                    onOpenChange(false);
+                }
             }
         } catch (err) {
             logger.error('Login/Register error:', err);
@@ -117,8 +128,9 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
             onOpenChange={onOpenChange}
         >
             <DialogContent className="sm:max-w-[450px]">
+                <DialogTitle className="hidden" />
                 <Card className="w-full shadow-none border-0">
-                    <CardHeader className="pb-2">
+                    <CardHeader className="pb-4">
                         <CardTitle className="text-2xl font-semibold">
                             {mode === 'login' ? 'Login' : 'Register'}
                         </CardTitle>
@@ -182,7 +194,10 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
                                 <Button
                                     variant="ghost"
                                     type="button"
-                                    onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+                                    onClick={() => {
+                                        setError('');
+                                        setMode(mode === 'login' ? 'register' : 'login');
+                                    }}
                                 >
                                     {mode === 'login' ? 'Switch to Register' : 'Switch to Login'}
                                 </Button>

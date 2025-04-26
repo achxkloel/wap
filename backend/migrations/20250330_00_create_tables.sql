@@ -6,10 +6,8 @@ create table users
     first_name    varchar(100)          default null,
     last_name     varchar(100)          default null,
     image_url     varchar(255)          default null,
-
     provider      varchar(255)          default null,
     google_id     varchar(255) unique   default null,
-
     created_at    timestamptz  not null default now(),
     updated_at    timestamptz  not null default now()
 );
@@ -19,12 +17,12 @@ create type theme as enum ('dark', 'light');
 create table settings
 (
     id                    serial primary key,
-    user_id               integer references users (id) on delete set null, -- Can be null when user deletes account
-    theme                 theme       default 'light',
-    notifications_enabled boolean     default true,
-    radius                integer     default 50,
-    created_at            timestamptz default now(),
-    updated_at            timestamptz default now()
+    user_id               integer references users (id) on delete set null default null, -- Can be null when user deletes account
+    theme                 theme          not null                                  default 'light',
+    notifications_enabled boolean                                          default true,
+    radius                integer                                          default 50,
+    created_at            timestamptz                                      default now(),
+    updated_at            timestamptz                                      default now()
 );
 
 
@@ -35,6 +33,7 @@ create table natural_phenomenon_locations
     name        varchar(100)     not null,
     latitude    double precision not null,
     longitude   double precision not null,
+    image_path  varchar(255)     not null default '',
     description text             not null default '',
     created_at  timestamptz      not null default now(),
     updated_at  timestamptz      not null default now()

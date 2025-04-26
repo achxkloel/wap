@@ -89,9 +89,9 @@ pub mod tests {
             email,
             hashed_password
         )
-            .fetch_one(&pool)
-            .await
-            .expect("Failed to insert test user");
+        .fetch_one(&pool)
+        .await
+        .expect("Failed to insert test user");
 
         // Reuse login logic (without password hashing here for simplicity)
         let now = chrono::Utc::now();

@@ -17,6 +17,7 @@ use tokio::fs;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
+/// Fetch all uploaded photos for the current user.
 #[utoipa::path(
     get,
     path = "/uploads",
@@ -33,10 +34,14 @@ where
 {
     match service.list_photos().await {
         Ok(photos) => Ok((StatusCode::OK, Json(photos))),
-        Err(_) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(UploadError::NotFound))),
+        Err(_) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(UploadError::NotFound),
+        )),
     }
 }
 
+/// Fetch a single uploaded photo by its filename.
 #[utoipa::path(
     get,
     path = "/uploads/{filename}",
@@ -93,4 +98,3 @@ pub fn router(app: AppState) -> OpenApiRouter {
     });
     router_with_service(app, uploads_service)
 }
-

@@ -4,7 +4,14 @@ use std::sync::Arc;
 use crate::routes::auth::middlewares::auth;
 use crate::routes::auth::models::UserDb;
 use crate::routes::auth::services::AuthService;
-use crate::routes::natural_phenomenon_locations::models::{CreateAndUpdateResponseSuccess, CreateNaturalPhenomenonLocationInnerWithImage, CreateNaturalPhenomenonLocationRequest, GetAllNaturalPhenomenonLocationResponseSuccess, GetByIdNaturalPhenomenonLocationResponseSuccess, NaturalPhenomenonLocationError, NaturalPhenomenonLocationResponseSuccess, PostNaturalPhenomenonLocationSchema, PostNaturalPhenomenonLocationService, UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds, UpdateNaturalPhenomenonLocationResponseSuccess};
+use crate::routes::natural_phenomenon_locations::models::{
+    CreateAndUpdateResponseSuccess, CreateNaturalPhenomenonLocationInnerWithImage,
+    CreateNaturalPhenomenonLocationRequest, GetAllNaturalPhenomenonLocationResponseSuccess,
+    GetByIdNaturalPhenomenonLocationResponseSuccess, NaturalPhenomenonLocationError,
+    NaturalPhenomenonLocationResponseSuccess, PostNaturalPhenomenonLocationSchema,
+    PostNaturalPhenomenonLocationService, UpdateNaturalPhenomenonLocationRequest,
+    UpdateNaturalPhenomenonLocationRequestWithIds, UpdateNaturalPhenomenonLocationResponseSuccess,
+};
 use crate::routes::natural_phenomenon_locations::services::{
     NaturalPhenomenonLocationService, NaturalPhenomenonLocationServiceImpl,
 };
@@ -22,6 +29,7 @@ struct ErrorResponse {
     error: String,
 }
 
+/// Fetch all natural phenomenon locations for the current user.
 #[utoipa::path(
     get,
     path = "/natural_phenomenon_locations",
@@ -44,7 +52,7 @@ where
     Ok(Json(locations))
 }
 
-
+/// Fetch a single natural phenomenon location by its ID for the current user.
 #[utoipa::path(
     get,
     path = "/natural_phenomenon_locations/{id}",
@@ -61,16 +69,18 @@ pub async fn get_location_by_id<S>(
     State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
     Path(id): Path<DatabaseId>,
-) -> Result<Json<GetByIdNaturalPhenomenonLocationResponseSuccess>, (StatusCode, Json<NaturalPhenomenonLocationError>)>
+) -> Result<
+    Json<GetByIdNaturalPhenomenonLocationResponseSuccess>,
+    (StatusCode, Json<NaturalPhenomenonLocationError>),
+>
 where
     S: NaturalPhenomenonLocationServiceImpl,
 {
-    let location = service
-        .get_by_id(user.id, id)
-        .await?;
+    let location = service.get_by_id(user.id, id).await?;
     Ok(Json(location))
 }
 
+/// Create a new natural phenomenon location for the current user.
 #[utoipa::path(
     post,
     path = "/natural_phenomenon_locations",
@@ -102,13 +112,12 @@ where
     };
 
     tracing::debug!("processing multipart form data");
-    while let Some(mut field) = multipart
-        .next_field()
-        .await
-        .map_err(|e| {
-            (StatusCode::BAD_REQUEST, Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())))
-        })?
-    {
+    while let Some(mut field) = multipart.next_field().await.map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())),
+        )
+    })? {
         let name = field.name().unwrap_or_default();
         println!("name: {}", name);
         match name {
@@ -147,9 +156,14 @@ where
                 if let Some(filename) = field.file_name() {
                     dto.image_filename = filename.to_string();
                 }
-                dto.image_bytes = field.bytes().await
+                dto.image_bytes = field
+                    .bytes()
+                    .await
                     .map_err(|e| {
-                        (StatusCode::BAD_REQUEST, Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())))
+                        (
+                            StatusCode::BAD_REQUEST,
+                            Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())),
+                        )
                     })?
                     .to_vec();
             }
@@ -166,6 +180,7 @@ where
     Ok((StatusCode::CREATED, Json(created)))
 }
 
+/// Update a natural phenomenon location for the current user.
 #[utoipa::path(
     put,
     path = "/natural_phenomenon_locations/{id}",
@@ -197,14 +212,12 @@ where
         payload,
     };
 
-    let updated = service
-        .update(dto)
-        .await?;
+    let updated = service.update(dto).await?;
 
     Ok(Json(updated))
 }
 
-
+/// Delete a natural phenomenon location for the current user.
 #[utoipa::path(
     delete,
     path = "/natural_phenomenon_locations/{id}",
@@ -227,8 +240,6 @@ where
     // forward straight through — the service already returns the proper Result<Success, Error> tuple
     service.delete(user.id, id).await
 }
-
-// src/routes/natural_phenomenon_location/services/tests.rs
 
 /// Generic router allowing injection of any implementation of the domain service
 pub fn router_with_service<S>(app: AppState, service: Arc<S>) -> OpenApiRouter

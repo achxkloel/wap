@@ -4,30 +4,23 @@ use axum::{
     Json, Router,
 };
 use futures_util::{future, StreamExt};
-use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::future::Future;
-use std::future::IntoFuture;
-use std::process::exit;
 use tokio_util::sync::CancellationToken;
-use tracing::log::LevelFilter;
-use tracing::{Instrument, Level};
+use tracing::Level;
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use backend::config::{WapSettings, WapSettingsImpl};
 use backend::routes::auth::models::{
-    AuthErrorKind, LoginResponse, LoginUserSchema, RegisterUserRequestSchema, RegisterUserSchema,
-    UserData,
+    AuthErrorKind, LoginUserSchema, RegisterUserRequestSchema, RegisterUserSchema, UserData,
 };
 use backend::routes::auth::services::{create_login_response, AuthServiceImpl};
 use backend::shared::models::AppState;
 use tower_http::cors::CorsLayer;
-use tracing_subscriber::filter::Directive;
 use tracing_subscriber::EnvFilter;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::{Modify, OpenApi};
-use utoipa_axum::router::UtoipaMethodRouterExt;
 use utoipa_scalar::{Scalar, Servable};
 
 pub async fn init_db() -> PgPool {
@@ -65,7 +58,7 @@ fn prepare_cors() -> CorsLayer {
                 Method::OPTIONS,
                 Method::HEAD,
             ]
-                .to_vec(),
+            .to_vec(),
         )
         .allow_credentials(true)
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE])
@@ -105,7 +98,8 @@ async fn app_router(app: AppState) -> OpenApiRouter {
     let router = OpenApiRouter::with_openapi(ApiDoc::openapi());
 
     router
-        .merge(setting_router)
+        .nest("/foo", setting_router)
+        // .merge(setting_router)
         .merge(auth_router)
         .merge(weather_location_router)
         .merge(natural_phenomenon_location_router)

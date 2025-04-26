@@ -1,6 +1,7 @@
 use crate::config::WapSettings;
 use crate::routes::settings::models::{
-    Theme, UserSettingsCreate, UserSettingsDb, UserSettingsServiceSuccess, UserSettingsUpdateRequest,
+    Theme, UserSettingsCreate, UserSettingsDb, UserSettingsServiceSuccess,
+    UserSettingsUpdateRequest,
 };
 use crate::shared::models::DatabaseId;
 use anyhow::Result;
@@ -8,29 +9,61 @@ use async_trait::async_trait;
 use mockall::automock;
 use sqlx::PgPool;
 
+/// Core service operations for managing a user’s settings.
+///
+/// Supports fetching, creating, updating, and deleting the settings
+/// record associated with a particular `user_id`.
 #[async_trait]
 #[cfg_attr(test, automock)]
 pub trait SettingsServiceImpl: Send + Sync + 'static {
+    /// Retrieve the settings for the given user.
+    ///
+    /// Returns `Ok(Some(_))` if settings exist, `Ok(None)` if they
+    /// have not yet been created, or an error on failure.
     async fn get_settings(
         &self,
         user_id: &DatabaseId,
     ) -> Result<Option<UserSettingsServiceSuccess>>;
+
+    /// Update the existing settings for the given user.
+    ///
+    /// Fields not provided in `UserSettingsUpdateRequest` will be left unchanged.
+    /// Returns `Ok(())` on success or an error on failure.
     async fn update_settings(
         &self,
         user_id: &DatabaseId,
         settings: &UserSettingsUpdateRequest,
     ) -> Result<()>;
+
+    /// Insert a new settings row for the given user.
+    ///
+    /// Any `None` fields in `UserSettingsCreate` will be replaced by
+    /// sensible defaults (`Theme::Dark`, `true` for notifications,
+    /// `radius = 10`). Returns the full `UserSettingsDb` record.
     async fn create_settings(&self, setting: &UserSettingsCreate) -> Result<UserSettingsDb>;
+
+    /// Delete the settings row for the given user.
+    ///
+    /// If no settings row exists, this is a no-op. Returns `Ok(())`
+    /// on success or an error on failure.
     async fn delete_settings(&self, user_id: &DatabaseId) -> Result<()>;
 }
 
+/// Postgres‐backed implementation of `SettingsServiceImpl`.
+///
+/// Uses `sqlx::PgPool` for all DB operations and reads default
+/// values from the provided `WapSettings` if needed.
 #[derive(Clone)]
 pub struct SettingsService {
+    /// The SQLx Postgres connection pool.
     pub db: PgPool,
+
+    /// Application‐wide defaults (e.g. default radius).
     pub settings: WapSettings,
 }
 
 impl SettingsService {
+    /// Construct a new `SettingsService` with the given DB pool and app settings.
     pub fn new(db: PgPool, settings: WapSettings) -> Self {
         Self { db, settings }
     }
@@ -50,13 +83,13 @@ impl SettingsServiceImpl for SettingsService {
             WHERE user_id = $1
             "#,
         )
-            .bind(user_id.0)
-            .fetch_optional(&self.db)
-            .await
-            .map_err(|e| {
-                tracing::error!("Error fetching settings: {:?}", e);
-                anyhow::anyhow!("Error fetching settings")
-            })?;
+        .bind(user_id.0)
+        .fetch_optional(&self.db)
+        .await
+        .map_err(|e| {
+            tracing::error!("Error fetching settings: {:?}", e);
+            anyhow::anyhow!("Error fetching settings")
+        })?;
 
         Ok(settings)
     }
@@ -110,12 +143,12 @@ impl SettingsServiceImpl for SettingsService {
         RETURNING id, theme, notifications_enabled, radius, user_id, created_at, updated_at
         "#,
         )
-            .bind(setting.user_id.0) // DatabaseId is transparent newtype over i32
-            .bind(theme) // Theme implements sqlx::Type + Encode
-            .bind(notifications_enabled) // bool is Copy + Encode
-            .bind(radius) // i32 is Copy + Encode
-            .fetch_one(&self.db)
-            .await?;
+        .bind(setting.user_id.0) // DatabaseId is transparent newtype over i32
+        .bind(theme) // Theme implements sqlx::Type + Encode
+        .bind(notifications_enabled) // bool is Copy + Encode
+        .bind(radius) // i32 is Copy + Encode
+        .fetch_one(&self.db)
+        .await?;
 
         Ok(settings)
     }

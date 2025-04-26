@@ -20,7 +20,12 @@ use crate::shared::models::{AppState, DatabaseId};
 // -------------------------------------------------------------------------------------------------
 // SIGNUP handler
 
-use crate::routes::auth::models::{AuthError, AuthErrorKind, AuthSuccessKind, ChangePasswordRequest, LoginError, LoginSuccess, LoginUser, LoginUserSchema, OAuthParams, RefreshSuccess, RegisterError, RegisterResponseSuccess, RegisterUserRequestSchema, UpdateUserInfoRequest, UserData, UserDb, UserRegisterResponse};
+use crate::routes::auth::models::{
+    AuthError, AuthErrorKind, AuthSuccessKind, ChangePasswordRequest, LoginError, LoginSuccess,
+    LoginUser, LoginUserSchema, OAuthParams, RefreshSuccess, RegisterError,
+    RegisterResponseSuccess, RegisterUserRequestSchema, UpdateUserInfoRequest, UserData, UserDb,
+    UserRegisterResponse,
+};
 use crate::routes::auth::services::{
     create_login_response, AuthService, AuthServiceImpl, GoogleAuthService, JwtConfigImpl,
 };
@@ -142,7 +147,7 @@ where
             access_token: new_access_token,
             refresh_token: new_refresh_token,
         })
-            .to_string(),
+        .to_string(),
     );
 
     let (mut parts, body) = response.into_parts();
@@ -283,9 +288,7 @@ pub async fn update_user_info<S>(
 where
     S: AuthServiceImpl,
 {
-    let updated = service
-        .update_user_info(user_id, payload)
-        .await?;
+    let updated = service.update_user_info(user_id, payload).await?;
 
     let user = UserData {
         id: updated.id,

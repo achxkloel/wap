@@ -3,17 +3,52 @@ use crate::shared::models::DatabaseId;
 use anyhow::Result;
 use async_trait::async_trait;
 
+/// Defines the core CRUD operations for managing weather‐location records.
+///
+/// Implementors must handle creation, retrieval, updates, and deletion
+/// of `WeatherLocation` entries, scoped to a specific user.
 #[async_trait]
 pub trait WeatherLocationServiceImpl: Clone + Send + Sync + 'static {
+    /// Insert a new weather location for the given user.
+    ///
+    /// If `location.is_default` is `true`, any existing default for the user must be unset.
+    ///
+    /// Returns the freshly‐created `WeatherLocation` with all its fields populated.
     async fn create(&self, location: &CreateWeatherLocationRequest) -> Result<WeatherLocation>;
+
+    /// Fetch all weather locations belonging to `user_id`.
+    ///
+    /// Returns a vector of `WeatherLocation`. If none exist, returns an empty `Vec`.
     async fn get_all(&self, user_id: &DatabaseId) -> Result<Vec<WeatherLocation>>;
+
+    /// Fetch a single weather location by its `id` for the given user.
+    ///
+    /// Returns `Ok(WeatherLocation)` if found, or an error if not found or on failure.
     async fn get_by_id(&self, user_id: &DatabaseId, id: &DatabaseId) -> Result<WeatherLocation>;
+
+    /// Update an existing weather location.
+    ///
+    /// The provided `location` struct must contain the `id` and `user_id` of the record
+    /// to update. If `location.is_default` is `true`, any previous default for that user
+    /// will be unset.
+    ///
+    /// Returns the updated `WeatherLocation`.
     async fn update(&self, location: &WeatherLocation) -> Result<WeatherLocation>;
+
+    /// Delete the weather location with the given `id` for the specified user.
+    ///
+    /// Returns `Ok(())` on success, or an error if the record did not exist or the
+    /// deletion failed.
     async fn delete(&self, user_id: &DatabaseId, id: &DatabaseId) -> Result<()>;
 }
 
+/// Postgres‐backed implementation of `WeatherLocationServiceImpl`.
+///
+/// Uses SQLx to run all queries in a `PgPool`. Handles transactional logic
+/// when toggling the `is_default` flag.
 #[derive(Clone)]
 pub struct WeatherLocationService {
+    /// The SQLx Postgres connection pool.
     pub db: sqlx::PgPool,
 }
 
@@ -27,8 +62,8 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
                 "UPDATE weather_locations SET is_default = false WHERE user_id = $1",
                 location.user_id.0
             )
-                .execute(&mut *tx)
-                .await?;
+            .execute(&mut *tx)
+            .await?;
         }
 
         // This query now RETURNING all the columns that map to WeatherLocation
@@ -63,8 +98,8 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
             "#,
             user_id.0
         )
-            .fetch_all(&self.db)
-            .await?;
+        .fetch_all(&self.db)
+        .await?;
 
         Ok(locations)
     }
@@ -80,8 +115,8 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
             id.0,
             user_id.0
         )
-            .fetch_one(&self.db)
-            .await?;
+        .fetch_one(&self.db)
+        .await?;
 
         Ok(rec)
     }
@@ -94,8 +129,8 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
                 "UPDATE weather_locations SET is_default = false WHERE user_id = $1",
                 location.user_id.0
             )
-                .execute(&mut *tx)
-                .await?;
+            .execute(&mut *tx)
+            .await?;
         }
 
         let rec = sqlx::query_as!(
@@ -114,8 +149,8 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
             location.id.0,
             location.user_id.0,
         )
-            .fetch_one(&mut *tx)
-            .await?;
+        .fetch_one(&mut *tx)
+        .await?;
 
         tx.commit().await?;
 
@@ -128,8 +163,8 @@ impl WeatherLocationServiceImpl for WeatherLocationService {
             id.0,
             user_id.0
         )
-            .execute(&self.db)
-            .await?;
+        .execute(&self.db)
+        .await?;
 
         Ok(())
     }
@@ -168,9 +203,9 @@ mod tests {
             "user@example.com",
             "pass"
         )
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+        .fetch_one(&pool)
+        .await
+        .unwrap();
         let user_id = DatabaseId(user_rec.id);
 
         let svc = WeatherLocationService {

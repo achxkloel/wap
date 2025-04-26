@@ -13,6 +13,7 @@ use std::sync::Arc;
 use utoipa::ToSchema;
 use utoipa_axum::routes;
 
+/// Fetch all weather‐report locations for the current user.
 #[utoipa::path(
     get,
     path = "/weather_locations",
@@ -35,6 +36,7 @@ where
     Ok(Json(locations))
 }
 
+/// Fetch a single weather‐report location by its ID for the current user.
 #[utoipa::path(
     get,
     path = "/weather_locations/{id}",
@@ -62,6 +64,7 @@ where
     Ok(Json(location))
 }
 
+/// Create a new weather‐report location for the current user.
 #[utoipa::path(
     post,
     path = "/weather_locations",
@@ -95,6 +98,7 @@ where
     Ok(Json(created_location))
 }
 
+/// Delete a weather‐report location by its ID for the current user.
 #[utoipa::path(
     delete,
     path = "/weather_locations/{id}",
@@ -122,7 +126,7 @@ where
     Ok(StatusCode::NO_CONTENT)
 }
 
-// pub fn router<Z:WeatherLocationService>(app: AppState<Z>) -> utoipa_axum::router::OpenApiRouter {
+/// Build the OpenAPI router for weather‐location endpoints, with authentication.
 pub fn router(app: AppState) -> utoipa_axum::router::OpenApiRouter {
     let weather_service = Arc::new(WeatherLocationService { db: app.db.clone() });
     let auth_service = Arc::new(AuthService {

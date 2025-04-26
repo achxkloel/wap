@@ -107,8 +107,12 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
             <div className="flex flex-rows gap-8 ">
                 <div className="flex-row-1 p-4">
                     <Button
-                        className="mb-4 bg-sidebar-border"
-                        onClick={nextWindow}
+                        className="mb-4"
+                        onClick={() => {
+                            if (!isAuthorized) setLocations([]);
+                            nextWindow();
+                        }}
+                        variant="outline"
                     >
                         <FontAwesomeIcon
                             icon={faArrowLeft}

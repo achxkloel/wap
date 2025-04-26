@@ -69,7 +69,7 @@ export const checkToken = () => {
 };
 
 const api = axios.create({
-    baseURL: environment.baseUrl,
+    baseURL: '/api',
     withCredentials: true,
 });
 

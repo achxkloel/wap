@@ -44,7 +44,7 @@ function Locations() {
 
             for (let i = 0; i < data.length; i++) {
                 if (data[i].image_path) {
-                    const image_path = `${api.defaults.baseURL}/${data[i].image_path}`;
+                    const image_path = `/${data[i].image_path}`;
 
                     const response = await api.get(image_path, {
                         responseType: 'blob',

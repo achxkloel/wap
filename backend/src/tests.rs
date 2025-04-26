@@ -129,4 +129,8 @@ pub mod tests {
         // Return test user
         vec![test_user]
     }
+    
+    pub async fn prepare_tracing() {
+        
+    }
 }

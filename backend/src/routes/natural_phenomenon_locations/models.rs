@@ -234,7 +234,7 @@ impl Display for CreateNaturalPhenomenonLocationRequest {
 }
 
 /// Internal service payload including raw image bytes and filename.
-#[derive(Debug, ToSchema, Deserialize, Serialize)]
+#[derive(Debug, ToSchema, Deserialize, Serialize, Clone)]
 pub struct PostNaturalPhenomenonLocationService {
     /// Owning user ID.
     pub user_id: DatabaseId,
@@ -262,6 +262,16 @@ pub struct PostNaturalPhenomenonLocationService {
     /// Original filename (for extension/preservation).
     #[schema(example = "photo.jpg")]
     pub image_filename: String,
+}
+
+impl Display for PostNaturalPhenomenonLocationService {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "PostNaturalPhenomenonLocationService {{ user_id: {:?}, name: {}, latitude: {}, longitude: {}, description: {} }}",
+            self.user_id, self.name, self.latitude, self.longitude, self.description
+        )
+    }
 }
 
 /// OpenAPI schema for multipart‐form create requests.

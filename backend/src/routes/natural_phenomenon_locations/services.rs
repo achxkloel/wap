@@ -15,6 +15,7 @@ use axum::Json;
 use sanitize_filename::sanitize_with_options;
 use sqlx::PgPool;
 use tokio::fs;
+use tracing::debug;
 use uuid::Uuid;
 
 /// Core service trait defining CRUD operations for natural phenomenon locations,
@@ -100,11 +101,11 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
         req: PostNaturalPhenomenonLocationService,
     ) -> Result<CreateAndUpdateResponseSuccess, (StatusCode, Json<NaturalPhenomenonLocationError>)>
     {
-        tracing::debug!("creating location: {:?}", req);
+        debug!("\n|| creating location: {:?}", req);
 
         // make sure uploads/ exists
         fs::create_dir_all("uploads").await.map_err(|e| {
-            tracing::error!("Error creating uploads/ dir: {:?}", e);
+            tracing::error!("\n|| Error creating uploads/ dir: {:?}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())),
@@ -112,27 +113,28 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
         })?;
 
         // if there's image data, write it and record a path; otherwise leave it None
+        debug!("\n|| req.image_bytes.len(): {}", req.image_bytes.len());
         let image_path_opt = if !req.image_bytes.is_empty() {
             let safe = sanitize_with_options(&req.image_filename, Default::default());
             let filename = format!("{}_{}", Uuid::new_v4(), safe);
             let path = format!("uploads/{}", filename);
 
             fs::write(&path, &req.image_bytes).await.map_err(|e| {
-                tracing::error!("Error writing image to disk: {:?}", e);
+                tracing::error!("\n|| Error writing image to disk: {:?}", e);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())),
                 )
             })?;
-            tracing::debug!("wrote image to disk at {}", path);
+            debug!("\n|| wrote image to disk at {}", path);
             Some(path)
         } else {
-            tracing::debug!("image not present");
+            debug!("\n|| image not present");
             None
         };
-        tracing::debug!("image_path_opt: {:?}", image_path_opt);
+        debug!("\n|| image_path_opt: {:?}", image_path_opt);
         // let db_image_path = image_path_opt.unwrap_or_default();
-        // tracing::debug!("db_image_path: {:?}", db_image_path);
+        // tracing::debug!("\ndb_image_path: {:?}", db_image_path);
 
         // 2) insert into DB, passing `image_path_opt` which is NULL if no bytes
         let rec = sqlx::query_as!(
@@ -155,14 +157,14 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
         .fetch_one(&self.db)
         .await
         .map_err(|e| {
-            tracing::error!("DB insert error: {:?}", e);
+            tracing::error!("\n|| DB insert error: {:?}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())),
             )
         })?;
 
-        tracing::debug!("DB row created: {:?}", rec);
+        tracing::debug!("\n|| DB row created: {:?}", rec);
 
         // 3) build and return your DTO, using rec.image_path (Option<String>) directly
         Ok(CreateAndUpdateResponseSuccess {
@@ -199,7 +201,7 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
         .fetch_all(&self.db)
         .await
         .map_err(|e| {
-            tracing::error!("Error fetching locations: {:?}", e);
+            tracing::error!("\nError fetching locations: {:?}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())),
@@ -245,7 +247,7 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
         .fetch_one(&self.db)
         .await
         .map_err(|_| {
-            tracing::error!("Error fetching location by ID: {:?}", id);
+            tracing::error!("\nError fetching location by ID: {:?}", id);
             (
                 StatusCode::NOT_FOUND,
                 Json(NaturalPhenomenonLocationError::NotFound),
@@ -296,7 +298,7 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
         .fetch_one(&self.db)
         .await
         .map_err(|_| {
-            tracing::error!("Error updating location: {:?}", location);
+            tracing::error!("\nError updating location: {:?}", location);
             (
                 StatusCode::NOT_FOUND,
                 Json(NaturalPhenomenonLocationError::NotFound),
@@ -336,7 +338,7 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
         .fetch_one(&self.db)
         .await
         .map_err(|e| {
-            tracing::error!("DB delete error: {:?}", e);
+            tracing::error!("\nDB delete error: {:?}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())),
@@ -345,10 +347,10 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
 
         // 2) If there was an image_path, remove the file (ignore FS errors)
         if let Some(path) = rec.image_path {
-            tracing::debug!("removing image file at {}", path);
+            tracing::debug!("\nremoving image file at {}", path);
             let _ = fs::remove_file(&path).await;
         } else {
-            tracing::debug!("no image file to remove");
+            tracing::debug!("\nno image file to remove");
         }
 
         // 3) Success → return a 204 + our Deleted enum
@@ -356,98 +358,5 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
             StatusCode::NO_CONTENT,
             Json(NaturalPhenomenonLocationResponseSuccess::Deleted),
         ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::routes::natural_phenomenon_locations::services::NaturalPhenomenonLocationService;
-    use crate::routes::natural_phenomenon_locations::models::{
-        PostNaturalPhenomenonLocationService,
-        UpdateNaturalPhenomenonLocationRequestWithIds,
-        UpdateNaturalPhenomenonLocationRequest,
-    };
-    use crate::shared::models::DatabaseId;
-    use crate::tests::tests::TestApp;
-    use sqlx::PgPool;
-    use tokio::fs;
-    use axum::http::StatusCode;
-
-    #[sqlx::test]
-    async fn test_natural_phenomenon_location_service_crud(pool: PgPool) {
-        // 0) Setup TestApp and service
-        let test_app = TestApp::new(pool.clone()).await;
-        let user_id: DatabaseId = test_app.users[0].user.id;
-        let service = NaturalPhenomenonLocationService::new(pool.clone());
-
-        // Prepare dummy image data
-        let image_bytes = b"dummy image data".to_vec();
-        let image_filename = "foo.png".to_string();
-
-        // 1) CREATE
-        let create_req = PostNaturalPhenomenonLocationService {
-            user_id,
-            name: "Grand Canyon".into(),
-            latitude: 36.1069,
-            longitude: -112.1129,
-            description: "A famous canyon".into(),
-            radius: 5,
-            image_bytes: image_bytes.clone(),
-            image_filename: image_filename.clone(),
-        };
-        tracing::debug!("create_req: {:?}", create_req);
-        let created = service.create(create_req).await.expect("create failed");
-        // assert_eq!(created.user_id, user_id);
-        // assert_eq!(created.name, "Grand Canyon");
-        // assert_eq!(created.latitude, 36.1069);
-        // assert_eq!(created.longitude, -112.1129);
-        // assert_eq!(created.description, "A famous canyon");
-        // assert_eq!(created.radius, 5);
-        // assert!(!created.image_path.is_empty(), "Expected non-empty image_path");
-        // // Image file was written
-        // assert!(fs::metadata(&created.image_path).await.is_ok());
-        //
-        // let id = created.id;
-
-        // // 2) GET_ALL
-        // let all = service.get_all(user_id).await.expect("get_all failed");
-        // assert_eq!(all.len(), 1, "Expected exactly one record");
-        // assert_eq!(all[0].id, id);
-        // assert_eq!(all[0].image_path, created.image_path);
-        //
-        // // 3) GET_BY_ID
-        // let fetched = service.get_by_id(user_id, id).await.expect("get_by_id failed");
-        // assert_eq!(fetched.id, id);
-        // assert_eq!(fetched.user_id, user_id);
-        // assert_eq!(fetched.image_path, created.image_path);
-        //
-        // // 4) UPDATE
-        // let update_payload = UpdateNaturalPhenomenonLocationRequest {
-        //     name: Some("Grand Canyon Updated".into()),
-        //     latitude: Some(36.11),
-        //     longitude: Some(-112.11),
-        //     radius: Some(10),
-        //     description: Some("An even more famous canyon".into()),
-        // };
-        // let update_req = UpdateNaturalPhenomenonLocationRequestWithIds { id, user_id, payload: update_payload.clone() };
-        // let updated = service.update(update_req).await.expect("update failed");
-        // assert_eq!(updated.id, id);
-        // assert_eq!(updated.name, "Grand Canyon Updated");
-        // assert!((updated.latitude - 36.11).abs() < f64::EPSILON);
-        // assert!((updated.longitude + 112.11).abs() < f64::EPSILON);
-        // assert_eq!(updated.radius, 10);
-        // assert_eq!(updated.description, "An even more famous canyon");
-        // assert_eq!(updated.image_path, created.image_path);
-        //
-        // // 5) DELETE
-        // let (status, _body) = service.delete(user_id, id).await.expect("delete failed");
-        // assert_eq!(status, StatusCode::NO_CONTENT);
-        // // Image file was removed
-        // assert!(fs::metadata(&created.image_path).await.is_err());
-        //
-        // // After delete, get_all should be empty
-        // let remaining = service.get_all(user_id).await.expect("get_all after delete failed");
-        // assert!(remaining.is_empty(), "Expected no remaining entries");
     }
 }

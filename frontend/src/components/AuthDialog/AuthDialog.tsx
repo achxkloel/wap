@@ -94,7 +94,15 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
             setLoading(true);
             const res = await api.post(endpoint, payload);
             const data = res.data;
-            await login(data.access_token, data.refresh_token);
+
+            if (mode === 'login') {
+                await login(data.access_token, data.refresh_token);
+            } else {
+                setMode('login');
+                setEmail('');
+                setPassword('');
+                setConfirm('');
+            }
         } catch (err) {
             logger.error('Login/Register error:', err);
             setError('Something went wrong');

@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import getWeather, { WeatherData, current_def, daily_def, hourly_def } from '@/lib/data/getWeather';
 import { useIsAuthorized } from '@/lib/store/auth';
 import type { WeatherDashboardProps } from '@/pages/Weather/Weather.tsx';
 import { faArrowLeft, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
@@ -11,33 +12,6 @@ type ConditionCardProps = {
     sub: string;
 };
 
-type WeatherData = {
-    current_weather: {
-        temperature: number;
-        windspeed: number;
-        winddirection: number;
-        weathercode: number;
-        time: string;
-    };
-    hourly: {
-        time: string[];
-        temperature_2m: number[];
-        precipitation: number[];
-        relative_humidity_2m: number[];
-        windspeed_10m: number[];
-        winddirection_10m: number[];
-        uv_index: number[];
-        surface_pressure: number[];
-        cloudcover: number[];
-    };
-    daily: {
-        time: string[];
-        temperature_2m_max: number[];
-        temperature_2m_min: number[];
-        precipitation_sum: number[];
-    };
-};
-
 function ConditionCard({ title, value, sub }: ConditionCardProps) {
     return (
         <div className="bg-sidebar-border p-4 rounded-xl text-center hover:scale-105 transform transition-all duration-300 ease-in-out">
@@ -46,6 +20,26 @@ function ConditionCard({ title, value, sub }: ConditionCardProps) {
             <div className="text-xs ">{sub}</div>
         </div>
     );
+}
+
+function getWeatherIconAndDescription(rain: number, cloudiness: number) {
+    let icon = '☀️';
+    let description = 'Clear';
+    if (rain > 5) {
+        icon = '🌧️';
+        description = 'Heavy rain';
+    } else if (rain > 0) {
+        icon = '🌦️';
+        description = 'Showers';
+    } else if (cloudiness > 70) {
+        icon = '☁️';
+        description = 'Overcast';
+    } else if (cloudiness > 20) {
+        icon = '⛅';
+        description = 'Partly cloudy';
+    }
+
+    return { icon, description };
 }
 
 function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashboardProps) {
@@ -58,12 +52,20 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
 
     useEffect(() => {
         const fetchWeather = async () => {
+            if (locationList.length === 0) return;
+
             const lat = locationList[0].lat;
             const lon = locationList[0].lon;
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,precipitation,relative_humidity_2m,windspeed_10m,winddirection_10m,uv_index,surface_pressure,cloudcover&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Europe%2FPrague`;
 
-            const res = await fetch(url);
-            const data = await res.json();
+            const data = await getWeather({
+                latitude: lat,
+                longitude: lon,
+                current_weather: true,
+                hourly: 'temperature_2m,precipitation,relative_humidity_2m,windspeed_10m,winddirection_10m,uv_index,surface_pressure,cloudcover',
+                daily: 'temperature_2m_max,temperature_2m_min,precipitation_sum',
+                timezone: 'Europe/Prague',
+            });
+
             setWeatherData(data);
         };
 
@@ -98,9 +100,9 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
         return <div className="p-8">Loading...</div>;
     }
 
-    const current = weatherData.current_weather;
-    const hourly = weatherData.hourly;
-    const daily = weatherData.daily;
+    const current = weatherData.current_weather ?? current_def;
+    const hourly = weatherData.hourly ?? hourly_def;
+    const daily = weatherData.daily ?? daily_def;
 
     return (
         <div className="h-full">
@@ -132,13 +134,7 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
                                         const rain = hourly.precipitation[currentHour];
                                         const cloudiness = hourly.cloudcover[currentHour];
 
-                                        let icon = '☀️';
-                                        if (rain > 5) icon = '🌧️';
-                                        else if (rain > 0) icon = '🌦️';
-                                        else if (cloudiness > 60) icon = '☁️';
-                                        else if (cloudiness > 20) icon = '⛅';
-
-                                        return icon;
+                                        return getWeatherIconAndDescription(rain, cloudiness)['icon'];
                                     })()}
                                 </span>
                             </div>
@@ -148,7 +144,6 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
                         </div>
                     </div>
 
-                    {/* Hodinová předpověď */}
                     <div className="bg-sidebar-border p-4 rounded-xl mb-4 min-h-[150px] hover:scale-105 transform transition-all duration-300 ease-in-out">
                         <h2 className="text-lg font-semibold mb-1">Hourly forecast</h2>
                         <div className="flex space-x-1">
@@ -167,11 +162,7 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
                                     const rain = precipitation[i];
                                     const cloudiness = cloud[i];
 
-                                    let icon = '☀️';
-                                    if (rain > 5) icon = '🌧️';
-                                    else if (rain > 0) icon = '🌦️';
-                                    else if (cloudiness > 60) icon = '☁️';
-                                    else if (cloudiness > 20) icon = '⛅';
+                                    let icon = getWeatherIconAndDescription(rain, cloudiness)['icon'];
 
                                     return (
                                         <div
@@ -270,21 +261,7 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
                                     const min = daily.temperature_2m_min[i];
                                     const precipitation = daily.precipitation_sum[i];
 
-                                    let icon = '☀️';
-                                    let description = 'Clear';
-                                    if (precipitation > 5) {
-                                        icon = '🌧️';
-                                        description = 'Heavy rain';
-                                    } else if (precipitation > 0) {
-                                        icon = '🌦️';
-                                        description = 'Showers';
-                                    } else if (avgCloud > 80) {
-                                        icon = '☁️';
-                                        description = 'Overcast';
-                                    } else if (avgCloud > 40) {
-                                        icon = '⛅';
-                                        description = 'Partly cloudy';
-                                    }
+                                    let { icon, description } = getWeatherIconAndDescription(precipitation, avgCloud);
 
                                     return (
                                         <tr

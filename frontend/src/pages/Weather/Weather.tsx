@@ -1,9 +1,9 @@
 import api from '@/lib/api';
-import WeatherDashboard from '@/pages/Weather/WeatherDashboard.tsx';
-import WeatherSelect from '@/pages/Weather/WeatherSelect.tsx';
 import { logger } from '@/lib/logger';
 import { useIsAuthorized } from '@/lib/store/auth';
-import React, { useEffect, useState } from 'react';
+import WeatherDashboard from '@/pages/Weather/WeatherDashboard.tsx';
+import WeatherSelect from '@/pages/Weather/WeatherSelect.tsx';
+import { useEffect, useState } from 'react';
 
 export type Location = {
     name: string;
@@ -14,7 +14,7 @@ export type Location = {
 export type WeatherDashboardProps = {
     nextWindow: () => void;
     locations: Location[];
-    setLocations: React.Dispatch<React.SetStateAction<Location[]>>;
+    setLocations: (locs: Location[]) => void;
 };
 
 function Weather() {
@@ -34,18 +34,26 @@ function Weather() {
         try {
             logger.debug('Fetching locations...');
             const res = await api.get('/weather_locations');
-            setLocations(res.data);
+            setLocations(res.data); // TODO map
+
+            if (locations.length > 0) setShowDashboard(true);
         } catch (error) {
             logger.error('Error fetching locations:', error);
         }
     };
 
-    // const api = axios .create({
+    const setLocationsAndDB = (locs: Location[]) => {
+        setLocations(locs);
+        // TODO set db
+    };
+
+    // const api = axios.create({
     //     baseURL: 'https://api.open-meteo.com/v1',
     // });
 
     // function get(lat: number, lon: number) {
-    //      return api.get('/forecast', {
+    //     return api
+    //         .get('/forecast', {
     //             params: {
     //                 latitude: lat,
     //                 longitude: lon,
@@ -54,14 +62,15 @@ function Weather() {
     //                 daily: 'temperature_2m_max,temperature_2m_min,precipitation_sum',
     //                 timezone: 'Europe/Prague',
     //             },
-    //         }).then((res) => res.data);
+    //         })
+    //         .then((res) => res.data);
     // }
+
+    // import get from '@/lib/data/weather/get.ts';
 
     // try {
-    //     get()
-    // } catch (error) {
-
-    // }
+    //     get();
+    // } catch (error) {}
 
     // className="bg-gray-900   w-screen   font-sans"
     return (
@@ -70,13 +79,13 @@ function Weather() {
                 <WeatherDashboard
                     nextWindow={() => setShowDashboard(false)}
                     locations={locations}
-                    setLocations={setLocations}
+                    setLocations={setLocationsAndDB}
                 />
             ) : (
                 <WeatherSelect
                     nextWindow={() => setShowDashboard(true)}
                     locations={locations}
-                    setLocations={setLocations}
+                    setLocations={setLocationsAndDB}
                 />
             )}
         </div>

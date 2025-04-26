@@ -18,7 +18,7 @@ create table settings
 (
     id                    serial primary key,
     user_id               integer references users (id) on delete set null default null, -- Can be null when user deletes account
-    theme                 theme          not null                                  default 'light',
+    theme                 theme   not null                                 default 'light',
     notifications_enabled boolean                                          default true,
     radius                integer                                          default 50,
     created_at            timestamptz                                      default now(),
@@ -33,7 +33,7 @@ create table natural_phenomenon_locations
     name        varchar(100)     not null,
     latitude    double precision not null,
     longitude   double precision not null,
-    image_path  varchar(255)     not null default '',
+    image_path  varchar(255)              default '',
     radius      integer          not null,
     description text             not null default '',
     created_at  timestamptz      not null default now(),

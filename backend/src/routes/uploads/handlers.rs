@@ -1,21 +1,21 @@
-use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    Json,
-};
-use bytes::Bytes;
-use mime_guess::MimeGuess;
-use std::sync::Arc;
-use axum::http::{header, HeaderValue};
-use tokio::fs;
-use utoipa_axum::router::OpenApiRouter;
-use utoipa_axum::routes;
 use crate::routes::auth::middlewares::auth;
 use crate::routes::auth::services::AuthService;
 use crate::routes::uploads::models::UploadError;
 use crate::routes::uploads::services::{UploadsService, UploadsServiceImpl};
 use crate::shared::models::AppState;
+use axum::http::header;
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    Json,
+};
+use bytes::Bytes;
+use mime_guess::MimeGuess;
+use std::sync::Arc;
+use tokio::fs;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 
 #[utoipa::path(
     get,

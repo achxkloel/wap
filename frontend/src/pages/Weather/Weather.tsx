@@ -14,7 +14,7 @@ export type Location = {
 export type WeatherDashboardProps = {
     nextWindow: () => void;
     locations: Location[];
-    setLocations: (locs: Location[]) => void;
+    setLocations: React.Dispatch<React.SetStateAction<Location[]>>; //(locs: Location[]) => void;
 };
 
 function Weather() {
@@ -79,13 +79,13 @@ function Weather() {
                 <WeatherDashboard
                     nextWindow={() => setShowDashboard(false)}
                     locations={locations}
-                    setLocations={setLocationsAndDB}
+                    setLocations={setLocations}
                 />
             ) : (
                 <WeatherSelect
                     nextWindow={() => setShowDashboard(true)}
                     locations={locations}
-                    setLocations={setLocationsAndDB}
+                    setLocations={setLocations}
                 />
             )}
         </div>

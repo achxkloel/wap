@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import type { WeatherDashboardProps, Location } from '@/pages/Weather/Weather.tsx';
 import { Button } from '@/components/ui/button';
+import getImg from '@/lib/data/getImg';
+import getWeather from '@/lib/data/getWeather';
+import type { Location, WeatherDashboardProps } from '@/pages/Weather/Weather.tsx';
+import React, { useEffect, useState } from 'react';
 
 const allCities = [
     'London',
@@ -58,7 +60,7 @@ function CityCard({ name, setLocations, nextWindow }: CityCardProps) {
     const [lon, setLon] = useState<number | null>(null);
 
     useEffect(() => {
-        const fetchData = async () => {
+        const fetchWeather = async () => {
             const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${name}&count=1`);
             const geoData = await geoRes.json();
             const latitude = geoData.results?.[0]?.latitude;
@@ -68,38 +70,31 @@ function CityCard({ name, setLocations, nextWindow }: CityCardProps) {
                 setLat(latitude);
                 setLon(longitude);
 
-                const weatherRes = await fetch(
-                    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=precipitation_sum&timezone=Europe%2FPrague`,
-                );
-                const weatherData = await weatherRes.json();
-                const current = weatherData.current_weather;
-                setTemp(current.temperature.toFixed(1));
-                setWind(current.windspeed.toFixed(0));
+                const weatherData = await getWeather({
+                    latitude: latitude,
+                    longitude: longitude,
+                    current_weather: true,
+                    daily: 'precipitation_sum',
+                    timezone: 'Europe/Prague',
+                });
 
-                const dailyRain = weatherData.daily?.precipitation_sum?.[0];
-                setRain(dailyRain ? dailyRain.toFixed(1) : '0');
-            }
-
-            try {
-                const unsplashKey = 'QomxOmr0uAe3rY0cL076U6MDaOCaBWfrd0DhQjmQCIo';
-                const response = await fetch(
-                    `https://api.unsplash.com/search/photos?query=${encodeURIComponent(name)}&client_id=${unsplashKey}`,
-                );
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error: ${response.status}`);
+                if (weatherData.current_weather) {
+                    setTemp(weatherData.current_weather.temperature.toFixed(1));
+                    setWind(weatherData.current_weather.windspeed.toFixed(0));
                 }
 
-                const imgData = await response.json();
-                const imgUrl = imgData.results?.[0]?.urls?.regular;
-
-                setImage(imgUrl || 'https://cdn-icons-png.flaticon.com/512/69/69524.png');
-            } catch {
-                setImage('https://cdn-icons-png.flaticon.com/512/69/69524.png');
+                const dailyRain = weatherData.daily?.precipitation_sum?.[0];
+                setRain(dailyRain !== undefined ? dailyRain.toFixed(1) : '0');
             }
         };
 
-        fetchData();
+        const loadImage = async () => {
+            const url = await getImg(encodeURIComponent(name));
+            setImage(url);
+        };
+
+        fetchWeather();
+        loadImage();
     }, [name]);
 
     const handleClick = () => {

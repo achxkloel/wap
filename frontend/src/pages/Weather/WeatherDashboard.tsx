@@ -24,7 +24,7 @@ function ConditionCard({ title, value, sub }: ConditionCardProps) {
     );
 }
 
-function getWeatherIconAndDescription(rain: number, cloudiness: number, temperature: number, hour: number) {
+export function getWeatherIconAndDescription(rain: number, cloudiness: number, temperature: number, hour: number) {
     let icon = '☀️';
     let description = 'Clear';
 

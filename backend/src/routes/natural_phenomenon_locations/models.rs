@@ -78,6 +78,7 @@ pub struct UpdateNaturalPhenomenonLocationResponseSuccess {
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
+    pub radius: i32,
     pub description: String,
     pub image_path: String,
 }

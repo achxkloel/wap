@@ -73,6 +73,7 @@ function Locations() {
         formData.append('description', location.description);
         formData.append('latitude', location.latitude.toString());
         formData.append('longitude', location.longitude.toString());
+        formData.append('radius', location.radius.toString());
 
         if (location.photo) {
             formData.append('image', location.photo);
@@ -102,6 +103,7 @@ function Locations() {
                 description: location.description,
                 latitude: location.latitude,
                 longitude: location.longitude,
+                radius: location.radius,
             });
             fetchLocations();
         } catch (e) {
@@ -153,7 +155,7 @@ function Locations() {
             photo: undefined,
             latitude: location.latitude,
             longitude: location.longitude,
-            radius: 25,
+            radius: location.radius,
         });
         setIsModalOpen(true);
     };

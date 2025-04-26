@@ -229,14 +229,16 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
             name        = COALESCE($1, name),
             latitude    = COALESCE($2, latitude),
             longitude   = COALESCE($3, longitude),
-            description = COALESCE($4, description)
-        WHERE id = $5 AND user_id = $6
+            radius      = COALESCE($4, radius),
+            description = COALESCE($5, description)
+        WHERE id = $6 AND user_id = $7
         RETURNING *
         "#,
             // these are Option<...>, so COALESCE will pick the existing value when None:
             location.payload.name,
             location.payload.latitude,
             location.payload.longitude,
+            location.payload.radius,
             location.payload.description,
             location.id.0,
             location.user_id.0,
@@ -259,6 +261,7 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
             longitude: record.longitude,
             description: record.description,
             image_path: record.image_path,
+            radius: record.radius,
         })
     }
 

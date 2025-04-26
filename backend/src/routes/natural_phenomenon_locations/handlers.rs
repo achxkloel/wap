@@ -12,6 +12,7 @@ use crate::shared::models::{AppState, DatabaseId};
 use axum::extract::{Extension, Json, Multipart, Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
+use tokio::fs;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -161,6 +162,11 @@ where
 
     // 2) hand off to service
     let created = service.create(dto).await?;
+
+    fs::metadata(&created.image_path)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(NaturalPhenomenonLocationError::DatabaseError)))?;
+
 
     Ok((StatusCode::CREATED, Json(created)))
 }

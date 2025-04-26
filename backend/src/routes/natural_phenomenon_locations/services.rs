@@ -208,6 +208,7 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
             name: rec.name,
             latitude: rec.latitude,
             longitude: rec.longitude,
+            radius: rec.radius,
             description: rec.description,
             image_path: rec.image_path,
         })

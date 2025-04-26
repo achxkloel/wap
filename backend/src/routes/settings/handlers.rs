@@ -15,6 +15,7 @@ use tracing::error;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
+/// Fetch all user settings for the current user.
 #[utoipa::path(
     method(put),
     path = "/user/settings",
@@ -43,6 +44,7 @@ where
     Ok((StatusCode::OK, "Settings saved successfully"))
 }
 
+/// Fetch all user settings for the current user.
 #[utoipa::path(
     get,
     path = "/user/settings",
@@ -82,7 +84,7 @@ where
     }
 }
 
-/// Fully‐generic: you supply the `service: S`.
+/// A convenience wrapper that uses the real Postgres implementation.
 pub fn router_with_service<S>(app: AppState, service: Arc<S>) -> OpenApiRouter
 where
     S: SettingsServiceImpl + Send + Sync + 'static,

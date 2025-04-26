@@ -278,7 +278,6 @@ pub enum AuthSuccessKind<S> {
     Created(StatusCode, S),
 }
 
-
 // replace the old single‐type impl with this generic one:
 impl<S> IntoResponse for AuthSuccessKind<S>
 where
@@ -289,9 +288,11 @@ where
             AuthSuccessKind::UserCreated(s, b) | AuthSuccessKind::Created(s, b) => (s, b),
         };
         let json = serde_json::to_string(&body).unwrap_or_else(|_| {
-            ;
             // if we can't serialize the body, just return a generic error
-            serde_json::to_string(&AuthError::new("Internal server error - Can not create body")).unwrap()
+            serde_json::to_string(&AuthError::new(
+                "Internal server error - Can not create body",
+            ))
+            .unwrap()
         });
         let mut response = axum::response::Response::new(json.into());
         *response.status_mut() = status;
@@ -322,7 +323,9 @@ impl Display for AuthErrorKind {
             AuthErrorKind::SettingsCreate => write!(f, "Settings error"),
             AuthErrorKind::MissingCode => write!(f, "Missing code"),
             AuthErrorKind::TokenExchangeError(msg) => write!(f, "Token exchange error: {}", msg),
-            AuthErrorKind::GoogleUserFetchError(msg) => write!(f, "Google user fetch error: {}", msg),
+            AuthErrorKind::GoogleUserFetchError(msg) => {
+                write!(f, "Google user fetch error: {}", msg)
+            }
         }
     }
 }
@@ -335,7 +338,6 @@ pub struct ChangePasswordRequest {
     /// The new password to set
     pub new_password: String,
 }
-
 
 /// Payload for updating a user's profile.
 /// All fields are optional; any `None` will leave the existing value unchanged.

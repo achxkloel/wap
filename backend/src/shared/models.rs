@@ -21,6 +21,9 @@ pub struct AppState {
     Default,
     Copy,
     Eq,
+    PartialOrd,
+    Ord,
+    Hash
 )]
 #[sqlx(transparent)] // <<— this tells SQLx “I’m just a wrapper around an INT4”
 pub struct DatabaseId(pub i32);

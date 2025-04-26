@@ -1,4 +1,7 @@
 import { Button } from '@/components/ui/button';
+import getEarthquakes from '@/lib/data/earthquakes/get';
+import getWeather, { current_def, hourly_def } from '@/lib/data/getWeather';
+import { getWeatherIconAndDescription } from '@/pages/Weather/WeatherDashboard';
 import { ClipboardIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -11,6 +14,8 @@ interface LocationCardProps {
 function LocationCard({ location, onEdit, onDelete }: LocationCardProps) {
     const [hover, setHover] = useState(false);
     const [copySuccess, setCopySuccess] = useState(false);
+    const [earthquake, setEarthquake] = useState<{ place: string; magnitude: number } | null>(null);
+    const [weather, setWeather] = useState<{ icon: string; description: string } | null>(null);
     let copyTimeout: ReturnType<typeof setTimeout> | null = null;
 
     useEffect(() => {
@@ -18,6 +23,64 @@ function LocationCard({ location, onEdit, onDelete }: LocationCardProps) {
             if (copyTimeout) clearTimeout(copyTimeout);
         };
     }, []);
+
+    useEffect(() => {
+        if (location) {
+            getLocationWeather(location);
+            getLocationEarthquakes(location);
+        }
+    }, [location]);
+
+    const getLocationWeather = async (location: any) => {
+        return getWeather({
+            latitude: location.latitude,
+            longitude: location.longitude,
+            current_weather: true,
+            hourly: 'precipitation,cloudcover',
+            timezone: 'Europe/Prague',
+        }).then((data) => {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const hourly = data.hourly ?? hourly_def;
+            const current = data.current_weather ?? current_def;
+
+            const desc = getWeatherIconAndDescription(
+                hourly.precipitation[currentHour],
+                hourly.cloudcover[currentHour],
+                current.temperature,
+                new Date().getHours(),
+            );
+
+            setWeather(desc);
+        });
+    };
+
+    const getLocationEarthquakes = async (location: any) => {
+        return getEarthquakes({
+            latitude: location.latitude,
+            longitude: location.longitude,
+            maxradiuskm: location.radius,
+            starttime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+            endtime: new Date().toISOString(),
+        }).then((data) => {
+            if (!data || !data.features || data.features.length <= 0) {
+                return;
+            }
+
+            const mostSignificant = data.features.reduce((acc, feature) => {
+                if (feature.properties.mag > acc.properties.mag) {
+                    return feature;
+                }
+
+                return acc;
+            }, data.features[0]);
+
+            setEarthquake({
+                place: mostSignificant.properties.place,
+                magnitude: mostSignificant.properties.mag,
+            });
+        });
+    };
 
     return (
         <div
@@ -72,7 +135,8 @@ function LocationCard({ location, onEdit, onDelete }: LocationCardProps) {
                         <div>Coordinates</div>
                         <div>Radius</div>
                         <div>Weather</div>
-                        <div>Earthquakes</div>
+                        <div>Earthquake</div>
+                        {earthquake && <div>Magnitude</div>}
                     </div>
 
                     <div>
@@ -95,8 +159,9 @@ function LocationCard({ location, onEdit, onDelete }: LocationCardProps) {
                             {copySuccess && <span className="text-gray-500 dark:text-gray-50 text-sm">Copied!</span>}
                         </div>
                         <div>{location.radius} km</div>
-                        <div></div>
-                        <div></div>
+                        <div>{weather ? `${weather.description} ${weather.icon}` : ''}</div>
+                        <div>{earthquake ? `${earthquake.place}` : 'No'}</div>
+                        {earthquake && <div>{Math.floor(earthquake.magnitude)}</div>}
                     </div>
                 </div>
             </div>

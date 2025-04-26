@@ -1,14 +1,15 @@
 import 'leaflet/dist/leaflet.css';
-import { useEffect } from 'react';
-import { useMap } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { Circle, Marker, Popup, useMap } from 'react-leaflet';
 
 interface MapLocationProps {
     location?: L.LatLngExpression;
     zoom?: number;
+    radius?: number;
     animate?: boolean;
 }
 
-function MapLocation({ location, zoom, animate = true }: MapLocationProps) {
+function MapLocation({ location, zoom, radius = 50, animate = true }: MapLocationProps) {
     const map = useMap();
 
     useEffect(() => {
@@ -25,7 +26,23 @@ function MapLocation({ location, zoom, animate = true }: MapLocationProps) {
         }
     }, [map, location, zoom]);
 
-    return null;
+    if (!location) {
+        return null;
+    }
+
+    return (
+        <React.Fragment>
+            <Marker position={location}>
+                <Popup>Popup</Popup>
+            </Marker>
+            {typeof radius === 'number' && (
+                <Circle
+                    center={location}
+                    radius={radius * 1000}
+                />
+            )}
+        </React.Fragment>
+    );
 }
 
 export default MapLocation;

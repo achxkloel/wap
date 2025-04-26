@@ -61,7 +61,7 @@ function NavUser() {
         <div className="flex w-full items-center px-2 py-2 gap-3 rounded-lg">
             <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage
-                    src={user?.imageUrl || ''}
+                    src={user?.imageUrl ?? undefined}
                     alt={fullName}
                 />
                 <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>

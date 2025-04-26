@@ -1,5 +1,6 @@
 import Layout from '@/features/Layout';
 import { checkToken } from '@/lib/api';
+import Locations from '@/pages/Locations';
 import Map from '@/pages/Map';
 import Settings from '@/pages/Settings';
 import React, { useEffect } from 'react';
@@ -21,15 +22,15 @@ function Router() {
                     element={<React.Fragment />}
                 />
                 <Route
-                    path="/locations"
-                    element={<React.Fragment />}
-                />
-                <Route
                     path="/map"
                     element={<Map />}
                 />
 
                 <Route element={<ProtectedRoute />}>
+                    <Route
+                        path="/locations"
+                        element={<Locations />}
+                    />
                     <Route
                         path="/settings"
                         element={<Settings />}

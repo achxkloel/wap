@@ -10,7 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { getCatalogEnum, getContributorEnum, getProductTypeEnum } from '@/lib/data/earthquakes/enums';
 import { logger } from '@/lib/logger';
 import useMapStore, { CircleCoordinates, RectangleCoordinates } from '@/lib/store/map';
-import { cn } from '@/lib/utils';
+import { cn, numberPreprocess } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import L from 'leaflet';
@@ -18,19 +18,6 @@ import { CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-
-const numberPreprocess = (val: unknown) => {
-    if (typeof val === 'string' && val.trim() === '') {
-        return null;
-    }
-
-    const parsed = Number(val);
-    if (isNaN(parsed)) {
-        return val;
-    }
-
-    return parsed;
-};
 
 const formSchema = z
     .object({
@@ -147,6 +134,10 @@ function Filters(props: FiltersProps) {
 
     useEffect(() => {
         fetchEnums();
+
+        // return () => {
+        //     form.reset();
+        // };
     }, []);
 
     useEffect(() => {
@@ -213,7 +204,9 @@ function Filters(props: FiltersProps) {
             typeof minLongitude === 'number' &&
             typeof maxLongitude === 'number'
         ) {
-            startDraw(locationType, L.latLngBounds([minLatitude, minLongitude], [maxLatitude, maxLongitude]));
+            startDraw(locationType, {
+                coordinates: L.latLngBounds([minLatitude, minLongitude], [maxLatitude, maxLongitude]),
+            });
             return;
         }
 
@@ -224,8 +217,10 @@ function Filters(props: FiltersProps) {
             typeof maxRadiusKm === 'number'
         ) {
             startDraw(locationType, {
-                center: [latitude, longitude],
-                radius: maxRadiusKm * 1000,
+                coordinates: {
+                    center: [latitude, longitude],
+                    radius: maxRadiusKm * 1000,
+                },
             });
             return;
         }

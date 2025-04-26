@@ -59,7 +59,7 @@ function EventList({ search }: EventListProps) {
     };
 
     if (!earthquakes || earthquakes.features.length <= 0) {
-        return <div className="p-4 text-center text-gray-500 h-18 ">No items found</div>;
+        return <div className="p-4 text-center text-gray-500 dark:text-gray-50 h-18 ">No items found</div>;
     }
 
     return (

@@ -12,10 +12,14 @@ interface MapStoreState {
     draw: boolean;
     mode: 'rectangle' | 'circle';
     coordinates: RectangleCoordinates | CircleCoordinates | null;
+    maxRadius: number | null;
     bounds: L.LatLngBounds | null;
     colorStrategy: 'magnitude' | 'significance' | 'date';
     setColorStrategy: (colorStrategy: 'magnitude' | 'significance' | 'date') => void;
-    startDraw: (mode: 'rectangle' | 'circle', coordinates?: RectangleCoordinates | CircleCoordinates) => void;
+    startDraw: (
+        mode: 'rectangle' | 'circle',
+        opts?: { coordinates?: RectangleCoordinates | CircleCoordinates; maxRadius?: number },
+    ) => void;
     stopDraw: (coordinates?: RectangleCoordinates | CircleCoordinates) => void;
     setBounds: (bounds: L.LatLngBounds) => void;
 }
@@ -24,18 +28,24 @@ const useMapStore = create<MapStoreState>()((set) => ({
     draw: false,
     mode: 'rectangle',
     coordinates: null,
+    maxRadius: null,
     bounds: null,
     colorStrategy: 'magnitude',
     setColorStrategy: (colorStrategy) => set({ colorStrategy }),
-    startDraw: (mode, coordinates) => {
+    startDraw: (mode, opts) => {
         const newState: Partial<MapStoreState> = {
             draw: true,
             mode,
             coordinates: null,
+            maxRadius: null,
         };
 
-        if (coordinates) {
-            newState.coordinates = coordinates;
+        if (opts && opts.coordinates) {
+            newState.coordinates = opts.coordinates;
+        }
+
+        if (opts && opts.maxRadius) {
+            newState.maxRadius = opts.maxRadius;
         }
 
         set(newState);
@@ -43,6 +53,7 @@ const useMapStore = create<MapStoreState>()((set) => ({
     stopDraw: (coordinates) => {
         const newState: Partial<MapStoreState> = {
             draw: false,
+            maxRadius: null,
         };
 
         if (coordinates) {

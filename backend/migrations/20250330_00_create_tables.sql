@@ -34,6 +34,7 @@ create table natural_phenomenon_locations
     latitude    double precision not null,
     longitude   double precision not null,
     image_path  varchar(255)     not null default '',
+    radius      integer          not null,
     description text             not null default '',
     created_at  timestamptz      not null default now(),
     updated_at  timestamptz      not null default now()

@@ -1,5 +1,7 @@
 import { Button } from '@/components/ui/button';
+import getImg from '@/lib/data/getImg';
 import getWeather, { WeatherData, current_def, daily_def, hourly_def } from '@/lib/data/getWeather';
+
 import { useIsAuthorized } from '@/lib/store/auth';
 import type { WeatherDashboardProps } from '@/pages/Weather/Weather.tsx';
 import { faArrowLeft, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
@@ -22,10 +24,16 @@ function ConditionCard({ title, value, sub }: ConditionCardProps) {
     );
 }
 
-function getWeatherIconAndDescription(rain: number, cloudiness: number) {
+function getWeatherIconAndDescription(rain: number, cloudiness: number, temperature: number, hour: number) {
     let icon = '☀️';
     let description = 'Clear';
-    if (rain > 5) {
+
+    const isNight = hour < 6 || hour > 20; // noc: 21:00 - 5:59
+
+    if (temperature <= 0 && rain > 0) {
+        icon = '❄️';
+        description = 'Snow';
+    } else if (rain > 5) {
         icon = '🌧️';
         description = 'Heavy rain';
     } else if (rain > 0) {
@@ -35,8 +43,11 @@ function getWeatherIconAndDescription(rain: number, cloudiness: number) {
         icon = '☁️';
         description = 'Overcast';
     } else if (cloudiness > 20) {
-        icon = '⛅';
+        icon = isNight ? '🌙☁️' : '⛅';
         description = 'Partly cloudy';
+    } else {
+        icon = isNight ? '🌙' : '☀️';
+        description = 'Clear';
     }
 
     return { icon, description };
@@ -73,27 +84,12 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
     }, [locationList]);
 
     useEffect(() => {
-        const fetchImgData = async () => {
-            try {
-                const unsplashKey = 'QomxOmr0uAe3rY0cL076U6MDaOCaBWfrd0DhQjmQCIo';
-                const response = await fetch(
-                    `https://api.unsplash.com/search/photos?query=${location}&client_id=${unsplashKey}`,
-                );
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error: ${response.status}`);
-                }
-
-                const imgData = await response.json();
-                const imgUrl = imgData.results?.[0]?.urls?.regular;
-
-                setImgData(imgUrl || 'https://cdn-icons-png.flaticon.com/512/69/69524.png');
-            } catch {
-                setImgData('https://cdn-icons-png.flaticon.com/512/69/69524.png');
-            }
+        const loadImage = async () => {
+            const url = await getImg(location);
+            setImgData(url);
         };
 
-        fetchImgData();
+        loadImage();
     }, [location]);
 
     if (!weatherData || imgData === '') {
@@ -134,7 +130,12 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
                                         const rain = hourly.precipitation[currentHour];
                                         const cloudiness = hourly.cloudcover[currentHour];
 
-                                        return getWeatherIconAndDescription(rain, cloudiness)['icon'];
+                                        return getWeatherIconAndDescription(
+                                            rain,
+                                            cloudiness,
+                                            current.temperature,
+                                            currentHour,
+                                        )['icon'];
                                     })()}
                                 </span>
                             </div>
@@ -144,6 +145,7 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
                         </div>
                     </div>
 
+                    {/* Hodinová předpověď */}
                     <div className="bg-sidebar-border p-4 rounded-xl mb-4 min-h-[150px] hover:scale-105 transform transition-all duration-300 ease-in-out">
                         <h2 className="text-lg font-semibold mb-1">Hourly forecast</h2>
                         <div className="flex space-x-1">
@@ -162,7 +164,7 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
                                     const rain = precipitation[i];
                                     const cloudiness = cloud[i];
 
-                                    let icon = getWeatherIconAndDescription(rain, cloudiness)['icon'];
+                                    let icon = getWeatherIconAndDescription(rain, cloudiness, temp, hour)['icon'];
 
                                     return (
                                         <div
@@ -261,7 +263,12 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
                                     const min = daily.temperature_2m_min[i];
                                     const precipitation = daily.precipitation_sum[i];
 
-                                    let { icon, description } = getWeatherIconAndDescription(precipitation, avgCloud);
+                                    let { icon, description } = getWeatherIconAndDescription(
+                                        precipitation,
+                                        avgCloud,
+                                        (max + min) / 2,
+                                        12,
+                                    );
 
                                     return (
                                         <tr

@@ -65,7 +65,7 @@ fn prepare_cors() -> CorsLayer {
                 Method::OPTIONS,
                 Method::HEAD,
             ]
-            .to_vec(),
+                .to_vec(),
         )
         .allow_credentials(true)
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE])
@@ -176,7 +176,9 @@ async fn create_development_user(app: &AppState) {
         }
     };
 
-    let _ = auth_service.change_password(user.id, &"", &register_request.password, true).await;
+    let _ = auth_service
+        .change_password(user.id, &"", &register_request.password, true)
+        .await;
 
     let login_request = LoginUserSchema {
         email: register_request.email.clone(),
@@ -206,7 +208,6 @@ async fn main() {
         .unwrap()
         .add_directive("backend=debug".parse().unwrap())
         .add_directive("sqlx=info".parse().unwrap());
-
 
     let _r = tracing_subscriber::fmt::fmt()
         .without_time()

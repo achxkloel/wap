@@ -43,4 +43,5 @@ function Searchbar({ value = '', onChange, onSubmit, iconPosition = 'right' }: S
         </div>
     );
 }
+
 export default Searchbar;

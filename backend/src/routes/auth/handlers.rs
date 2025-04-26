@@ -1,4 +1,4 @@
-use axum::extract::Query;
+use axum::extract::{Path, Query};
 use axum::{
     extract::{Json, State},
     http::{Response, StatusCode},
@@ -9,7 +9,7 @@ use serde::Serialize;
 use serde_json::json;
 use std::sync::Arc;
 
-use crate::shared::models::AppState;
+use crate::shared::models::{AppState, DatabaseId};
 
 // TODO: add to response also user dat
 // TODO: add endpoint to change user passwords
@@ -20,17 +20,11 @@ use crate::shared::models::AppState;
 // -------------------------------------------------------------------------------------------------
 // SIGNUP handler
 
-use crate::routes::auth::models::{
-    AuthError, AuthErrorKind, AuthSuccessKind, ChangePasswordRequest, LoginError, LoginSuccess,
-    LoginUser, LoginUserSchema, OAuthParams, RefreshSuccess, RegisterError,
-    RegisterResponseSuccess, RegisterUserRequestSchema, UserData, UserDb,
-    UserRegisterResponse,
-};
+use crate::routes::auth::models::{AuthError, AuthErrorKind, AuthSuccessKind, ChangePasswordRequest, LoginError, LoginSuccess, LoginUser, LoginUserSchema, OAuthParams, RefreshSuccess, RegisterError, RegisterResponseSuccess, RegisterUserRequestSchema, UpdateUserInfoRequest, UserData, UserDb, UserRegisterResponse};
 use crate::routes::auth::services::{
     create_login_response, AuthService, AuthServiceImpl, GoogleAuthService, JwtConfigImpl,
 };
 use crate::routes::auth::{middlewares, services};
-use crate::routes::settings::services::SettingsServiceImpl;
 use utoipa::ToSchema;
 use utoipa_axum::router::{OpenApiRouter, UtoipaMethodRouterExt};
 use utoipa_axum::routes;
@@ -62,13 +56,14 @@ where
     Ok(AuthSuccessKind::Created(
         StatusCode::CREATED,
         RegisterResponseSuccess {
-        data: UserRegisterResponse {
-            id: user.id,
-            email: user.email.to_owned(),
-            created_at: user.created_at,
-            updated_at: user.updated_at,
+            data: UserRegisterResponse {
+                id: user.id,
+                email: user.email.to_owned(),
+                created_at: user.created_at,
+                updated_at: user.updated_at,
+            },
         },
-    }))
+    ))
 }
 
 fn filter_user_record(user: &UserDb) -> UserRegisterResponse {
@@ -147,7 +142,7 @@ where
             access_token: new_access_token,
             refresh_token: new_refresh_token,
         })
-        .to_string(),
+            .to_string(),
     );
 
     let (mut parts, body) = response.into_parts();
@@ -235,7 +230,6 @@ where
         last_name: user.last_name,
         image_url: user.image_url,
         provider: user.provider,
-        google_id: user.google_id,
         created_at: user.created_at,
         updated_at: user.updated_at,
     };
@@ -259,17 +253,51 @@ pub async fn change_password<S>(
     State(service): State<Arc<S>>,
     Extension(user): Extension<UserDb>,
     Json(body): Json<ChangePasswordRequest>,
-) -> Result<impl IntoResponse, (StatusCode, Json<AuthError>)>
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthErrorKind>)>
 where
     S: AuthServiceImpl,
 {
     service
         .change_password(user.id, &body.current_password, &body.new_password, false)
-        .await
-        .map_err(|(code, err)| (code, Json(err)))
-        .unwrap();
+        .await?;
 
     Ok((StatusCode::NO_CONTENT, "Password changed successfully"))
+}
+
+#[utoipa::path(
+    post,
+    path = "/auth/update-user-info/{user_id}",
+    request_body(content = UpdateUserInfoRequest, content_type = "application/json"),
+    responses(
+        (status = 200, body = UserData, description = "User info updated successfully", content_type = "application/json"),
+        (status = 400, description = "Bad request", body = AuthError, content_type = "application/json"),
+        (status = 401, description = "Unauthorized", body = AuthError, content_type = "application/json"),
+        (status = 500, description = "Internal error", body = AuthError, content_type = "application/json")
+    )
+)]
+pub async fn update_user_info<S>(
+    State(service): State<Arc<S>>,
+    Path(user_id): Path<DatabaseId>,
+    Json(payload): Json<UpdateUserInfoRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthErrorKind>)>
+where
+    S: AuthServiceImpl,
+{
+    let updated = service
+        .update_user_info(user_id, payload)
+        .await?;
+
+    let user = UserData {
+        id: updated.id,
+        email: updated.email,
+        first_name: updated.first_name,
+        last_name: updated.last_name,
+        image_url: updated.image_url,
+        provider: updated.provider,
+        created_at: updated.created_at,
+        updated_at: updated.updated_at,
+    };
+    Ok((StatusCode::OK, Json(user)))
 }
 
 /// Fully‐generic: you supply the `service: S`.
@@ -298,6 +326,12 @@ where
         )
         .routes(
             routes!(change_password).layer(axum::middleware::from_fn_with_state(
+                auth_service.clone(),
+                middlewares::auth,
+            )),
+        )
+        .routes(
+            routes!(update_user_info).layer(axum::middleware::from_fn_with_state(
                 auth_service.clone(),
                 middlewares::auth,
             )),

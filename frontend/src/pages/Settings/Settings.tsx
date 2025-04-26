@@ -1,110 +1,55 @@
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
-import api from '@/lib/api';
-import { logger } from '@/lib/logger';
-import { useEffect, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import useAuthStore from '@/lib/store/auth';
+import { cn } from '@/lib/utils';
+import { useState } from 'react';
+import Password from './Password';
+import Profile from './Profile';
 
-function Settings() {
-    const [theme, setTheme] = useState<'Light' | 'Dark'>('Light');
-    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-    const [radius, setRadius] = useState(50);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+interface Tab {
+    key: 'profile' | 'password';
+    label: string;
+}
 
-    useEffect(() => {
-        const loadSettings = async () => {
-            try {
-                const res = await api.get('/user/settings');
-                const data = res.data;
-                setTheme(data.theme);
-                setNotificationsEnabled(data.notifications_enabled);
-                setRadius(data.radius);
-            } catch (err) {
-                logger.error('Settings load error', err);
-                setError('Failed to load settings');
-            } finally {
-                setLoading(false);
-            }
-        };
+const tabs: Tab[] = [
+    { key: 'profile', label: 'Profile' },
+    { key: 'password', label: 'Password' },
+];
 
-        loadSettings();
-    }, []);
-
-    const handleSave = async () => {
-        try {
-            const body = {
-                theme,
-                notifications_enabled: notificationsEnabled,
-                radius,
-            };
-
-            logger.debug('Settings body', body);
-            await api.put('/user/settings', body);
-            logger.debug('Settings saved');
-        } catch (err) {
-            logger.error('Save failed', err);
-            setError('Failed to save');
-        }
-    };
-
-    if (loading) return <div className="p-6 text-center">Loading settings...</div>;
+export default function Settings() {
+    const user = useAuthStore((state) => state.user);
+    const [selectedTab, setSelectedTab] = useState<'profile' | 'password'>('profile');
 
     return (
-        <div className="max-w-xl mx-auto p-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Settings</CardTitle>
-                    <CardDescription>Manage your account preferences</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    {error && <p className="text-sm text-red-500">{error}</p>}
+        <div className="container mx-auto mt-8 flex flex-wrap gap-4 justify-center">
+            <Card className="min-w-full sm:min-w-[500px] bg-sidebar">
+                <CardContent className="pt-6">
+                    {selectedTab === 'profile' && <Profile />}
+                    {selectedTab === 'password' && <Password />}
+                </CardContent>
+            </Card>
+            <Card className="min-w-full sm:min-w-[300px] h-fit bg-sidebar">
+                <CardContent className="pt-6">
+                    <div className="flex flex-col space-y-1">
+                        {tabs.map((tab, index) => {
+                            if (tab.key === 'password' && user?.provider === 'google') {
+                                return null;
+                            }
 
-                    <div className="space-y-2">
-                        <Label>Theme</Label>
-                        <Select
-                            value={theme}
-                            onValueChange={(value: 'Light' | 'Dark') => setTheme(value)}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select theme" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Light">Light</SelectItem>
-                                <SelectItem value="Dark">Dark</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                        <Label>Notifications</Label>
-                        <Switch
-                            checked={notificationsEnabled}
-                            onCheckedChange={setNotificationsEnabled}
-                        />
-                    </div>
-
-                    <div>
-                        <Label className="mb-1 block">Radius (km)</Label>
-                        <Slider
-                            min={0}
-                            max={100}
-                            step={1}
-                            value={[radius]}
-                            onValueChange={([val]) => setRadius(val)}
-                        />
-                        <div className="text-sm text-gray-500 mt-1">Current: {radius} km</div>
+                            return (
+                                <Button
+                                    key={index}
+                                    variant="ghost"
+                                    className={cn('justify-start', selectedTab === tab.key ? 'bg-muted' : '')}
+                                    onClick={() => setSelectedTab(tab.key)}
+                                >
+                                    {tab.label}
+                                </Button>
+                            );
+                        })}
                     </div>
                 </CardContent>
-                <CardFooter className="flex justify-end">
-                    <Button onClick={handleSave}>Save Settings</Button>
-                </CardFooter>
             </Card>
         </div>
     );
 }
-
-export default Settings;

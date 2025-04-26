@@ -2,6 +2,7 @@ import L from 'leaflet';
 import { create } from 'zustand';
 
 export type RectangleCoordinates = L.LatLngBounds;
+
 export interface CircleCoordinates {
     center: L.LatLngTuple;
     radius: number;

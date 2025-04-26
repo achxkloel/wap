@@ -1,3 +1,4 @@
+import defaultLocationImage from '@/assets/default_location.png';
 import { Button } from '@/components/ui/button';
 import getEarthquakes from '@/lib/data/earthquakes/get';
 import getWeather, { current_def, hourly_def } from '@/lib/data/getWeather';
@@ -90,7 +91,7 @@ function LocationCard({ location, onEdit, onDelete }: LocationCardProps) {
         >
             <div className="flex-shrink-0">
                 <img
-                    src={location.image || undefined}
+                    src={location.image || defaultLocationImage}
                     alt={location.name}
                     className="w-[200px] h-[200px] rounded-md object-cover"
                 />

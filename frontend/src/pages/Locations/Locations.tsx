@@ -2,6 +2,7 @@ import DeleteModal from '@/components/DeleteModal/DeleteModal';
 import Map from '@/components/Map';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
 import api from '@/lib/api';
 import useAuthStore from '@/lib/store/auth';
 import useLocationStore from '@/lib/store/location';
@@ -22,6 +23,8 @@ const defaultValues: LocationFormValues = {
 };
 
 function Locations() {
+    const { toast } = useToast();
+
     const locations = useLocationStore((state) => state.locations);
     const setLocations = useLocationStore((state) => state.setLocations);
     const user = useAuthStore((state) => state.user);
@@ -86,9 +89,20 @@ function Locations() {
                 },
             });
 
+            toast({
+                description: 'Location created successfully',
+            });
+
             fetchLocations();
         } catch (e) {
+            toast({
+                description: 'Failed to create location',
+                variant: 'destructive',
+            });
+
             console.error('Error creating location:', e);
+        } finally {
+            setSelectedListLocation(null);
         }
     };
 
@@ -105,8 +119,18 @@ function Locations() {
                 longitude: location.longitude,
                 radius: location.radius,
             });
+
+            toast({
+                description: 'Location updated successfully',
+            });
+
             fetchLocations();
         } catch (e) {
+            toast({
+                description: 'Failed to edit location',
+                variant: 'destructive',
+            });
+
             console.error('Error editing location:', e);
         } finally {
             setSelectedLocation(null);
@@ -121,8 +145,18 @@ function Locations() {
 
         try {
             await api.delete(`/natural_phenomenon_locations/${selectedLocation.id}`);
+
+            toast({
+                description: 'Location deleted successfully',
+            });
+
             fetchLocations();
         } catch (e) {
+            toast({
+                description: 'Failed to delete location',
+                variant: 'destructive',
+            });
+
             console.error('Error deleting location:', e);
         } finally {
             setSelectedLocation(null);

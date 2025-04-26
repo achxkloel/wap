@@ -98,8 +98,8 @@ async fn app_router(app: AppState) -> OpenApiRouter {
     let router = OpenApiRouter::with_openapi(ApiDoc::openapi());
 
     router
-        .nest("/foo", setting_router)
-        // .merge(setting_router)
+        // .nest("/foo", setting_router)
+        .merge(setting_router)
         .merge(auth_router)
         .merge(weather_location_router)
         .merge(natural_phenomenon_location_router)

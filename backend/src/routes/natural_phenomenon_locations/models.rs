@@ -11,6 +11,7 @@ pub struct NaturalPhenomenonLocationDb {
     pub latitude: f64,
     pub longitude: f64,
     pub image_path: String,
+    pub radius: i32,
     pub description: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
@@ -21,6 +22,7 @@ pub struct UpdateNaturalPhenomenonLocationRequest {
     pub name: Option<String>,
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
+    pub radius: Option<i32>,
     pub description: Option<String>,
 }
 
@@ -31,17 +33,6 @@ pub struct UpdateNaturalPhenomenonLocationRequestWithIds {
     pub payload: UpdateNaturalPhenomenonLocationRequest,
 }
 
-// pub struct NaturalPhenomenonLocationDb {
-//     pub id: i32,
-//     pub user_id: DatabaseId,
-//     pub name: String,
-//     pub latitude: f64,
-//     pub longitude: f64,
-//     pub description: std::option::Option<String>,
-//     pub created_at: chrono::DateTime<chrono::Utc>,
-//     pub updated_at: chrono::DateTime<chrono::Utc>,
-// }
-
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
 pub struct CreateAndUpdateResponseSuccess {
     pub id: DatabaseId, // None for new entities
@@ -49,6 +40,7 @@ pub struct CreateAndUpdateResponseSuccess {
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
+    pub radius: i32,
     pub description: String,
     pub image_path: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
@@ -62,6 +54,7 @@ pub struct GetAllNaturalPhenomenonLocationResponseSuccess {
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
+    pub radius: i32,
     pub description: String,
     pub image_path: String,
 }
@@ -96,6 +89,8 @@ pub struct CreateNaturalPhenomenonLocationRequest {
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
+    pub radius: i32,
+    pub image_path: String,
     pub description: String,
 }
 
@@ -107,19 +102,20 @@ impl std::fmt::Display for CreateNaturalPhenomenonLocationRequest {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct NaturalPhenomenonResponseSuccess {
-    pub message: String,
-}
+// #[derive(Debug, Serialize, Deserialize, ToSchema)]
+// pub struct NaturalPhenomenonResponseSuccess {
+//     pub message: String,
+// }
 
 /// include the raw bytes + original filename
 #[derive(Debug, ToSchema, Deserialize, Serialize)]
-pub struct CreateNaturalPhenomenonLocationWithImage {
+pub struct PostNaturalPhenomenonLocationService {
     pub user_id: DatabaseId,
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
     pub description: String,
+    pub radius: i32,
 
     #[schema(format = Binary, content_media_type = "application/octet-stream")]
     #[serde(with = "serde_bytes")]
@@ -131,12 +127,13 @@ pub struct CreateNaturalPhenomenonLocationWithImage {
 
 /// include the raw bytes + original filename
 #[derive(Debug, ToSchema, Deserialize, Serialize)]
-pub struct CreateNaturalPhenomenonLocationWithImage2 {
+pub struct PostNaturalPhenomenonLocationSchema {
     pub user_id: DatabaseId,
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
     pub description: String,
+    pub radius: i32,
 
     #[schema(format = Binary, content_media_type = "application/octet-stream")]
     #[serde(with = "serde_bytes")]
@@ -154,21 +151,49 @@ pub struct CreateNaturalPhenomenonLocationInnerWithImage {
     pub image_filename: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", content = "data")]
+pub enum NaturalPhenomenonLocationResponseSuccess {
+    Deleted
+}
+
+impl Display for NaturalPhenomenonLocationResponseSuccess {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NaturalPhenomenonLocationResponseSuccess::Deleted => write!(f, "Deleted"),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", content = "data")]
-pub enum NaturalPhenomenonLocationErrorKind {
+pub enum NaturalPhenomenonLocationError {
     NotFound,
     AlreadyExists,
     DatabaseError,
+    LocationCouldNotBeDeleted,
+    ImageInLocationCloudNotBeDeleted,
 }
 
-impl Display for NaturalPhenomenonLocationErrorKind {
+impl Display for NaturalPhenomenonLocationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NaturalPhenomenonLocationErrorKind::NotFound => write!(f, "Not Found"),
-            NaturalPhenomenonLocationErrorKind::AlreadyExists => write!(f, "Already Exists"),
-            NaturalPhenomenonLocationErrorKind::DatabaseError => write!(f, "Database Error"),
+            NaturalPhenomenonLocationError::NotFound => write!(f, "Not Found"),
+            NaturalPhenomenonLocationError::AlreadyExists => write!(f, "Already Exists"),
+            NaturalPhenomenonLocationError::DatabaseError => write!(f, "Database Error"),
+            NaturalPhenomenonLocationError::LocationCouldNotBeDeleted => write!(f, "Location Could Not Be Deleted"),
+            NaturalPhenomenonLocationError::ImageInLocationCloudNotBeDeleted => write!(f, "Image In Location Could Not Be Deleted"),
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone, PartialEq)]
+pub struct ServiceCreateAndUpdateResponseSuccess {
+    pub id: DatabaseId, // None for new entities
+    pub user_id: DatabaseId,
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub radius: i32,
+    pub description: String,
 }

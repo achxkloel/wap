@@ -1,8 +1,16 @@
-use crate::routes::natural_phenomenon_locations::models::{CreateAndUpdateResponseSuccess, CreateNaturalPhenomenonLocationInnerWithImage, CreateNaturalPhenomenonLocationRequest, CreateNaturalPhenomenonLocationWithImage, GetAllNaturalPhenomenonLocationResponseSuccess, GetByIdNaturalPhenomenonLocationResponseSuccess, NaturalPhenomenonLocationDb, NaturalPhenomenonLocationErrorKind, UpdateNaturalPhenomenonLocationRequestWithIds, UpdateNaturalPhenomenonLocationResponseSuccess};
+use crate::routes::natural_phenomenon_locations::models::{
+    CreateAndUpdateResponseSuccess, CreateNaturalPhenomenonLocationInnerWithImage,
+    CreateNaturalPhenomenonLocationRequest, GetAllNaturalPhenomenonLocationResponseSuccess,
+    GetByIdNaturalPhenomenonLocationResponseSuccess, NaturalPhenomenonLocationDb,
+    NaturalPhenomenonLocationError, NaturalPhenomenonLocationResponseSuccess,
+    PostNaturalPhenomenonLocationService, ServiceCreateAndUpdateResponseSuccess,
+    UpdateNaturalPhenomenonLocationRequestWithIds, UpdateNaturalPhenomenonLocationResponseSuccess,
+};
 use crate::shared::models::DatabaseId;
 use anyhow::Result;
 use async_trait::async_trait;
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::Json;
 use sanitize_filename::sanitize_with_options;
 use sqlx::PgPool;
@@ -10,20 +18,17 @@ use tokio::fs;
 use uuid::Uuid;
 
 #[async_trait]
-pub trait NaturalPhenomenonLocationService: Send + Sync + 'static {
+pub trait NaturalPhenomenonLocationServiceImpl: Send + Sync + 'static {
     async fn create(
         &self,
-        req: CreateNaturalPhenomenonLocationWithImage
-    ) -> Result<
-        CreateAndUpdateResponseSuccess,
-        (StatusCode, Json<NaturalPhenomenonLocationErrorKind>),
-    >;
+        req: PostNaturalPhenomenonLocationService,
+    ) -> Result<CreateAndUpdateResponseSuccess, (StatusCode, Json<NaturalPhenomenonLocationError>)>;
     async fn get_all(
         &self,
         user_id: DatabaseId,
     ) -> Result<
         Vec<GetAllNaturalPhenomenonLocationResponseSuccess>,
-        (StatusCode, Json<NaturalPhenomenonLocationErrorKind>),
+        (StatusCode, Json<NaturalPhenomenonLocationError>),
     >;
 
     async fn get_by_id(
@@ -32,34 +37,40 @@ pub trait NaturalPhenomenonLocationService: Send + Sync + 'static {
         id: DatabaseId,
     ) -> Result<
         GetByIdNaturalPhenomenonLocationResponseSuccess,
-        (StatusCode, Json<NaturalPhenomenonLocationErrorKind>),
+        (StatusCode, Json<NaturalPhenomenonLocationError>),
     >;
     async fn update(
         &self,
         location: UpdateNaturalPhenomenonLocationRequestWithIds,
-        ) -> Result< crate::routes::natural_phenomenon_locations::models::UpdateNaturalPhenomenonLocationResponseSuccess, (StatusCode, Json< crate::routes::natural_phenomenon_locations::models::NaturalPhenomenonLocationErrorKind >)>;
-    async fn delete(&self, user_id: DatabaseId, id: DatabaseId) -> Result<()>;
-}
+    ) -> Result<crate::routes::natural_phenomenon_locations::models::UpdateNaturalPhenomenonLocationResponseSuccess, (StatusCode, Json<crate::routes::natural_phenomenon_locations::models::NaturalPhenomenonLocationError>)>;
 
-pub struct PgNaturalPhenomenonLocationService {
+    /// Delete the row *and* its on-disk image (if any).
+    async fn delete(
+        &self,
+        user_id: DatabaseId,
+        id: DatabaseId,
+    ) -> Result<
+        (StatusCode, Json<NaturalPhenomenonLocationResponseSuccess>),
+        (StatusCode, Json<NaturalPhenomenonLocationError>),
+    >;}
+
+pub struct NaturalPhenomenonLocationService {
     db: PgPool,
 }
 
-impl PgNaturalPhenomenonLocationService {
+impl NaturalPhenomenonLocationService {
     pub fn new(db: PgPool) -> Self {
         Self { db }
     }
 }
 
 #[async_trait]
-impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
+impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
     async fn create(
         &self,
-        req: CreateNaturalPhenomenonLocationWithImage,
-    ) -> Result<
-        CreateAndUpdateResponseSuccess,
-        (StatusCode, Json<NaturalPhenomenonLocationErrorKind>),
-    > {
+        req: PostNaturalPhenomenonLocationService,
+    ) -> Result<CreateAndUpdateResponseSuccess, (StatusCode, Json<NaturalPhenomenonLocationError>)>
+    {
         // 1) save image to disk
         let safe = sanitize_with_options(&req.image_filename, Default::default());
         let filename = format!("{}_{}", Uuid::new_v4(), safe);
@@ -67,13 +78,13 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         fs::create_dir_all("uploads").await.map_err(|_| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(NaturalPhenomenonLocationErrorKind::DatabaseError),
+                Json(NaturalPhenomenonLocationError::DatabaseError),
             )
         })?;
         fs::write(&path, &req.image_bytes).await.map_err(|_| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(NaturalPhenomenonLocationErrorKind::DatabaseError),
+                Json(NaturalPhenomenonLocationError::DatabaseError),
             )
         })?;
 
@@ -82,8 +93,8 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             NaturalPhenomenonLocationDb,
             r#"
             INSERT INTO natural_phenomenon_locations
-                (user_id, name, latitude, longitude, description, image_path)
-            VALUES ($1,$2,$3,$4,$5,$6)
+                (user_id, name, latitude, longitude, description, image_path, radius)
+            VALUES ($1,$2,$3,$4,$5,$6,$7)
             RETURNING *
             "#,
             req.user_id.0,
@@ -92,13 +103,14 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             req.longitude,
             req.description,
             path, // store the file path or a URL base + path
+            req.radius,
         )
         .fetch_one(&self.db)
         .await
         .map_err(|_| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(NaturalPhenomenonLocationErrorKind::DatabaseError),
+                Json(NaturalPhenomenonLocationError::DatabaseError),
             )
         })?;
 
@@ -111,6 +123,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             longitude: rec.longitude,
             description: rec.description,
             image_path: path,
+            radius: rec.radius,
             created_at: rec.created_at,
             updated_at: rec.updated_at,
         })
@@ -121,7 +134,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         user_id: DatabaseId,
     ) -> Result<
         Vec<GetAllNaturalPhenomenonLocationResponseSuccess>,
-        (StatusCode, Json<NaturalPhenomenonLocationErrorKind>),
+        (StatusCode, Json<NaturalPhenomenonLocationError>),
     > {
         // 1) try to fetch all rows, and map any SQL error into our tuple
         let records = sqlx::query_as!(
@@ -139,7 +152,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             tracing::error!("Error fetching locations: {:?}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(NaturalPhenomenonLocationErrorKind::DatabaseError),
+                Json(NaturalPhenomenonLocationError::DatabaseError),
             )
         })?;
 
@@ -153,6 +166,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
                 latitude: rec.latitude,
                 longitude: rec.longitude,
                 description: rec.description,
+                radius: rec.radius,
                 image_path: rec.image_path,
             })
             .collect();
@@ -166,7 +180,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         id: DatabaseId,
     ) -> Result<
         GetByIdNaturalPhenomenonLocationResponseSuccess,
-        (StatusCode, Json<NaturalPhenomenonLocationErrorKind>),
+        (StatusCode, Json<NaturalPhenomenonLocationError>),
     > {
         let rec = sqlx::query_as!(
             NaturalPhenomenonLocationDb,
@@ -184,7 +198,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             tracing::error!("Error fetching location by ID: {:?}", id);
             (
                 StatusCode::NOT_FOUND,
-                Json(NaturalPhenomenonLocationErrorKind::NotFound),
+                Json(NaturalPhenomenonLocationError::NotFound),
             )
         })?;
 
@@ -204,7 +218,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         location: UpdateNaturalPhenomenonLocationRequestWithIds,
     ) -> Result<
         UpdateNaturalPhenomenonLocationResponseSuccess,
-        (StatusCode, Json<NaturalPhenomenonLocationErrorKind>),
+        (StatusCode, Json<NaturalPhenomenonLocationError>),
     > {
         let record = sqlx::query_as!(
             NaturalPhenomenonLocationDb,
@@ -232,7 +246,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
             tracing::error!("Error updating location: {:?}", location);
             (
                 StatusCode::NOT_FOUND,
-                Json(NaturalPhenomenonLocationErrorKind::NotFound),
+                Json(NaturalPhenomenonLocationError::NotFound),
             )
         })?;
 
@@ -247,19 +261,44 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
         })
     }
 
-    async fn delete(&self, user_id: DatabaseId, id: DatabaseId) -> Result<()> {
-        sqlx::query!(
+    async fn delete(
+        &self,
+        user_id: DatabaseId,
+        id: DatabaseId,
+    ) -> Result<
+        (StatusCode, Json<NaturalPhenomenonLocationResponseSuccess>),
+        (StatusCode, Json<NaturalPhenomenonLocationError>),
+    > {
+        // 1) Delete the DB row, grabbing the image_path
+        let rec = sqlx::query!(
             r#"
-                DELETE FROM natural_phenomenon_locations
-                WHERE id = $1 AND user_id = $2
-                "#,
+            DELETE FROM natural_phenomenon_locations
+             WHERE id = $1 AND user_id = $2
+            RETURNING image_path
+            "#,
             id.0,
-            user_id.0
+            user_id.0,
         )
-        .execute(&self.db)
-        .await?;
+            .fetch_one(&self.db)
+            .await
+            .map_err(|e| {
+                tracing::error!("DB delete error: {:?}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(NaturalPhenomenonLocationError::DatabaseError),
+                )
+            })?;
 
-        Ok(())
+        // 2) If there was an image_path, remove the file (ignore FS errors)
+        if let path = rec.image_path {
+            let _ = fs::remove_file(&path).await;
+        }
+
+        // 3) Success → return a 204 + our Deleted enum
+        Ok((
+            StatusCode::NO_CONTENT,
+            Json(NaturalPhenomenonLocationResponseSuccess::Deleted),
+        ))
     }
 }
 
@@ -278,18 +317,18 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
 //     use crate::tests::tests::TestApp;
 //     use sqlx::PgPool;
 //     use tokio::fs;
-// 
+//
 //     #[sqlx::test]
 //     async fn test_natural_phenomenon_location_service_crud(pool: PgPool) {
 //         // 0) setup
 //         let test_app = TestApp::new(pool.clone()).await;
 //         let user_id: DatabaseId = test_app.users[0].user.id;
 //         let service = PgNaturalPhenomenonLocationService::new(pool.clone());
-// 
+//
 //         // prepare a dummy “image upload”
 //         let image_bytes = b"this is a test image".to_vec();
 //         let image_filename = "foo.png".to_owned();
-// 
+//
 //         // 1) CREATE
 //         let create_req = CreateNaturalPhenomenonLocationWithImage {
 //             user_id,
@@ -302,22 +341,22 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
 //         };
 //         let created: CreateAndUpdateResponseSuccess =
 //             service.create(create_req).await.expect("create failed");
-//         
+//
 //         // basic field assertions
 //         assert_eq!(created.user_id, user_id);
 //         assert_eq!(created.name, "Grand Canyon");
 //         assert_eq!(created.latitude, 36.1069);
 //         assert_eq!(created.longitude, -112.1129);
 //         assert_eq!(created.description, "A famous canyon");
-//         
+//
 //         // the image was written to disk at `created.image_path`
 //         assert!(
 //             fs::metadata(&created.image_path).await.is_ok(),
 //             "image file not found on disk"
 //         );
-//         
+//
 //         let id = created.id;
-// 
+//
 //         // 2) GET_ALL
 //         let all: Vec<GetAllNaturalPhenomenonLocationResponseSuccess> =
 //             service.get_all(user_id).await.expect("get_all failed");
@@ -325,7 +364,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
 //         let first = &all[0];
 //         assert_eq!(first.id, id);
 //         assert_eq!(first.image_path, created.image_path);
-// 
+//
 //         // 3) GET_BY_ID
 //         let fetched: GetByIdNaturalPhenomenonLocationResponseSuccess = service
 //             .get_by_id(user_id, id)
@@ -334,7 +373,7 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
 //         assert_eq!(fetched.id, id);
 //         assert_eq!(fetched.user_id, user_id);
 //         assert_eq!(fetched.image_path, created.image_path);
-// 
+//
 //         // 4) UPDATE
 //         let update_req = UpdateNaturalPhenomenonLocationRequestWithIds {
 //             user_id,
@@ -355,10 +394,10 @@ impl NaturalPhenomenonLocationService for PgNaturalPhenomenonLocationService {
 //         assert!((updated.latitude - 36.11).abs() < f64::EPSILON);
 //         assert!((updated.longitude + 112.11).abs() < f64::EPSILON);
 //         assert_eq!(updated.description, "Now even more famous");
-// 
+//
 //         // the image_path must be unchanged
 //         assert_eq!(updated.image_path, created.image_path);
-// 
+//
 //         // 5) DELETE
 //         service.delete(user_id, id).await.expect("delete failed");
 //         let remaining = service

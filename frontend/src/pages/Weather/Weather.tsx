@@ -50,6 +50,7 @@ function Weather() {
     // const api = axios.create({
     //     baseURL: 'https://api.open-meteo.com/v1',
     // });
+    //scalar
 
     // function get(lat: number, lon: number) {
     //     return api

@@ -52,7 +52,8 @@ pub trait NaturalPhenomenonLocationServiceImpl: Send + Sync + 'static {
     ) -> Result<
         (StatusCode, Json<NaturalPhenomenonLocationResponseSuccess>),
         (StatusCode, Json<NaturalPhenomenonLocationError>),
-    >;}
+    >;
+}
 
 pub struct NaturalPhenomenonLocationService {
     db: PgPool,
@@ -71,30 +72,47 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
         req: PostNaturalPhenomenonLocationService,
     ) -> Result<CreateAndUpdateResponseSuccess, (StatusCode, Json<NaturalPhenomenonLocationError>)>
     {
-        // 1) save image to disk
-        let safe = sanitize_with_options(&req.image_filename, Default::default());
-        let filename = format!("{}_{}", Uuid::new_v4(), safe);
-        let path = format!("uploads/{}", filename);
-        fs::create_dir_all("uploads").await.map_err(|_| {
+        tracing::debug!("creating location: {:?}", req);
+
+        // make sure uploads/ exists
+        fs::create_dir_all("uploads").await.map_err(|e| {
+            tracing::error!("Error creating uploads/ dir: {:?}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(NaturalPhenomenonLocationError::DatabaseError),
-            )
-        })?;
-        fs::write(&path, &req.image_bytes).await.map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(NaturalPhenomenonLocationError::DatabaseError),
+                Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())),
             )
         })?;
 
-        // 2) insert into DB (including image_url column!)
+        // if there's image data, write it and record a path; otherwise leave it None
+        let image_path_opt = if !req.image_bytes.is_empty() {
+            let safe = sanitize_with_options(&req.image_filename, Default::default());
+            let filename = format!("{}_{}", Uuid::new_v4(), safe);
+            let path = format!("uploads/{}", filename);
+
+            fs::write(&path, &req.image_bytes).await.map_err(|e| {
+                tracing::error!("Error writing image to disk: {:?}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())),
+                )
+            })?;
+            tracing::debug!("wrote image to disk at {}", path);
+            Some(path)
+        } else {
+            tracing::debug!("image not present");
+            None
+        };
+        tracing::debug!("image_path_opt: {:?}", image_path_opt);
+        // let db_image_path = image_path_opt.unwrap_or_default();
+        // tracing::debug!("db_image_path: {:?}", db_image_path);
+
+        // 2) insert into DB, passing `image_path_opt` which is NULL if no bytes
         let rec = sqlx::query_as!(
             NaturalPhenomenonLocationDb,
             r#"
             INSERT INTO natural_phenomenon_locations
                 (user_id, name, latitude, longitude, description, image_path, radius)
-            VALUES ($1,$2,$3,$4,$5,$6,$7)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
             "#,
             req.user_id.0,
@@ -102,19 +120,23 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
             req.latitude,
             req.longitude,
             req.description,
-            path, // store the file path or a URL base + path
+            image_path_opt,
+            // db_image_path,
             req.radius,
         )
-        .fetch_one(&self.db)
-        .await
-        .map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(NaturalPhenomenonLocationError::DatabaseError),
-            )
-        })?;
+            .fetch_one(&self.db)
+            .await
+            .map_err(|e| {
+                tracing::error!("DB insert error: {:?}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())),
+                )
+            })?;
 
-        // 3) build your success DTO
+        tracing::debug!("DB row created: {:?}", rec);
+
+        // 3) build and return your DTO, using rec.image_path (Option<String>) directly
         Ok(CreateAndUpdateResponseSuccess {
             id: rec.id,
             user_id: rec.user_id,
@@ -122,7 +144,7 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
             latitude: rec.latitude,
             longitude: rec.longitude,
             description: rec.description,
-            image_path: path,
+            image_path: rec.image_path.unwrap_or_default(),
             radius: rec.radius,
             created_at: rec.created_at,
             updated_at: rec.updated_at,
@@ -146,15 +168,15 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
             "#,
             user_id.0
         )
-        .fetch_all(&self.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("Error fetching locations: {:?}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(NaturalPhenomenonLocationError::DatabaseError),
-            )
-        })?;
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| {
+                tracing::error!("Error fetching locations: {:?}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())),
+                )
+            })?;
 
         // 2) now map the Vec<NaturalPhenomenonLocationDb> into our response DTOs
         let locations = records
@@ -167,7 +189,7 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
                 longitude: rec.longitude,
                 description: rec.description,
                 radius: rec.radius,
-                image_path: rec.image_path,
+                image_path: rec.image_path.unwrap_or_default(),
             })
             .collect();
 
@@ -192,15 +214,15 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
             id.0,
             user_id.0
         )
-        .fetch_one(&self.db)
-        .await
-        .map_err(|_| {
-            tracing::error!("Error fetching location by ID: {:?}", id);
-            (
-                StatusCode::NOT_FOUND,
-                Json(NaturalPhenomenonLocationError::NotFound),
-            )
-        })?;
+            .fetch_one(&self.db)
+            .await
+            .map_err(|_| {
+                tracing::error!("Error fetching location by ID: {:?}", id);
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(NaturalPhenomenonLocationError::NotFound),
+                )
+            })?;
 
         Ok(GetByIdNaturalPhenomenonLocationResponseSuccess {
             id: rec.id,
@@ -210,7 +232,7 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
             longitude: rec.longitude,
             radius: rec.radius,
             description: rec.description,
-            image_path: rec.image_path,
+            image_path: rec.image_path.unwrap_or_default(),
         })
     }
 
@@ -243,15 +265,15 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
             location.id.0,
             location.user_id.0,
         )
-        .fetch_one(&self.db)
-        .await
-        .map_err(|_| {
-            tracing::error!("Error updating location: {:?}", location);
-            (
-                StatusCode::NOT_FOUND,
-                Json(NaturalPhenomenonLocationError::NotFound),
-            )
-        })?;
+            .fetch_one(&self.db)
+            .await
+            .map_err(|_| {
+                tracing::error!("Error updating location: {:?}", location);
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(NaturalPhenomenonLocationError::NotFound),
+                )
+            })?;
 
         Ok(UpdateNaturalPhenomenonLocationResponseSuccess {
             id: record.id,
@@ -260,7 +282,7 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
             latitude: record.latitude,
             longitude: record.longitude,
             description: record.description,
-            image_path: record.image_path,
+            image_path: record.image_path.unwrap_or_default(),
             radius: record.radius,
         })
     }
@@ -289,13 +311,16 @@ impl NaturalPhenomenonLocationServiceImpl for NaturalPhenomenonLocationService {
                 tracing::error!("DB delete error: {:?}", e);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(NaturalPhenomenonLocationError::DatabaseError),
+                    Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())),
                 )
             })?;
 
         // 2) If there was an image_path, remove the file (ignore FS errors)
-        if let path = rec.image_path {
+        if let Some(path) = rec.image_path {
+            tracing::debug!("removing image file at {}", path);
             let _ = fs::remove_file(&path).await;
+        } else {
+            tracing::debug!("no image file to remove");
         }
 
         // 3) Success → return a 204 + our Deleted enum

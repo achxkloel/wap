@@ -196,7 +196,15 @@ async fn create_development_user(app: &AppState) {
     let data = create_login_response(user.clone(), &auth_service).await;
 
     tracing::info!("Development user created and logged in: {:?}", auth_result);
-    tracing::debug!("You can login with: Bearer {}", data.access_token);
+    tracing::debug!(
+        r#"
+==========================
+You can login with:
+Bearer {}
+===========================
+    "#,
+        data.access_token
+    );
 }
 
 #[tokio::main]

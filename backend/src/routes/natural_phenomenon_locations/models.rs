@@ -10,7 +10,7 @@ pub struct NaturalPhenomenonLocationDb {
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
-    pub image_path: String,
+    pub image_path: Option<String>,
     pub radius: i32,
     pub description: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
@@ -82,7 +82,6 @@ pub struct UpdateNaturalPhenomenonLocationResponseSuccess {
     pub description: String,
     pub image_path: String,
 }
-
 
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -172,7 +171,7 @@ impl Display for NaturalPhenomenonLocationResponseSuccess {
 pub enum NaturalPhenomenonLocationError {
     NotFound,
     AlreadyExists,
-    DatabaseError,
+    DatabaseError(String),
     LocationCouldNotBeDeleted,
     ImageInLocationCloudNotBeDeleted,
 }
@@ -182,7 +181,7 @@ impl Display for NaturalPhenomenonLocationError {
         match self {
             NaturalPhenomenonLocationError::NotFound => write!(f, "Not Found"),
             NaturalPhenomenonLocationError::AlreadyExists => write!(f, "Already Exists"),
-            NaturalPhenomenonLocationError::DatabaseError => write!(f, "Database Error"),
+            NaturalPhenomenonLocationError::DatabaseError(err) => write!(f, "Database Error: {}", err),
             NaturalPhenomenonLocationError::LocationCouldNotBeDeleted => write!(f, "Location Could Not Be Deleted"),
             NaturalPhenomenonLocationError::ImageInLocationCloudNotBeDeleted => write!(f, "Image In Location Could Not Be Deleted"),
         }

@@ -4,9 +4,9 @@ use std::sync::Arc;
 use crate::routes::auth::middlewares::auth;
 use crate::routes::auth::models::UserDb;
 use crate::routes::auth::services::AuthService;
-use crate::routes::natural_phenomenon_locations::models::{CreateAndUpdateResponseSuccess, CreateNaturalPhenomenonLocationInnerWithImage, CreateNaturalPhenomenonLocationRequest, PostNaturalPhenomenonLocationService, PostNaturalPhenomenonLocationSchema, GetAllNaturalPhenomenonLocationResponseSuccess, GetByIdNaturalPhenomenonLocationResponseSuccess, NaturalPhenomenonLocationError, UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds, UpdateNaturalPhenomenonLocationResponseSuccess, NaturalPhenomenonLocationResponseSuccess};
+use crate::routes::natural_phenomenon_locations::models::{CreateAndUpdateResponseSuccess, CreateNaturalPhenomenonLocationInnerWithImage, CreateNaturalPhenomenonLocationRequest, GetAllNaturalPhenomenonLocationResponseSuccess, GetByIdNaturalPhenomenonLocationResponseSuccess, NaturalPhenomenonLocationError, NaturalPhenomenonLocationResponseSuccess, PostNaturalPhenomenonLocationSchema, PostNaturalPhenomenonLocationService, UpdateNaturalPhenomenonLocationRequest, UpdateNaturalPhenomenonLocationRequestWithIds, UpdateNaturalPhenomenonLocationResponseSuccess};
 use crate::routes::natural_phenomenon_locations::services::{
-    NaturalPhenomenonLocationServiceImpl, NaturalPhenomenonLocationService,
+    NaturalPhenomenonLocationService, NaturalPhenomenonLocationServiceImpl,
 };
 use crate::shared::models::{AppState, DatabaseId};
 use axum::extract::{Extension, Json, Multipart, Path, State};
@@ -74,7 +74,8 @@ where
 #[utoipa::path(
     post,
     path = "/natural_phenomenon_locations",
-    request_body(content = PostNaturalPhenomenonLocationSchema, content_type = "multipart/form-data"),
+    request_body(content = PostNaturalPhenomenonLocationSchema, content_type = "multipart/form-data"
+    ),
     responses(
         (status = 201, description = "Location created", body = CreateAndUpdateResponseSuccess),
         (status = 500, description = "Internal server error")
@@ -99,13 +100,13 @@ where
         radius: 0,
         image_filename: String::new(),
     };
-    println!("{:?}", dto);
 
+    tracing::debug!("processing multipart form data");
     while let Some(mut field) = multipart
         .next_field()
         .await
-        .map_err(|_| {
-            (StatusCode::BAD_REQUEST, Json(NaturalPhenomenonLocationError::DatabaseError))
+        .map_err(|e| {
+            (StatusCode::BAD_REQUEST, Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())))
         })?
     {
         let name = field.name().unwrap_or_default();
@@ -147,8 +148,8 @@ where
                     dto.image_filename = filename.to_string();
                 }
                 dto.image_bytes = field.bytes().await
-                    .map_err(|_| {
-                        (StatusCode::BAD_REQUEST, Json(NaturalPhenomenonLocationError::DatabaseError))
+                    .map_err(|e| {
+                        (StatusCode::BAD_REQUEST, Json(NaturalPhenomenonLocationError::DatabaseError(e.to_string())))
                     })?
                     .to_vec();
             }
@@ -158,16 +159,10 @@ where
         }
     }
 
-    println!("{:?}", dto);
-
     // 2) hand off to service
     let created = service.create(dto).await?;
 
-    fs::metadata(&created.image_path)
-        .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(NaturalPhenomenonLocationError::DatabaseError)))?;
-
-
+    tracing::debug!("created location: {:?}", created);
     Ok((StatusCode::CREATED, Json(created)))
 }
 

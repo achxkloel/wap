@@ -1,8 +1,8 @@
+use crate::routes::uploads::models::Photo;
+use async_trait::async_trait;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
-use async_trait::async_trait;
-use crate::routes::uploads::models::Photo;
 
 /// Service for reading the `uploads/` folder.
 #[derive(Clone)]

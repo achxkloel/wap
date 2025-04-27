@@ -167,8 +167,11 @@ impl AuthServiceImpl for AuthService {
                 Json(AuthErrorKind::DatabaseError),
             )
         })? {
-            // user exists → just return it
-            return Ok(user);
+            // user exists → return error
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(AuthErrorKind::UserAlreadyExists),
+            ));
         }
 
         // 2) otherwise, insert new user

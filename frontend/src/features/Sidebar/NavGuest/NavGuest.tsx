@@ -1,5 +1,5 @@
-import { AuthDialog } from '@/components/AuthDialog';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { AuthDialog } from '@/features/AuthDialog';
 import { LogInIcon } from 'lucide-react';
 import React, { useState } from 'react';
 

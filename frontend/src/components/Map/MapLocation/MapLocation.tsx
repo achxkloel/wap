@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css';
 import React, { useEffect } from 'react';
-import { Circle, Marker, Popup, useMap } from 'react-leaflet';
+import { Circle, Marker, useMap } from 'react-leaflet';
 
 interface MapLocationProps {
     location?: L.LatLngExpression;
@@ -32,9 +32,7 @@ function MapLocation({ location, zoom, radius = 50, animate = true }: MapLocatio
 
     return (
         <React.Fragment>
-            <Marker position={location}>
-                <Popup>Popup</Popup>
-            </Marker>
+            <Marker position={location} />
             {typeof radius === 'number' && (
                 <Circle
                     center={location}

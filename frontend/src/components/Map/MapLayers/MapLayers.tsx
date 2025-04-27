@@ -1,5 +1,5 @@
 import { EarthquakeProperties } from '@/lib/data/earthquakes/types';
-import useData from '@/lib/store/data';
+import useEarthquake from '@/lib/store/earthquake';
 import useMapStore from '@/lib/store/map';
 import { Feature, Point } from 'geojson';
 import L from 'leaflet';
@@ -10,10 +10,10 @@ import { getDateColor, getMagnitudeColor, getSignificanceColor, getSize } from '
 
 function MapLayers() {
     const map = useMap();
-    const earthquakes = useData((state) => state.earthquake);
+    const earthquakes = useEarthquake((state) => state.earthquakes);
     const colorStrategy = useMapStore((state) => state.colorStrategy);
-    const selected = useData((state) => state.selected);
-    const setSelected = useData((state) => state.setSelected);
+    const selected = useEarthquake((state) => state.selected);
+    const setSelected = useEarthquake((state) => state.setSelected);
     const draw = useMapStore((state) => state.draw);
 
     useEffect(() => {

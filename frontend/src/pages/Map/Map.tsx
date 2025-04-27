@@ -1,9 +1,8 @@
 import MapComponent from '@/components/Map';
-import Page from '@/components/Page';
 import Searchbar from '@/components/Searchbar';
 import { Button } from '@/components/ui/button';
 import getFilteredEarthquakes from '@/lib/data/earthquakes/getFiltered';
-import useData from '@/lib/store/data';
+import useEarthquake from '@/lib/store/earthquake';
 import { ArrowDownAZIcon, ArrowUpAZIcon, FunnelIcon, XIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import EventList from './EventList';
@@ -42,8 +41,8 @@ function Map() {
     const [filterOpen, setFilterOpen] = useState(false);
     const [searchValue, setSearchValue] = useState<string>('');
     const [searchValueSubmitted, setSearchValueSubmitted] = useState<string>('');
-    const setEarthquakes = useData((state) => state.setEarthquake);
-    const clearEarthquakes = useData((state) => state.clearEarthquake);
+    const setEarthquakes = useEarthquake((state) => state.setEarthquakes);
+    const clearEarthquakes = useEarthquake((state) => state.clearEarthquakes);
 
     useEffect(() => {
         return () => {
@@ -83,7 +82,7 @@ function Map() {
     };
 
     return (
-        <Page>
+        <div className="h-full w-full flex">
             <MapComponent
                 showLayers={true}
                 showLegend={true}
@@ -145,7 +144,7 @@ function Map() {
                     </React.Fragment>
                 )}
             </div>
-        </Page>
+        </div>
     );
 }
 

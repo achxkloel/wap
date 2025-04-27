@@ -2,6 +2,7 @@ import DeleteModal from '@/components/DeleteModal/DeleteModal';
 import Map from '@/components/Map';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
 import api from '@/lib/api';
 import useAuthStore from '@/lib/store/auth';
 import useLocationStore from '@/lib/store/location';
@@ -22,6 +23,9 @@ const defaultValues: LocationFormValues = {
 };
 
 function Locations() {
+    const { toast } = useToast();
+    let fetchImageInterval: ReturnType<typeof setInterval> | null = null;
+
     const locations = useLocationStore((state) => state.locations);
     const setLocations = useLocationStore((state) => state.setLocations);
     const user = useAuthStore((state) => state.user);
@@ -42,24 +46,47 @@ function Locations() {
             const res = await api.get('/natural_phenomenon_locations');
             const data = res.data;
 
-            for (let i = 0; i < data.length; i++) {
-                if (data[i].image_path) {
-                    const image_path = `/${data[i].image_path}`;
+            const failed = await fetchLocationImages(data);
+            setLocations(data);
 
+            // If there are any failed images, set an interval to fetch them again
+            if (failed.length > 0) {
+                fetchImageInterval = setInterval(async () => {
+                    const newFailed = await fetchLocationImages(failed);
+
+                    if (newFailed.length <= 0 && fetchImageInterval) {
+                        clearInterval(fetchImageInterval);
+                        fetchImageInterval = null;
+                    }
+                }, 3000);
+            }
+        } catch (e) {
+            console.error('Error fetching locations:', e);
+        }
+    };
+
+    const fetchLocationImages = async (locations: any[]) => {
+        const failed: any[] = [];
+
+        for (let i = 0; i < locations.length; i++) {
+            if (locations[i].image_path) {
+                const image_path = `/${locations[i].image_path}`;
+
+                try {
                     const response = await api.get(image_path, {
                         responseType: 'blob',
                     });
 
                     const imageBlob = response.data;
                     const imageObjectURL = URL.createObjectURL(imageBlob);
-                    data[i].image = imageObjectURL;
+                    locations[i].image = imageObjectURL;
+                } catch (e) {
+                    failed.push(locations[i]);
                 }
             }
-
-            setLocations(data);
-        } catch (e) {
-            console.error('Error fetching locations:', e);
         }
+
+        return failed;
     };
 
     const createLocation = async (location: LocationFormValues) => {
@@ -86,9 +113,20 @@ function Locations() {
                 },
             });
 
+            toast({
+                description: 'Location created successfully',
+            });
+
             fetchLocations();
         } catch (e) {
+            toast({
+                description: 'Failed to create location',
+                variant: 'destructive',
+            });
+
             console.error('Error creating location:', e);
+        } finally {
+            setSelectedListLocation(null);
         }
     };
 
@@ -105,8 +143,18 @@ function Locations() {
                 longitude: location.longitude,
                 radius: location.radius,
             });
+
+            toast({
+                description: 'Location updated successfully',
+            });
+
             fetchLocations();
         } catch (e) {
+            toast({
+                description: 'Failed to edit location',
+                variant: 'destructive',
+            });
+
             console.error('Error editing location:', e);
         } finally {
             setSelectedLocation(null);
@@ -121,8 +169,18 @@ function Locations() {
 
         try {
             await api.delete(`/natural_phenomenon_locations/${selectedLocation.id}`);
+
+            toast({
+                description: 'Location deleted successfully',
+            });
+
             fetchLocations();
         } catch (e) {
+            toast({
+                description: 'Failed to delete location',
+                variant: 'destructive',
+            });
+
             console.error('Error deleting location:', e);
         } finally {
             setSelectedLocation(null);

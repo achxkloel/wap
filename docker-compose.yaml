@@ -3,6 +3,8 @@ name: wap-dev
 services:
   frontend:
     image: wap/frontend-${COMPOSE_PROJECT_NAME}:v0.0
+    env_file:
+      - .env
     build:
       context: .
       dockerfile: Dockerfile
@@ -17,13 +19,13 @@ services:
 
   backend:
     image: wap/backend-${COMPOSE_PROJECT_NAME}:v0.0
+    env_file:
+      - .env
     build:
       context: .
       dockerfile: Dockerfile
       target: backend
     command: bash -c 'make run'
-    env_file:
-      - .env
     ports:
       - 127.0.0.1:3000:3000
     volumes:
@@ -34,6 +36,8 @@ services:
 
   pgsql:
     image: wap/postgresql-${COMPOSE_PROJECT_NAME}:v0.0
+    env_file:
+      - .env
     build:
       context: .
       dockerfile: Dockerfile

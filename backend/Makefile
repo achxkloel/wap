@@ -7,7 +7,7 @@ build:
 run:
 	cargo watch --watch src --watch migrations/ --watch Cargo.toml --exec "run"
 
-run-prod:
+run-prod: migrate
 	cargo run --release
 
 # Tests

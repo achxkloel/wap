@@ -2,11 +2,13 @@ import { Button } from '@/components/ui/button';
 import getImg from '@/lib/data/getImg';
 import getWeather, { WeatherData, current_def, daily_def, hourly_def } from '@/lib/data/getWeather';
 
+import defaultLocationImage from '@/assets/default_location.png';
 import { useIsAuthorized } from '@/lib/store/auth';
-import type { WeatherDashboardProps } from '@/pages/Weather/Weather.tsx';
+import { cn } from '@/lib/utils';
 import { faArrowLeft, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import React, { useEffect, useState } from 'react';
+import { Location } from './Weather';
 
 type ConditionCardProps = {
     title: string;
@@ -53,10 +55,26 @@ export function getWeatherIconAndDescription(rain: number, cloudiness: number, t
     return { icon, description };
 }
 
-function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashboardProps) {
+interface WeatherDashboardProps {
+    nextWindow: () => void;
+    locations: Location[];
+    locationsDB: Location[];
+    setLocations: React.Dispatch<React.SetStateAction<Location[]>>; //(locs: Location[]) => void;
+    createLocation: (location: Location) => void;
+    deleteLocation: (location: Location) => void;
+}
+
+function WeatherDashboard({
+    nextWindow,
+    locations,
+    locationsDB,
+    setLocations,
+    createLocation,
+    deleteLocation,
+}: WeatherDashboardProps) {
     const [locationList, setLocationList] = useState(locations);
     const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-    const [imgData, setImgData] = useState<string>('');
+    const [imgData, setImgData] = useState<string>(defaultLocationImage);
     const isAuthorized = useIsAuthorized();
 
     const location = locationList[0].name;
@@ -92,6 +110,11 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
         loadImage();
     }, [location]);
 
+    const isLocationInDB = () => {
+        if (!isAuthorized) return false;
+        return locationsDB.some((loc) => loc.name === location);
+    };
+
     if (!weatherData || imgData === '') {
         return <div className="p-8">Loading...</div>;
     }
@@ -107,7 +130,6 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
                     <Button
                         className="mb-4"
                         onClick={() => {
-                            if (!isAuthorized) setLocations([]);
                             nextWindow();
                         }}
                         variant="outline"
@@ -306,22 +328,32 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
 
                         {isAuthorized && (
                             <>
-                                {locationList.map((loc, i) => (
+                                <Button
+                                    className={'w-full mb-2 font-bold'}
+                                    variant="default"
+                                    disabled={isLocationInDB()}
+                                    onClick={() => {
+                                        createLocation(locationList[0]);
+                                    }}
+                                    title="Add location"
+                                >
+                                    Add location
+                                    <FontAwesomeIcon icon={faPlus} />
+                                </Button>
+
+                                {locationsDB.map((loc, i) => (
                                     <Button
-                                        className={'group relative w-full mb-2 shadow-lg'}
-                                        {...(i === 0 ? { variant: 'ghost' } : {})}
+                                        key={i}
+                                        className={cn(
+                                            'group relative w-full mb-2',
+                                            locationList[0].name === loc.name
+                                                ? 'bg-white dark:bg-gray-50 dark:text-black'
+                                                : '',
+                                        )}
+                                        variant={'ghost'}
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            const index = locationList.findIndex((l) => l.name === loc.name);
-                                            if (index !== -1 && index !== 0) {
-                                                const newList = [...locationList];
-                                                newList.splice(index, 1);
-                                                newList.unshift(loc);
-                                                setLocationList(newList);
-                                                setLocations(newList);
-                                                setWeatherData(null);
-                                                setImgData('');
-                                            }
+                                            setLocationList([loc]);
                                         }}
                                     >
                                         <span className="flex-1 text-center">{loc.name}</span>
@@ -329,17 +361,7 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
                                             className="absolute right-4 ml-2 text-red-500 hover:text-red-700 cursor-pointer text-lg hidden group-hover:block"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                const index = locationList.findIndex((l) => l.name === loc.name);
-                                                if (index !== -1) {
-                                                    const newList = [...locationList];
-                                                    newList.splice(index, 1);
-                                                    setLocationList(newList);
-                                                    setLocations(newList);
-
-                                                    if (newList.length === 0) {
-                                                        nextWindow();
-                                                    }
-                                                }
+                                                deleteLocation(loc);
                                             }}
                                             title="Delete location"
                                         >
@@ -347,14 +369,6 @@ function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashbo
                                         </span>
                                     </Button>
                                 ))}
-
-                                <Button
-                                    className={'w-full mb-2 shadow-lg font-bold'}
-                                    onClick={nextWindow}
-                                    title="Add location"
-                                >
-                                    <FontAwesomeIcon icon={faPlus} />
-                                </Button>
                             </>
                         )}
                     </div>

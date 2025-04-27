@@ -1,7 +1,9 @@
+import defaultLocationImage from '@/assets/default_location.png';
 import { Button } from '@/components/ui/button';
+import getGeocodingData from '@/lib/data/getGeocodingData';
 import getImg from '@/lib/data/getImg';
 import getWeather from '@/lib/data/getWeather';
-import type { Location, WeatherDashboardProps } from '@/pages/Weather/Weather.tsx';
+import type { Location } from '@/pages/Weather/Weather.tsx';
 import React, { useEffect, useState } from 'react';
 
 const allCities = [
@@ -52,7 +54,7 @@ type City = {
 };
 
 function CityCard({ name, setLocations, nextWindow }: CityCardProps) {
-    const [image, setImage] = useState<string>('');
+    const [image, setImage] = useState<string>(defaultLocationImage);
     const [temp, setTemp] = useState<string>('?');
     const [rain, setRain] = useState<string>('?');
     const [wind, setWind] = useState<string>('?');
@@ -61,10 +63,9 @@ function CityCard({ name, setLocations, nextWindow }: CityCardProps) {
 
     useEffect(() => {
         const fetchWeather = async () => {
-            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${name}&count=1`);
-            const geoData = await geoRes.json();
-            const latitude = geoData.results?.[0]?.latitude;
-            const longitude = geoData.results?.[0]?.longitude;
+            const geoData = await getGeocodingData({ name: name, count: 1 });
+            const latitude = geoData?.results?.[0]?.latitude;
+            const longitude = geoData?.results?.[0]?.longitude;
 
             if (latitude && longitude) {
                 setLat(latitude);
@@ -99,7 +100,7 @@ function CityCard({ name, setLocations, nextWindow }: CityCardProps) {
 
     const handleClick = () => {
         if (lat !== null && lon !== null) {
-            setLocations((prev) => [{ name, lat, lon }, ...prev]);
+            setLocations([{ id: 0, name, lat, lon }]);
             nextWindow();
         }
     };
@@ -130,7 +131,13 @@ function CityCard({ name, setLocations, nextWindow }: CityCardProps) {
     );
 }
 
-function CitySearch({ nextWindow, setLocations }: WeatherDashboardProps) {
+interface CitySearchProps {
+    nextWindow: () => void;
+    locations: Location[];
+    setLocations: React.Dispatch<React.SetStateAction<Location[]>>;
+}
+
+function CitySearch({ nextWindow, setLocations }: CitySearchProps) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<CitySearchResult[]>([]);
     const [loading, setLoading] = useState(false);
@@ -139,13 +146,15 @@ function CitySearch({ nextWindow, setLocations }: WeatherDashboardProps) {
         const timeout = setTimeout(() => {
             if (query.length >= 2) {
                 setLoading(true);
-                fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${query}&count=5`)
-                    .then((res) => res.json())
+                getGeocodingData({ name: query, count: 5 })
                     .then((data) => {
-                        setResults(data.results || []);
+                        setResults(data?.results || []);
                         setLoading(false);
                     })
-                    .catch(() => setLoading(false));
+                    .catch(() => {
+                        setLoading(false);
+                        setResults([]);
+                    });
             } else {
                 setResults([]);
             }
@@ -156,6 +165,7 @@ function CitySearch({ nextWindow, setLocations }: WeatherDashboardProps) {
 
     const handleSelect = (city: City) => {
         const location = {
+            id: 0,
             name: city.name,
             lat: city.latitude,
             lon: city.longitude,
@@ -191,8 +201,19 @@ function CitySearch({ nextWindow, setLocations }: WeatherDashboardProps) {
     );
 }
 
-function WeatherSelect({ nextWindow, locations, setLocations }: WeatherDashboardProps) {
-    const randomCities = allCities.sort(() => 0.5 - Math.random()).slice(0, 4);
+interface WeatherSelectProps {
+    nextWindow: () => void;
+    locations: Location[];
+    setLocations: React.Dispatch<React.SetStateAction<Location[]>>; //(locs: Location[]) => void;
+}
+
+function WeatherSelect({ nextWindow, locations, setLocations }: WeatherSelectProps) {
+    const [randomCities, setRandomCities] = useState<string[]>([]);
+
+    useEffect(() => {
+        const randomCities = allCities.sort(() => 0.5 - Math.random()).slice(0, 4);
+        setRandomCities(randomCities);
+    }, []);
 
     return (
         <div className="grid grid-cols-3 gap-8">

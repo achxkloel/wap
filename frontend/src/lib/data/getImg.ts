@@ -1,7 +1,8 @@
+import defaultLocationImage from '@/assets/default_location.png';
 import axios from 'axios';
 
 const UNSPLASH_URL = 'https://api.unsplash.com/search/photos';
-const DEFAULT_IMG_URL = 'https://cdn-icons-png.flaticon.com/512/69/69524.png';
+const DEFAULT_IMG_URL = defaultLocationImage;
 const UNSPLASH_ACCESS_KEY = 'QomxOmr0uAe3rY0cL076U6MDaOCaBWfrd0DhQjmQCIo';
 
 export interface UnsplashImageResult {

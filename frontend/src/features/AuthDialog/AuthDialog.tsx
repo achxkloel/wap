@@ -114,9 +114,20 @@ export function AuthDialog({ open = false, onOpenChange }: AuthDialogProps) {
                     onOpenChange(false);
                 }
             }
-        } catch (err) {
+        } catch (err: any) {
             logger.error('Login/Register error:', err);
-            setError('Something went wrong');
+
+            if (
+                err &&
+                err.response &&
+                err.response.data &&
+                err.response.data.type &&
+                err.response.data.type === 'UserAlreadyExists'
+            ) {
+                setError('User already exists');
+            } else {
+                setError('Something went wrong');
+            }
         } finally {
             setLoading(false);
         }

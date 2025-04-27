@@ -9,11 +9,12 @@
 - `src/` - source code
     - `assets/` - resources that are used in JavaScript and bundled with the final build
     - `components/` - reusable components
+        - `ui/` - shadcn/ui components
+    - `environment/` - environment variables object
     - `features/` - components which are used only once (AppBar, Menu, etc.)
     - `hooks/` - custom React hooks
-    - `lib/` - more complex library functions
+    - `lib/` - helper functions
     - `pages/` - application pages
-    - `utils/` - small helper functions
 - `index.html` - entry point to application
 
 ## Pre-commit hook

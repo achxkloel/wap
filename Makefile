@@ -66,6 +66,10 @@ prod-backend-fish:
 prod-nginx-exec:
 	docker compose -f docker-compose.prod.yaml exec nginx sh
 
+
+prod-logs:
+	docker compose -f docker-compose.prod.yaml logs --follow
+
 #-----------------------------------------------------------------------
 # Deploy
 #-----------------------------------------------------------------------

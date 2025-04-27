@@ -2,6 +2,9 @@
 
 # For backend go to [backend](./backend)
 
+## Deploy
+
+[https://wap.zlapik.org/](https://wap.zlapik.org/)
 
 ## Commands overview:
 

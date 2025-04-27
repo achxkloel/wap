@@ -8,7 +8,7 @@ WORKDIR $WORKDIR
 
 COPY frontend/ $WORKDIR/
 RUN apt-get update -y && apt-get install -y fish vim tree cloc;
-RUN set -x; npm install; npm run build;
+#RUN set -x; npm install; npm run build;
 
 #----------------------------------------------------------------------
 # Backend

@@ -4,7 +4,7 @@
 build:
 	cargo watch --watch src --watch migrations/ --watch Cargo.toml --exec "build"
 
-run:
+run: migrate
 	cargo watch --watch src --watch migrations/ --watch Cargo.toml --exec "run"
 
 run-prod: migrate

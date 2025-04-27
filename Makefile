@@ -73,7 +73,7 @@ prod-logs:
 #-----------------------------------------------------------------------
 # Deploy
 #-----------------------------------------------------------------------
-NODE=contabo2_deploy
+NODE=zlapik-compute-01-zlapik
 rsync-with-delete: ## Rsync this repo to the remote server and delete files that are not in the repo
 	rsync --archive --verbose --compress \
 			--exclude='.git' \
@@ -86,7 +86,7 @@ rsync-with-delete: ## Rsync this repo to the remote server and delete files that
 			--exclude='frontend/tmp' \
 			--exclude='tmp' \
 			--delete \
-			$$PWD $(NODE):/home/deploy/apps/
+			$$PWD $(NODE):/home/zlapik/apps/
 
 clean:
 	rm -rf \

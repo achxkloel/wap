@@ -3,12 +3,12 @@ import { persist } from 'zustand/middleware';
 
 export type Theme = 'light' | 'dark' | 'system';
 
-interface PreferencesState {
+interface PreferencesStoreState {
     theme: Theme;
     setTheme: (theme: Theme) => void;
 }
 
-const usePreferences = create<PreferencesState>()(
+const usePreferences = create<PreferencesStoreState>()(
     persist(
         (set) => ({
             theme: 'system',

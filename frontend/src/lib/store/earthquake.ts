@@ -1,16 +1,16 @@
 import { create } from 'zustand';
 import { EarthquakeData } from '../data/earthquakes/types';
 
-interface StoreState {
-    earthquake?: EarthquakeData;
+interface EarthquakeStoreState {
+    earthquakes?: EarthquakeData;
     selected?: string | number;
     setSelected: (selected: string | number | undefined) => void;
-    setEarthquake: (earthquake: EarthquakeData) => void;
-    clearEarthquake: () => void;
+    setEarthquakes: (earthquakes: EarthquakeData) => void;
+    clearEarthquakes: () => void;
 }
 
-const useData = create<StoreState>()((set) => ({
-    earthquake: undefined,
+const useEarthquakeStore = create<EarthquakeStoreState>()((set) => ({
+    earthquakes: undefined,
     selected: undefined,
     setSelected: (selected) =>
         set((state) => {
@@ -19,8 +19,8 @@ const useData = create<StoreState>()((set) => ({
             }
             return { selected };
         }),
-    setEarthquake: (earthquake) => set({ earthquake, selected: undefined }),
-    clearEarthquake: () => set({ earthquake: undefined }),
+    setEarthquakes: (earthquakes) => set({ earthquakes, selected: undefined }),
+    clearEarthquakes: () => set({ earthquakes: undefined }),
 }));
 
-export default useData;
+export default useEarthquakeStore;

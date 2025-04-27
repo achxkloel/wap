@@ -1,4 +1,3 @@
-import { environment } from '@/environment/environment';
 import axios from 'axios';
 import * as jose from 'jose';
 import { logger } from './logger';
@@ -52,7 +51,7 @@ export const checkToken = () => {
 
         axios({
             method: 'post',
-            url: `${environment.baseUrl}/auth/refresh`,
+            url: `/api/auth/refresh`,
             headers: {
                 Authorization: `Bearer ${refreshToken}`,
             },

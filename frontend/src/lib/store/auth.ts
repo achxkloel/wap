@@ -13,7 +13,7 @@ interface UserInfo {
     updatedAt: string;
 }
 
-interface StoreState {
+interface AuthStoreState {
     user: UserInfo | null;
     access_token: string | null;
     refresh_token: string | null;
@@ -24,7 +24,7 @@ interface StoreState {
     removeRefreshToken: () => void;
 }
 
-const useAuthStore = create<StoreState>()(
+const useAuthStore = create<AuthStoreState>()(
     persist(
         (set) => ({
             user: null,

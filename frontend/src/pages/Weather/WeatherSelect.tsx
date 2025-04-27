@@ -52,7 +52,7 @@ type City = {
 };
 
 function CityCard({ name, setLocations, nextWindow }: CityCardProps) {
-    const [image, setImage] = useState<string>('');
+    const [image, setImage] = useState<string>('https://cdn-icons-png.flaticon.com/512/69/69524.png');
     const [temp, setTemp] = useState<string>('?');
     const [rain, setRain] = useState<string>('?');
     const [wind, setWind] = useState<string>('?');
@@ -99,7 +99,7 @@ function CityCard({ name, setLocations, nextWindow }: CityCardProps) {
 
     const handleClick = () => {
         if (lat !== null && lon !== null) {
-            setLocations((prev) => [{ name, lat, lon }, ...prev]);
+            setLocations((prev) => [{ id: 0, name, lat, lon }, ...prev]);
             nextWindow();
         }
     };
@@ -156,6 +156,7 @@ function CitySearch({ nextWindow, setLocations }: WeatherDashboardProps) {
 
     const handleSelect = (city: City) => {
         const location = {
+            id: 0,
             name: city.name,
             lat: city.latitude,
             lon: city.longitude,

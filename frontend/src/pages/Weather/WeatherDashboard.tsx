@@ -56,7 +56,7 @@ export function getWeatherIconAndDescription(rain: number, cloudiness: number, t
 function WeatherDashboard({ nextWindow, locations, setLocations }: WeatherDashboardProps) {
     const [locationList, setLocationList] = useState(locations);
     const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-    const [imgData, setImgData] = useState<string>('');
+    const [imgData, setImgData] = useState<string>('https://cdn-icons-png.flaticon.com/512/69/69524.png');
     const isAuthorized = useIsAuthorized();
 
     const location = locationList[0].name;

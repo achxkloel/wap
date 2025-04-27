@@ -24,6 +24,7 @@ const defaultValues: LocationFormValues = {
 
 function Locations() {
     const { toast } = useToast();
+    let fetchImageInterval: ReturnType<typeof setInterval> | null = null;
 
     const locations = useLocationStore((state) => state.locations);
     const setLocations = useLocationStore((state) => state.setLocations);
@@ -45,24 +46,47 @@ function Locations() {
             const res = await api.get('/natural_phenomenon_locations');
             const data = res.data;
 
-            for (let i = 0; i < data.length; i++) {
-                if (data[i].image_path) {
-                    const image_path = `/${data[i].image_path}`;
+            const failed = await fetchLocationImages(data);
+            setLocations(data);
 
+            // If there are any failed images, set an interval to fetch them again
+            if (failed.length > 0) {
+                fetchImageInterval = setInterval(async () => {
+                    const newFailed = await fetchLocationImages(failed);
+
+                    if (newFailed.length <= 0 && fetchImageInterval) {
+                        clearInterval(fetchImageInterval);
+                        fetchImageInterval = null;
+                    }
+                }, 3000);
+            }
+        } catch (e) {
+            console.error('Error fetching locations:', e);
+        }
+    };
+
+    const fetchLocationImages = async (locations: any[]) => {
+        const failed: any[] = [];
+
+        for (let i = 0; i < locations.length; i++) {
+            if (locations[i].image_path) {
+                const image_path = `/${locations[i].image_path}`;
+
+                try {
                     const response = await api.get(image_path, {
                         responseType: 'blob',
                     });
 
                     const imageBlob = response.data;
                     const imageObjectURL = URL.createObjectURL(imageBlob);
-                    data[i].image = imageObjectURL;
+                    locations[i].image = imageObjectURL;
+                } catch (e) {
+                    failed.push(locations[i]);
                 }
             }
-
-            setLocations(data);
-        } catch (e) {
-            console.error('Error fetching locations:', e);
         }
+
+        return failed;
     };
 
     const createLocation = async (location: LocationFormValues) => {

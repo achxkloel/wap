@@ -26,14 +26,9 @@ export type Location = {
     lon: number;
 };
 
-export type WeatherDashboardProps = {
-    nextWindow: () => void;
-    locations: Location[];
-    setLocations: React.Dispatch<React.SetStateAction<Location[]>>; //(locs: Location[]) => void;
-};
-
 function Weather() {
     const [locations, setLocations] = useState<Location[]>([]);
+    const [locationsDB, setLocationsDB] = useState<Location[]>([]);
 
     const prevLocations = useRef<Location[]>([]);
     const [showDashboard, setShowDashboard] = useState(locations.length > 0);
@@ -46,7 +41,7 @@ function Weather() {
         if (isAuthorized) {
             fetchLocations();
         }
-    }, [isAuthorized]);
+    }, [user]);
 
     const fetchLocations = async () => {
         if (!isAuthorized) {
@@ -59,18 +54,15 @@ function Weather() {
 
             const data: GetLocationDB[] = res.data;
 
-            const locationsDB: Location[] = data
-                .sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0))
-                .map((loc) => ({
-                    id: loc.id,
-                    name: loc.name,
-                    lat: loc.latitude,
-                    lon: loc.longitude,
-                }));
-
-            if (locationsDB.length > 0) setShowDashboard(true);
+            const locationsDB: Location[] = data.map((loc) => ({
+                id: loc.id,
+                name: loc.name,
+                lat: loc.latitude,
+                lon: loc.longitude,
+            }));
 
             setLocations(locationsDB);
+            setLocationsDB(locationsDB);
         } catch (e) {
             console.error('Error fetching locations:', e);
         }
@@ -156,22 +148,6 @@ function Weather() {
             return;
         }
 
-        if (locations.length > prevLocations.current.length) {
-            createLocation(locations[0]);
-        } else if (locations.length < prevLocations.current.length) {
-            const removedLocation = prevLocations.current.find(
-                (prevLoc) => !locations.some((loc) => loc.id === prevLoc.id),
-            );
-
-            if (removedLocation) {
-                deleteLocation(removedLocation);
-            }
-        } else {
-            if (locations[0] && prevLocations.current[0]) {
-                editLocation(locations[0], prevLocations.current[0]);
-            }
-        }
-
         prevLocations.current = locations;
     }, [locations]);
 
@@ -182,7 +158,10 @@ function Weather() {
                 <WeatherDashboard
                     nextWindow={() => setShowDashboard(false)}
                     locations={locations}
+                    locationsDB={locationsDB}
                     setLocations={setLocations}
+                    createLocation={createLocation}
+                    deleteLocation={deleteLocation}
                 />
             ) : (
                 <WeatherSelect

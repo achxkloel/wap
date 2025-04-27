@@ -1,3 +1,4 @@
+import defaultLocationImage from '@/assets/default_location.png';
 import { Button } from '@/components/ui/button';
 import useLocationStore from '@/lib/store/location';
 import { cn } from '@/lib/utils';
@@ -44,7 +45,7 @@ function LocationList({ selected, onChange, onEdit, onDelete }: LocationListProp
                     >
                         <div className="flex-shrink-0">
                             <img
-                                src={location.image || undefined}
+                                src={location.image || defaultLocationImage}
                                 alt={location.name}
                                 className="w-16 h-16 rounded-md object-cover"
                             />

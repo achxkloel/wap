@@ -1,4 +1,4 @@
-import useData from '@/lib/store/data';
+import useEarthquake from '@/lib/store/earthquake';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useEffect, useRef, useState } from 'react';
@@ -9,9 +9,9 @@ interface EventListProps {
 }
 
 function EventList({ search }: EventListProps) {
-    const earthquakes = useData((state) => state.earthquake);
-    const setSelected = useData((state) => state.setSelected);
-    const selected = useData((state) => state.selected);
+    const earthquakes = useEarthquake((state) => state.earthquakes);
+    const setSelected = useEarthquake((state) => state.setSelected);
+    const selected = useEarthquake((state) => state.selected);
     const virtuoso = useRef<VirtuosoHandle>(null);
     const [visibleRange, setVisibleRange] = useState<ListRange>({ startIndex: 0, endIndex: 0 });
 

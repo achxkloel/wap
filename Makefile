@@ -65,3 +65,34 @@ prod-backend-fish:
 
 prod-nginx-exec:
 	docker compose -f docker-compose.prod.yaml exec nginx sh
+
+#-----------------------------------------------------------------------
+# Deploy
+#-----------------------------------------------------------------------
+NODE=contabo2_deploy
+rsync-with-delete: ## Rsync this repo to the remote server and delete files that are not in the repo
+	rsync --archive --verbose --compress \
+			--exclude='.git' \
+			--exclude='.idea' \
+			--exclude='.DS_Store' \
+			--exclude='backend/target' \
+			--exclude='backend/tmp' \
+			--exclude='frontend/node_modules' \
+			--exclude='frontend/dist' \
+			--exclude='frontend/tmp' \
+			--exclude='tmp' \
+			--delete \
+			$$PWD $(NODE):/home/deploy/apps/
+
+clean:
+	rm -rf \
+		frontend/dist \
+		frontend/node_modules \
+		backend/target
+
+
+pack:
+	zip -r wap.zip \
+		frontend \
+		backend \
+		docker-compose.yaml docker-compose.prod.yaml Makefile README.md

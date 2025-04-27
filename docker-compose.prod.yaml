@@ -11,19 +11,20 @@ services:
       - ./frontend:/opt/frontend
       - ./tmp/fish_frontend/:/root/.local/share/fish/
     tty: true
-    command: bash -c 'npm run build && npm run preview -- --host 0.0.0.0'
-    ports:
-      - "127.0.0.1:5173:5173"
-      - "127.0.0.1:4173:4173"
-
-#  nginx:
-#    image: wap/nginx-${COMPOSE_PROJECT_NAME}:v0.0
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
-#      target: nginx
+    command: bash -c 'npm install && npx vite build && npx vite preview --host 0.0.0.0'
+#    command: bash -c 'echo "Done"'
 #    ports:
-#      - "5173:80"
+#      - "127.0.0.1:5173:5173"
+#      - "127.0.0.1:4173:4173"
+
+  nginx:
+    image: wap/nginx-${COMPOSE_PROJECT_NAME}:v0.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: nginx
+    ports:
+      - "4173:80"
 
   backend:
     image: wap/backend-${COMPOSE_PROJECT_NAME}:v0.0

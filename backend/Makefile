@@ -7,6 +7,9 @@ build:
 run:
 	cargo watch --watch src --watch migrations/ --watch Cargo.toml --exec "run"
 
+run-prod:
+	cargo run --release
+
 # Tests
 test:
 	cargo watch --watch src --watch migrations/ --watch Cargo.toml --exec "test -- --nocapture"

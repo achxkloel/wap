@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import getGeocodingData from '@/lib/data/getGeocodingData';
 import getImg from '@/lib/data/getImg';
 import getWeather from '@/lib/data/getWeather';
 import type { Location, WeatherDashboardProps } from '@/pages/Weather/Weather.tsx';
@@ -61,10 +62,9 @@ function CityCard({ name, setLocations, nextWindow }: CityCardProps) {
 
     useEffect(() => {
         const fetchWeather = async () => {
-            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${name}&count=1`);
-            const geoData = await geoRes.json();
-            const latitude = geoData.results?.[0]?.latitude;
-            const longitude = geoData.results?.[0]?.longitude;
+            const geoData = await getGeocodingData({ name: name, count: 1 });
+            const latitude = geoData?.results?.[0]?.latitude;
+            const longitude = geoData?.results?.[0]?.longitude;
 
             if (latitude && longitude) {
                 setLat(latitude);
@@ -139,13 +139,15 @@ function CitySearch({ nextWindow, setLocations }: WeatherDashboardProps) {
         const timeout = setTimeout(() => {
             if (query.length >= 2) {
                 setLoading(true);
-                fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${query}&count=5`)
-                    .then((res) => res.json())
+                getGeocodingData({ name: query, count: 5 })
                     .then((data) => {
-                        setResults(data.results || []);
+                        setResults(data?.results || []);
                         setLoading(false);
                     })
-                    .catch(() => setLoading(false));
+                    .catch(() => {
+                        setLoading(false);
+                        setResults([]);
+                    });
             } else {
                 setResults([]);
             }

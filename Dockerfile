@@ -46,5 +46,5 @@ COPY --from=frontend /opt/frontend/dist/ /usr/share/nginx/html/frontend/
 COPY nginx/conf.d/ /etc/nginx/conf.d/
 COPY nginx/snippets/ /etc/nginx/snippets/
 COPY nginx/html/ /etc/nginx/html/
-COPY nginx/html/well-known/ /usr/share/nginx/frontend/well-known/
+#COPY nginx/html/well-known/ /usr/share/nginx/frontend/well-known/
 #COPY nginx/html/well-known/ /usr/share/nginx/well-known/

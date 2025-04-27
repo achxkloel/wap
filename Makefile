@@ -99,5 +99,4 @@ pack:
 	zip -r wap.zip \
 		frontend \
 		backend \
-		nginx \
 		docker-compose.yaml docker-compose.prod.yaml Makefile README.md Dockerfile .env.sample doc.pdf

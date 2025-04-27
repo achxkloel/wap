@@ -1,14 +1,16 @@
 use axum::{
     http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
     http::{HeaderValue, Method},
-    Json, Router,
+    Extension, Json, Router,
 };
 use futures_util::{future, StreamExt};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::future::Future;
 use tokio_util::sync::CancellationToken;
-use tracing::Level;
+use tower::{Service, ServiceBuilder, ServiceExt};
+use tower_http::trace::TraceLayer;
+use tracing::{debug, info, Level};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use backend::config::{WapSettings, WapSettingsImpl};
@@ -64,6 +66,31 @@ fn prepare_cors() -> CorsLayer {
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE])
 }
 
+// ── NEW: put this in any handy module (e.g. routes/mod.rs) ──
+use axum::{http::Request, middleware::Next, response::Response};
+use std::time::Instant;
+use axum::body::Body;
+
+/// Simple per-request logger.
+///
+/// Prints HTTP method, path, status code, and elapsed time in ms.
+pub async fn trace_requests(req: Request<Body>, next: Next) -> Response {
+    let method = req.method().clone();
+    let path = req.uri().path().to_owned();
+    let start = Instant::now();
+
+    let res = next.run(req).await;
+
+    info!(
+        %method,
+        %path,
+        status = %res.status(),
+        elapsed_ms = start.elapsed().as_millis(),
+        "handled request"
+    );
+    res
+}
+
 async fn app_router(app: AppState) -> OpenApiRouter {
     // OpenAPI
     #[derive(OpenApi)]
@@ -104,7 +131,8 @@ async fn app_router(app: AppState) -> OpenApiRouter {
         .merge(weather_location_router)
         .merge(natural_phenomenon_location_router)
         .merge(uploads_router)
-        .layer(prepare_cors())
+        .layer(axum::middleware::from_fn(trace_requests)) // ⬅ add our logger
+        .layer(prepare_cors()) // keep CORS after logging (order optional)
 }
 
 async fn interrupt_signal<FT>(ft: FT)
@@ -158,7 +186,7 @@ async fn create_development_user(app: &AppState) {
         Ok(user) => user,
         Err((_, Json(kind))) => {
             if kind == AuthErrorKind::UserAlreadyExists {
-                tracing::info!("Development user already exists");
+                info!("Development user already exists");
                 auth_service
                     .get_user_by_id_or_email(&None, &Some(register_request.email.clone()))
                     .await
@@ -189,8 +217,8 @@ async fn create_development_user(app: &AppState) {
     };
     let data = create_login_response(user.clone(), &auth_service).await;
 
-    tracing::info!("Development user created and logged in: {:?}", auth_result);
-    tracing::debug!(
+    info!("Development user created and logged in: {:?}", auth_result);
+    debug!(
         r#"
 ==========================
 You can login with:
@@ -203,30 +231,41 @@ Bearer {}
 
 #[tokio::main]
 async fn main() {
+    // Base init
+    let state = AppState {
+        db: init_db().await,
+        settings: WapSettings::init().await,
+    };
+    debug!("Loaded config: {:#?}", state.settings);
+
     // Logging
-    let filter = EnvFilter::builder()
+    let mut filter = EnvFilter::builder()
         .with_default_directive(Level::DEBUG.into())
         .from_env()
         .unwrap()
-        .add_directive("backend=debug".parse().unwrap())
         .add_directive("sqlx=info".parse().unwrap());
+
+    if state.settings.is_development().await {
+        println!("Tracing: Development -> DEBUG | directive");
+        filter = filter.add_directive("backend=debug".parse().unwrap())
+    } else {
+        filter = filter.add_directive("backend=info".parse().unwrap())
+    }
 
     let _r = tracing_subscriber::fmt::fmt()
         .without_time()
-        .with_max_level(Level::DEBUG)
+        .with_max_level(if state.settings.is_development().await {
+            println!("Tracing: Development -> DEBUG");
+            Level::DEBUG
+        } else {
+            println!("Tracing: Production -> INFO");
+            Level::INFO
+        })
         .with_file(true)
         .with_line_number(true)
         .with_env_filter(filter)
         .try_init();
 
-    tracing::debug!("Starting server");
-
-    let state = AppState {
-        db: init_db().await,
-        settings: WapSettings::init().await,
-    };
-
-    tracing::info!("Loaded config: {:#?}", state.settings);
     if state.settings.is_development().await {
         create_development_user(&state).await;
     }
@@ -238,8 +277,8 @@ async fn main() {
         .merge(Scalar::with_url("/scalar", api_docs));
 
     // run our app with hyper, listening globally on port 3000
-    tracing::info!(
-    "Starting up the server on http://localhost:3000, for OpenAPI docs go to: http://localhost:3000/scalar"
+    info!(
+    "Server is running on http://localhost:3000, for OpenAPI docs go to: http://localhost:3000/scalar"
     );
 
     // tracing

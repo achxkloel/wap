@@ -20,6 +20,7 @@ use axum::extract::{Extension, Json, Multipart, Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use tokio::fs;
+use tracing::debug;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -111,7 +112,7 @@ where
         image_filename: String::new(),
     };
 
-    tracing::debug!("processing multipart form data");
+    debug!("processing multipart form data");
     while let Some(mut field) = multipart.next_field().await.map_err(|e| {
         (
             StatusCode::BAD_REQUEST,
@@ -119,7 +120,7 @@ where
         )
     })? {
         let name = field.name().unwrap_or_default();
-        println!("name: {}", name);
+        debug!("processing field: {}", name);
         match name {
             "name" => {
                 dto.name = field.text().await.unwrap_or_default();
@@ -176,7 +177,7 @@ where
     // 2) hand off to service
     let created = service.create(dto).await?;
 
-    tracing::debug!("created location: {:?}", created);
+    debug!("created location: {:?}", created);
     Ok((StatusCode::CREATED, Json(created)))
 }
 
